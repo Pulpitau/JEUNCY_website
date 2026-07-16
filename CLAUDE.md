@@ -205,13 +205,38 @@ Phase 4 : candidatures / Phase 5 : visioconférence / Phase 6 : admin + polish)
   démonstration vérifiée en navigateur (build/lint/test OK)
 - Workflow : une branche par étape, mergée dans `main` (voir `CONVENTIONS.md` §8)
 
+**Modèle de données : terminé** (couvre les entités des phases 2 à 5, pas encore la
+logique métier — controllers/services/DTO à écrire phase par phase)
+
+- `prisma/schema.prisma` complet : `User`, `CandidateProfile`, `Experience`, `Education`,
+  `Skill`/`CandidateSkill`, `GeneratedCV`, `Company`, `CfaOrganization`, `JobOffer`,
+  `Application`, `Payment`, `Notification`, `VideoRoom`, avec enums (`UserRole`,
+  `JobOfferStatus`, `ContractType`, `ApplicationStatus`, `PaymentStatus`,
+  `NotificationType`, `VideoRoomStatus`) — snake_case en base via `@map`/`@@map`,
+  cascades justifiées en commentaire
+- Migration initiale générée (`prisma/migrations/20260716000000_init`) via
+  `prisma migrate diff --from-empty` : **non testée contre un vrai moteur MySQL**
+  (ni Docker ni MySQL disponibles dans l'environnement de dev utilisé) — à valider avec
+  `pnpm --filter api prisma migrate dev` dès qu'une vraie base est accessible
+- `prisma/seed.ts` : données de démo réalistes (2 candidats, 2 entreprises, 1 CFA, 3
+  offres, candidatures, paiement, notification, salle de visio) — exécuté et vérifié
+  jusqu'à la tentative de connexion DB, jamais contre une vraie base
+- `packages/shared` : enums `ContractType`, `PaymentStatus`, `NotificationType` ajoutés,
+  synchronisés avec le schema Prisma
+- Choix de modélisation faits sans validation préalable (à relire) : `JobOffer` rattachée
+  à `Company` OU `CfaOrganization` via deux FK nullables (invariant validé côté DTO, pas
+  en base) ; `ContractType` (ALTERNANCE/SAISONNIER/BENEVOLAT) déduit du positionnement
+  produit mais non explicitement listé dans ce fichier ; `Payment` non cascade-supprimé
+  avec l'utilisateur (obligation légale de conservation des pièces comptables)
+
 **Connu et à traiter plus tard**
 
 - Prisma reste en v6.19 (v7 supprime le support de `package.json#prisma`, utilisé ici
   pour pointer vers `/prisma/schema.prisma` — migration vers `prisma.config.ts` à
   prévoir si besoin)
-- Pas encore de base MySQL locale configurée : `apps/api` ne démarre pas tant que
-  `DATABASE_URL` ne pointe pas vers une instance réelle
+- Pas de base MySQL locale configurée : `apps/api` ne démarre pas et la migration n'a
+  pas pu être appliquée tant que `DATABASE_URL` ne pointe pas vers une instance réelle
+  (Docker à installer, ou instance MySQL locale/managée à fournir)
 - Logos `apps/web/public/logo/logo-light.png` et `logo-dark.png` sont les versions
   circulaires (badge) redimensionnées à 128×128 ; la version pleine avec tagline
   (`logo_jeuncy.png` à la racine, hors repo web) n'a pas encore d'usage assigné
