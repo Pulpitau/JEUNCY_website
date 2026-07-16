@@ -30,6 +30,9 @@ pnpm-debug.log*
 .DS_Store
 Thumbs.db
 
+# Claude Code (local, machine-specific)
+.claude/settings.local.json
+
 # Testing / coverage
 coverage/
 
