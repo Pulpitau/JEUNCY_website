@@ -1,0 +1,10 @@
+// Modèle de données complet ajouté à l'étape 3 (voir CLAUDE.md section 6)
+generator client {
+  provider = "prisma-client-js"
+  output   = "../apps/api/generated/prisma"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}

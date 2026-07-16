@@ -15,7 +15,8 @@ build/
 !.env.example
 
 # Prisma
-apps/api/prisma/migrations/dev.db
+apps/api/generated/
+prisma/*.db
 
 # Logs
 *.log
