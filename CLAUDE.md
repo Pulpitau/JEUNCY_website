@@ -21,16 +21,16 @@ Signature : « Ton alternance commence ici. »
 
 ## 2. Identité visuelle (obligatoire à respecter)
 
-| Élément | Valeur |
-|---|---|
-| Bleu nuit (corporate) | `#061D4F` |
-| Rose corail (CTA/énergie) | `#FF2D55` |
-| Orange (opportunité) | `#FF8A32` |
-| Blanc | `#FFFFFF` |
-| Off-white (fond clair) | `#FAFAF8` |
-| Dégradé signature | `linear-gradient(90deg, #FF2D55, #FF8A32)` — réservé aux accents/CTA |
-| Typo titres/CTA | Poppins |
-| Typo textes longs | Inter |
+| Élément                   | Valeur                                                               |
+| ------------------------- | -------------------------------------------------------------------- |
+| Bleu nuit (corporate)     | `#061D4F`                                                            |
+| Rose corail (CTA/énergie) | `#FF2D55`                                                            |
+| Orange (opportunité)      | `#FF8A32`                                                            |
+| Blanc                     | `#FFFFFF`                                                            |
+| Off-white (fond clair)    | `#FAFAF8`                                                            |
+| Dégradé signature         | `linear-gradient(90deg, #FF2D55, #FF8A32)` — réservé aux accents/CTA |
+| Typo titres/CTA           | Poppins                                                              |
+| Typo textes longs         | Inter                                                                |
 
 Le logo (J + C avec deux silhouettes) ne doit jamais être déformé, incliné, ombré ou recoloré.
 Prévoir une version dark (fond bleu nuit) et une version light pour le toggle jour/nuit.
@@ -41,6 +41,7 @@ inverser fond ↔ texte tout en gardant corail/orange comme accents constants.
 ## 3. Stack technique (architecture découplée)
 
 ### Frontend — `apps/web`
+
 - React 18 + Vite + TypeScript
 - React Router (navigation)
 - TanStack Query (fetch/cache des données API)
@@ -53,6 +54,7 @@ inverser fond ↔ texte tout en gardant corail/orange comme accents constants.
 - `@jitsi/react-sdk` (embed de l'instance publique meet.jit.si) pour la visioconférence
 
 ### Backend — `apps/api`
+
 - NestJS (Node.js + TypeScript), architecture modulaire (un module par domaine métier)
 - Prisma ORM + MySQL 8
 - Passport.js (stratégies local + JWT + Google OAuth) intégré à NestJS
@@ -64,6 +66,7 @@ inverser fond ↔ texte tout en gardant corail/orange comme accents constants.
 - Génération de noms de salle Jitsi uniques et non devinables (UUID) côté API
 
 ### Repo
+
 - Monorepo avec pnpm workspaces (`apps/web`, `apps/api`, `packages/shared` pour les types
   partagés front/back — DTO, enums de statut, etc.)
 - Turborepo pour orchestrer les scripts (dev, build, lint) sur les deux apps
@@ -183,3 +186,34 @@ pnpm test                         # tests web + api
 À mettre à jour à chaque session : lister les modules terminés, en cours, à faire.
 (Phase 1 : socle monorepo / Phase 2 : profil + CV / Phase 3 : offres + paiement /
 Phase 4 : candidatures / Phase 5 : visioconférence / Phase 6 : admin + polish)
+
+**Phase 1 — socle monorepo : terminée**
+
+- Monorepo pnpm workspaces + Turborepo (`apps/web`, `apps/api`, `packages/shared`), lié
+  à `origin/main` (github.com/Pulpitau/JEUNCY_website)
+- `apps/web` : Vite + React 18 + TS, Tailwind, React Router, TanStack Query, Zustand,
+  RHF + Zod, bases shadcn/ui
+- `apps/api` : NestJS + TS, `ConfigModule`, `ValidationPipe` global, CORS ; Prisma
+  configuré (schema à la racine `/prisma`, client généré dans `apps/api/generated`,
+  aucun modèle métier encore — voir phase 2)
+- `packages/shared` : enums de statut (`UserRole`, `JobOfferStatus`, `ApplicationStatus`,
+  `VideoRoomStatus`) et type `ApiResponse`
+- ESLint (flat config) + Prettier + husky/lint-staged fonctionnels sur tout le monorepo
+- Design system : tokens Tailwind Jeuncy (couleurs, polices, dégradé signature),
+  `ThemeProvider` dark/light (Zustand + `data-theme`, persistant, anti-FOUC), composants
+  de base (`Button`, `Card`, `Input`, `Badge`, `Navbar`, `Footer`), page d'accueil de
+  démonstration vérifiée en navigateur (build/lint/test OK)
+- Workflow : une branche par étape, mergée dans `main` (voir `CONVENTIONS.md` §8)
+
+**Connu et à traiter plus tard**
+
+- Prisma reste en v6.19 (v7 supprime le support de `package.json#prisma`, utilisé ici
+  pour pointer vers `/prisma/schema.prisma` — migration vers `prisma.config.ts` à
+  prévoir si besoin)
+- Pas encore de base MySQL locale configurée : `apps/api` ne démarre pas tant que
+  `DATABASE_URL` ne pointe pas vers une instance réelle
+- Logos `apps/web/public/logo/logo-light.png` et `logo-dark.png` sont les versions
+  circulaires (badge) redimensionnées à 128×128 ; la version pleine avec tagline
+  (`logo_jeuncy.png` à la racine, hors repo web) n'a pas encore d'usage assigné
+
+**Phase 2 — profil + CV : à faire**
