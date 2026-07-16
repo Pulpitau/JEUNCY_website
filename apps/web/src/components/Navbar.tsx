@@ -1,7 +1,10 @@
-import { Link } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
+import { Link, useNavigate } from 'react-router-dom';
+import { Button, buttonVariants } from '@/components/ui/button';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { useThemeStore } from '@/store/theme-store';
+import { useAuthStore } from '@/store/auth-store';
+import { logout as logoutRequest } from '@/lib/api/auth';
+import { cn } from '@/lib/utils';
 
 const NAV_LINKS = [
   { label: 'Offres', href: '#offres' },
@@ -12,6 +15,18 @@ const NAV_LINKS = [
 export function Navbar() {
   const theme = useThemeStore((state) => state.theme);
   const logoSrc = theme === 'dark' ? '/logo/logo-dark.png' : '/logo/logo-light.png';
+  const user = useAuthStore((state) => state.user);
+  const clearSession = useAuthStore((state) => state.clearSession);
+  const navigate = useNavigate();
+
+  async function handleLogout() {
+    try {
+      await logoutRequest();
+    } finally {
+      clearSession();
+      navigate('/');
+    }
+  }
 
   return (
     <header className="sticky top-0 z-50 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/75">
@@ -37,9 +52,31 @@ export function Navbar() {
 
         <div className="flex items-center gap-2">
           <ThemeToggle />
-          <Button variant="gradient" size="sm">
-            Créer un compte
-          </Button>
+          {user ? (
+            <>
+              <span className="hidden font-inter text-sm text-muted-foreground sm:inline">
+                {user.email}
+              </span>
+              <Button variant="outline" size="sm" onClick={handleLogout}>
+                Se déconnecter
+              </Button>
+            </>
+          ) : (
+            <>
+              <Link
+                to="/login"
+                className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }))}
+              >
+                Se connecter
+              </Link>
+              <Link
+                to="/register"
+                className={cn(buttonVariants({ variant: 'gradient', size: 'sm' }))}
+              >
+                Créer un compte
+              </Link>
+            </>
+          )}
         </div>
       </div>
     </header>

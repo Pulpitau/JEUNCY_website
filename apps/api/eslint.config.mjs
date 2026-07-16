@@ -29,6 +29,13 @@ export default tseslint.config(
       '@typescript-eslint/no-explicit-any': 'error',
       '@typescript-eslint/no-floating-promises': 'warn',
       '@typescript-eslint/no-unsafe-argument': 'warn',
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
+      ],
+      // Crash connu de la regle sur certaines expressions (ex: this.service.method()
+      // dans un controller Nest) avec cette combinaison de versions eslint/typescript-eslint.
+      '@typescript-eslint/unbound-method': 'off',
       'prettier/prettier': ['error', { endOfLine: 'auto' }],
     },
   },
