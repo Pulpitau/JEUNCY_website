@@ -229,14 +229,42 @@ logique métier — controllers/services/DTO à écrire phase par phase)
   produit mais non explicitement listé dans ce fichier ; `Payment` non cascade-supprimé
   avec l'utilisateur (obligation légale de conservation des pièces comptables)
 
+**Authentification : terminée**
+
+- `apps/api` module `auth` : register/login/refresh/logout/me, mot de passe oublié
+  (token JWT signé, email via Resend), Google OAuth (création ou association de compte
+  par email) — strategies Passport local + JWT + Google, `JwtAuthGuard`/`RolesGuard` +
+  `@Roles()`/`@CurrentUser()` dans `common/`
+- Access token courte durée (15 min, réponse JSON) + refresh token longue durée (7 jours,
+  cookie httpOnly `jeuncy_refresh_token`, jamais exposé au JS) — rotation à chaque refresh
+- Format de réponse standard `{ success, data }` / `{ success, error }` appliqué
+  globalement (`ResponseInterceptor` + `HttpExceptionFilter`)
+- `apps/web` : store Zustand de session **non persisté** (accessToken en mémoire
+  uniquement), `AuthProvider` qui restaure la session via `/auth/refresh` au chargement,
+  client API typé avec retry automatique sur 401, pages login/register/mot de passe
+  oublié/réinitialisation + callback Google OAuth (RHF + Zod, erreurs `role="alert"`)
+- 14 tests unitaires sur `AuthService`
+- Correctif de fond : `packages/shared` repassé en CommonJS (était `"type": "module"`,
+  incompatible avec la compilation CJS de NestJS — `require()` d'un module ESM échoue au
+  runtime, pas seulement au typecheck) ; extensions `.js` explicites dans ses exports
+  internes (requis par la résolution `nodenext` d'`apps/api`)
+- Choix faits sans validation préalable (à relire) : inscription Google sans sélection de
+  rôle → `CANDIDATE` par défaut ; page `/auth/callback` reçoit l'access token en query
+  string (pas idéal niveau exposition — historique navigateur — mais le refresh token
+  reste protégé en cookie httpOnly, seul l'access token courte durée est concerné)
+- **Non testé en conditions réelles** : ni la connexion Google OAuth (`GOOGLE_CLIENT_ID`
+  placeholder), ni l'envoi d'email (`RESEND_API_KEY` absent → log au lieu d'envoyer), ni
+  le flux complet register/login (pas de base MySQL — voir point suivant)
+
 **Connu et à traiter plus tard**
 
 - Prisma reste en v6.19 (v7 supprime le support de `package.json#prisma`, utilisé ici
   pour pointer vers `/prisma/schema.prisma` — migration vers `prisma.config.ts` à
   prévoir si besoin)
-- Pas de base MySQL locale configurée : `apps/api` ne démarre pas et la migration n'a
-  pas pu être appliquée tant que `DATABASE_URL` ne pointe pas vers une instance réelle
-  (Docker à installer, ou instance MySQL locale/managée à fournir)
+- Pas de base MySQL locale configurée : `apps/api` ne démarre pas (`PrismaService`
+  échoue à se connecter au démarrage) et la migration n'a pas pu être appliquée tant que
+  `DATABASE_URL` ne pointe pas vers une instance réelle (Docker à installer, ou instance
+  MySQL locale/managée à fournir) — bloquant pour tester register/login/refresh en vrai
 - Logos `apps/web/public/logo/logo-light.png` et `logo-dark.png` sont les versions
   circulaires (badge) redimensionnées à 128×128 ; la version pleine avec tagline
   (`logo_jeuncy.png` à la racine, hors repo web) n'a pas encore d'usage assigné
