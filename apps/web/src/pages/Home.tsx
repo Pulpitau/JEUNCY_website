@@ -31,7 +31,7 @@ const AUDIENCES = [
 
 export function Home() {
   return (
-    <div>
+    <main>
       <section className="mx-auto max-w-6xl px-4 py-20 text-center">
         <Badge variant="secondary" className="mb-4">
           Alternance · Saisonnier · Bénévolat
@@ -80,6 +80,6 @@ export function Home() {
           ))}
         </div>
       </section>
-    </div>
+    </main>
   );
 }
