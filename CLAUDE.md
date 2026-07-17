@@ -214,10 +214,9 @@ logique métier — controllers/services/DTO à écrire phase par phase)
   `JobOfferStatus`, `ContractType`, `ApplicationStatus`, `PaymentStatus`,
   `NotificationType`, `VideoRoomStatus`) — snake_case en base via `@map`/`@@map`,
   cascades justifiées en commentaire
-- Migration initiale générée (`prisma/migrations/20260716000000_init`) via
-  `prisma migrate diff --from-empty` : **non testée contre un vrai moteur MySQL**
-  (ni Docker ni MySQL disponibles dans l'environnement de dev utilisé) — à valider avec
-  `pnpm --filter api prisma migrate dev` dès qu'une vraie base est accessible
+- Migration initiale (`prisma/migrations/20260716000000_init`) **appliquée et validée
+  contre une vraie base MySQL** (`prisma migrate deploy` + `prisma db seed`, voir
+  section "Base de données de dev" ci-dessous)
 - `prisma/seed.ts` : données de démo réalistes (2 candidats, 2 entreprises, 1 CFA, 3
   offres, candidatures, paiement, notification, salle de visio) — exécuté et vérifié
   jusqu'à la tentative de connexion DB, jamais contre une vraie base
@@ -252,19 +251,43 @@ logique métier — controllers/services/DTO à écrire phase par phase)
   rôle → `CANDIDATE` par défaut ; page `/auth/callback` reçoit l'access token en query
   string (pas idéal niveau exposition — historique navigateur — mais le refresh token
   reste protégé en cookie httpOnly, seul l'access token courte durée est concerné)
-- **Non testé en conditions réelles** : ni la connexion Google OAuth (`GOOGLE_CLIENT_ID`
-  placeholder), ni l'envoi d'email (`RESEND_API_KEY` absent → log au lieu d'envoyer), ni
-  le flux complet register/login (pas de base MySQL — voir point suivant)
+- **Testé en conditions réelles contre une vraie base MySQL** (voir section suivante) :
+  register/login/refresh/logout/me/forgot-password/reset-password, erreurs de
+  validation, email déjà utilisé, mauvais mot de passe, accès non authentifié — tous
+  conformes, via curl et via le navigateur. **Toujours pas testé** : connexion Google
+  OAuth (`GOOGLE_CLIENT_ID` placeholder), envoi d'email réel (`RESEND_API_KEY` absent →
+  log au lieu d'envoyer, comportement vérifié)
+- Bugs trouvés en testant pour de vrai (corrigés) : `nest start`/`start:dev` compilent
+  puis exécutent le JS via Node natif (pas ts-node) — `packages/shared`, consommé comme
+  source TS brute, n'avait pas d'étape de build et faisait planter l'API au démarrage
+  (fonctionnait en test/seed car ts-jest et ts-node transpilent à la volée, mais pas
+  Node natif) ; `GoogleStrategy` exige un `clientID` non vide dès sa construction et
+  faisait planter toute l'API (pas juste les routes Google) tant que
+  `GOOGLE_CLIENT_ID` est un placeholder — n'est désormais enregistrée que si configurée
+
+**Base de données de dev**
+
+- MySQL hébergé chez **Clever Cloud** (plan DEV gratuit, 10 Mo) — suffisant pour valider
+  le schéma et le seed, pas dimensionné pour de la vraie donnée en croissance
+- La base MySQL mutualisée OVH existante (`jeuncykbdd` sur `jeuncy.com`) s'est révélée
+  **injoignable depuis l'extérieur du réseau OVH** (confirmé : le port TCP répond mais
+  la négociation du protocole MySQL échoue systématiquement, aucune option de
+  restriction IP dans l'interface — limite structurelle de cette offre, pas un réglage
+  à activer)
+- Identifiants réels dans `apps/api/.env` (gitignored, jamais commité) — à régénérer/
+  changer si le plan DEV Clever Cloud est abandonné plus tard
 
 **Connu et à traiter plus tard**
 
+- **Hébergement de production non résolu** : l'hébergement mutualisé OVH prévu pour le
+  site (`jeuncy.com`, offre PRO) est PHP uniquement (confirmé dans le manager OVH,
+  aucun sélecteur de runtime Node.js) — `apps/api` (NestJS) ne peut pas y tourner tel
+  quel. `apps/web` (fichiers statiques après build) peut en revanche y être déployé
+  sans problème. Pistes à trancher : VPS/Public Cloud OVH, hébergeur Node.js dédié
+  (Railway/Render/Fly.io...), ou upgrade vers une offre OVH supportant Node.js
 - Prisma reste en v6.19 (v7 supprime le support de `package.json#prisma`, utilisé ici
   pour pointer vers `/prisma/schema.prisma` — migration vers `prisma.config.ts` à
   prévoir si besoin)
-- Pas de base MySQL locale configurée : `apps/api` ne démarre pas (`PrismaService`
-  échoue à se connecter au démarrage) et la migration n'a pas pu être appliquée tant que
-  `DATABASE_URL` ne pointe pas vers une instance réelle (Docker à installer, ou instance
-  MySQL locale/managée à fournir) — bloquant pour tester register/login/refresh en vrai
 - Logos `apps/web/public/logo/logo-light.png` et `logo-dark.png` sont les versions
   circulaires (badge) redimensionnées à 128×128 ; la version pleine avec tagline
   (`logo_jeuncy.png` à la racine, hors repo web) n'a pas encore d'usage assigné
