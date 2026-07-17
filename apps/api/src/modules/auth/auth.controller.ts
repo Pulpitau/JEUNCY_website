@@ -158,8 +158,11 @@ export class AuthController {
     );
     this.setRefreshCookie(response, tokens.refreshToken);
 
+    // Pas d'access token dans l'URL (evite qu'il finisse dans l'historique du
+    // navigateur) : le cookie httpOnly pose plus haut suffit, la page
+    // /auth/callback appelle /auth/refresh comme au demarrage normal de l'app.
     const webOrigin =
       this.configService.get<string>('WEB_ORIGIN') ?? 'http://localhost:5173';
-    response.redirect(`${webOrigin}/auth/callback?accessToken=${tokens.accessToken}`);
+    response.redirect(`${webOrigin}/auth/callback`);
   }
 }
