@@ -369,6 +369,34 @@ logique métier — controllers/services/Form Requests à écrire phase par phas
   en ESM (`"type": "module"` dans `packages/shared/package.json`), correct désormais
   puisque `apps/api` (Laravel) n'est plus un consommateur JS de ce package.
 
+**Retouches post-phase-2 (CV, photo de profil, logo) : terminées**
+
+- Suite à retour utilisateur après inspection en local, le template de CV a été
+  entièrement repensé façon Canva (`resources/views/cv/template.blade.php`) : mise en
+  page deux colonnes, sidebar navy plein-hauteur (photo circulaire, contact, compétences
+  en pills, formations) + colonne principale (bio, expériences en timeline avec accent
+  corail). Le fond plein-hauteur de la sidebar est un rectangle positionné en absolu
+  derrière le contenu (z-index explicite) — dompdf n'étire pas le fond d'une cellule de
+  tableau au-delà de son contenu, et `height` sur une `table-cell` casse carrément la
+  pagination (piège rencontré et documenté en commentaire dans le template). Vérifié à
+  chaque itération par rasterisation du PDF généré (`pdfjs-dist` + `@napi-rs/canvas` en
+  script ponctuel, pas de dépendance ajoutée au projet).
+- Upload/suppression de la photo de profil : `POST`/`DELETE candidate-profile/photo`
+  (image, 2 Mo max, remplace l'ancienne photo si besoin), intégrée au CV via une data URI
+  base64 (lecture directe du fichier local, sans aller-retour HTTP vers le serveur
+  lui-même) avec repli sur un avatar "initiales" généré si aucune photo n'est fournie.
+  Composant `ProfilePhotoUpload` côté frontend ; le client API (`lib/api/client.ts`) gère
+  désormais aussi les requêtes `FormData` (jusque-là uniquement JSON).
+- Logos (`logo-light.png`, `logo-dark.png`) : le fond carré du PNG était rempli en noir
+  plein (aucun canal alpha), visible comme une bordure/coin noir autour du cercle sur
+  tout fond non-noir. Réexportés avec un masque alpha circulaire (transparent en dehors
+  du cercle) via un script `sharp` ponctuel (scratchpad, pas de dépendance ajoutée).
+- 3 tests PHPUnit supplémentaires sur l'upload/suppression de photo (28/28 au total).
+  Vérifié contre la vraie base MySQL (curl : upload, génération de CV avec et sans photo)
+  et visuellement (rendu PDF rasterisé + navigateur pour le logo et le composant d'upload
+  — l'upload de fichier lui-même n'a pas pu être piloté depuis le navigateur automatisé,
+  restriction navigateur standard sur la valeur programmatique d'un `<input type="file">`).
+
 **Connu et à traiter plus tard**
 
 - Déploiement réel sur l'hébergement OVH mutualisée PRO pas encore fait/documenté (accès
@@ -376,10 +404,9 @@ logique métier — controllers/services/Form Requests à écrire phase par phas
   `.env` prod, cron si besoin d'une queue — à définir en phase de mise en prod)
 - Pas de prévisualisation client (`@react-pdf/renderer`) avant génération du CV — voir
   note phase 2 ci-dessus
-- Pas d'upload de photo de profil (`photo_url` existe en base mais aucun endpoint dédié
-  n'a été écrit — hors scope phase 2, à faire si le besoin se confirme)
 - Logos `apps/web/public/logo/logo-light.png` et `logo-dark.png` sont les versions
-  circulaires (badge) redimensionnées à 128×128 ; la version pleine avec tagline
-  (`logo_jeuncy.png` à la racine, hors repo web) n'a pas encore d'usage assigné
+  circulaires (badge) redimensionnées à 128×128, désormais à fond transparent ; la
+  version pleine avec tagline (`logo_jeuncy.png` à la racine, hors repo web) n'a pas
+  encore d'usage assigné
 
 **Phase 3 — offres + paiement : à faire**
