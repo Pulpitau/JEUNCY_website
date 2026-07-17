@@ -14,7 +14,8 @@
         "firebase/php-jwt": "*",
         "laravel/framework": "^13.8",
         "laravel/socialite": "*",
-        "laravel/tinker": "^3.0"
+        "laravel/tinker": "^3.0",
+        "stripe/stripe-php": "*"
     },
     "require-dev": {
         "fakerphp/faker": "^1.23",

@@ -5,7 +5,7 @@ import { useAuthStore } from '@/store/auth-store';
 
 interface RequireAuthProps {
   children: ReactNode;
-  role?: UserRole;
+  role?: UserRole | UserRole[];
 }
 
 export function RequireAuth({ children, role }: RequireAuthProps) {
@@ -24,7 +24,8 @@ export function RequireAuth({ children, role }: RequireAuthProps) {
     return <Navigate to="/login" replace />;
   }
 
-  if (role && user.role !== role) {
+  const allowedRoles = role ? (Array.isArray(role) ? role : [role]) : null;
+  if (allowedRoles && !allowedRoles.includes(user.role)) {
     return <Navigate to="/" replace />;
   }
 
