@@ -55,21 +55,38 @@ inverser fond ↔ texte tout en gardant corail/orange comme accents constants.
 
 ### Backend — `apps/api`
 
-- NestJS (Node.js + TypeScript), architecture modulaire (un module par domaine métier)
-- Prisma ORM + MySQL 8
-- Passport.js (stratégies local + JWT + Google OAuth) intégré à NestJS
-- Guards NestJS pour la vérification de rôle (`RolesGuard`)
-- Zod (ou class-validator, natif à NestJS) pour la validation des DTO
-- `@react-pdf/renderer` côté serveur pour générer le PDF final du CV
-- Stripe SDK (Checkout + webhooks) pour les offres payantes
-- Resend (ou Brevo) pour les emails transactionnels
+> **Changement de stack (2026-07-17)** : le backend était initialement en NestJS/TypeScript.
+> L'hébergement du projet est l'offre **OVH mutualisée PRO (jeuncy.com)**, qui ne supporte
+> que PHP (pas de Node.js en production) — voir §11. Le backend a donc été entièrement
+> réécrit en **Laravel/PHP**, seul changement d'architecture ; toutes les autres décisions
+> (JWT access+refresh, format de réponse, rôles, modèle de données MySQL) sont conservées
+> à l'identique.
+
+- Laravel 13 (PHP 8.3), un Controller + un Service + des Form Requests par domaine métier
+  (voir `CONVENTIONS.md` §4)
+- Eloquent ORM + MySQL 8, migrations dans `apps/api/database/migrations`
+- JWT custom (`firebase/php-jwt` + `App\Auth\JwtGuard`, garde Laravel native via
+  `Auth::extend('jwt', ...)`) : access token courte durée (JSON) + refresh token longue
+  durée (cookie httpOnly) — même design que l'ancienne implémentation NestJS
+- Laravel Socialite pour le Google OAuth
+- Middleware `role:XXX` (`App\Http\Middleware\EnsureUserHasRole`) pour la vérification de rôle
+- Form Requests (`app/Http/Requests/...`) pour la validation des entrées
+- `@react-pdf/renderer` reste côté client uniquement (prévisualisation) ; le rendu PDF
+  final du CV côté serveur devra utiliser une lib PHP (ex : `barryvdh/laravel-dompdf` ou
+  `spatie/browsershot`) — à choisir en phase 2, `@react-pdf/renderer` n'étant pas
+  utilisable en PHP
+- Stripe PHP SDK (Checkout + webhooks) pour les offres payantes
+- Resend, appelé directement via son API HTTP (façade `Http` de Laravel) pour les emails
+  transactionnels
 - Génération de noms de salle Jitsi uniques et non devinables (UUID) côté API
 
 ### Repo
 
-- Monorepo avec pnpm workspaces (`apps/web`, `apps/api`, `packages/shared` pour les types
-  partagés front/back — DTO, enums de statut, etc.)
-- Turborepo pour orchestrer les scripts (dev, build, lint) sur les deux apps
+- Monorepo avec pnpm workspaces pour la partie JS (`apps/web`, `packages/shared` — types
+  partagés utilisés par le frontend). `apps/api` est un projet Composer/PHP autonome, hors
+  du pipeline pnpm/Turborepo (pas de `package.json`)
+- Turborepo orchestre les scripts (dev, build, lint) de `apps/web` et `packages/shared`
+  uniquement ; `apps/api` se pilote via Composer/Artisan (voir §9)
 
 ## 4. Rôles utilisateurs et permissions
 
@@ -95,26 +112,27 @@ Toute route API vérifie le rôle via `@Roles()` + `RolesGuard` avant d'agir.
       /hooks
       /lib                 # api client, utils
       /store               # Zustand
-  /api                      # NestJS
-    /src
-      /modules
-        /auth
-        /users
-        /candidate-profiles
-        /companies
-        /job-offers
-        /applications
-        /payments
-        /cv-generator
-        /video-rooms        # module visioconférence (Jitsi Meet)
-        /notifications
-      /prisma
-      /common               # guards, decorators, filters
+  /api                      # Laravel (PHP), projet Composer autonome
+    /app
+      /Http
+        /Controllers        # un par domaine métier (Auth, JobOffers, Applications...)
+        /Requests            # Form Requests de validation
+        /Middleware          # WrapApiResponse, EnsureUserHasRole
+      /Services              # logique métier (AuthService, JwtService, MailService...)
+      /Models                # Eloquent (User, CandidateProfile, JobOffer, VideoRoom...)
+      /Enums                 # backed enums (UserRole, JobOfferStatus...)
+      /Auth                  # JwtGuard custom
+      /Exceptions            # ApiException
+    /routes
+      api.php                # inclut routes/api/*.php par domaine
+    /database
+      /migrations
+      /seeders
+      /factories
+    /tests
+      /Feature               # PHPUnit
 /packages
-  /shared                   # types/DTO/enums partagés front-back
-/prisma
-  schema.prisma
-  seed.ts
+  /shared                   # types/enums TS partagés, utilisés par apps/web uniquement
 ```
 
 ## 6. Modèle de données — entités clés
@@ -163,13 +181,20 @@ git push -u origin main
 ## 9. Commandes utiles
 
 ```bash
-pnpm install                      # installer les deps du monorepo
-pnpm dev                          # lance web + api en parallèle (turbo)
-pnpm --filter api prisma migrate dev
-pnpm --filter api prisma studio
-pnpm --filter api prisma db seed
-pnpm lint                         # ESLint sur tout le monorepo
-pnpm test                         # tests web + api
+# Frontend (apps/web) + packages/shared
+pnpm install                      # installer les deps JS du monorepo
+pnpm --filter web dev             # lance le serveur Vite
+pnpm lint                         # ESLint sur apps/web + packages/shared
+pnpm test                         # tests Vitest de apps/web
+
+# Backend (apps/api) — Laravel, projet Composer autonome
+cd apps/api
+composer install                  # installer les deps PHP
+php artisan serve --port=3000     # lance l'API en local
+php artisan migrate               # applique les migrations
+php artisan migrate:fresh --seed  # reset + données de démo
+vendor/bin/pint                   # formatage PHP (équivalent Prettier)
+php artisan test                  # tests PHPUnit
 ```
 
 ## 10. Règles non négociables
@@ -189,13 +214,15 @@ Phase 4 : candidatures / Phase 5 : visioconférence / Phase 6 : admin + polish)
 
 **Phase 1 — socle monorepo : terminée**
 
-- Monorepo pnpm workspaces + Turborepo (`apps/web`, `apps/api`, `packages/shared`), lié
-  à `origin/main` (github.com/Pulpitau/JEUNCY_website)
+- Monorepo pnpm workspaces + Turborepo (`apps/web`, `packages/shared`), lié
+  à `origin/main` (github.com/Pulpitau/JEUNCY_website). `apps/api` était initialement
+  scaffoldé en NestJS ici ; voir "Bascule NestJS → Laravel" plus bas — c'est désormais un
+  projet Composer/Laravel autonome, hors du pipeline pnpm/Turborepo.
 - `apps/web` : Vite + React 18 + TS, Tailwind, React Router, TanStack Query, Zustand,
   RHF + Zod, bases shadcn/ui
-- `apps/api` : NestJS + TS, `ConfigModule`, `ValidationPipe` global, CORS ; Prisma
-  configuré (schema à la racine `/prisma`, client généré dans `apps/api/generated`,
-  aucun modèle métier encore — voir phase 2)
+- `apps/api` (historique, phase 1) : scaffoldé en NestJS + TS avec `ConfigModule`,
+  `ValidationPipe` global, CORS, Prisma configuré — entièrement remplacé depuis par
+  Laravel (voir plus bas)
 - `packages/shared` : enums de statut (`UserRole`, `JobOfferStatus`, `ApplicationStatus`,
   `VideoRoomStatus`) et type `ApiResponse`
 - ESLint (flat config) + Prettier + husky/lint-staged fonctionnels sur tout le monorepo
@@ -206,47 +233,51 @@ Phase 4 : candidatures / Phase 5 : visioconférence / Phase 6 : admin + polish)
 - Workflow : une branche par étape, mergée dans `main` (voir `CONVENTIONS.md` §8)
 
 **Modèle de données : terminé** (couvre les entités des phases 2 à 5, pas encore la
-logique métier — controllers/services/DTO à écrire phase par phase)
+logique métier — controllers/services/Form Requests à écrire phase par phase)
 
-- `prisma/schema.prisma` complet : `User`, `CandidateProfile`, `Experience`, `Education`,
-  `Skill`/`CandidateSkill`, `GeneratedCV`, `Company`, `CfaOrganization`, `JobOffer`,
-  `Application`, `Payment`, `Notification`, `VideoRoom`, avec enums (`UserRole`,
+- Schéma complet : `User`, `CandidateProfile`, `Experience`, `Education`,
+  `Skill`/`CandidateSkill`, `GeneratedCv`, `Company`, `CfaOrganization`, `JobOffer`,
+  `Application`, `Payment`, `Notification`, `VideoRoom`, avec enums PHP (`UserRole`,
   `JobOfferStatus`, `ContractType`, `ApplicationStatus`, `PaymentStatus`,
-  `NotificationType`, `VideoRoomStatus`) — snake_case en base via `@map`/`@@map`,
-  cascades justifiées en commentaire
-- Migration initiale (`prisma/migrations/20260716000000_init`) **appliquée et validée
-  contre une vraie base MySQL** (`prisma migrate deploy` + `prisma db seed`, voir
-  section "Base de données de dev" ci-dessous)
-- `prisma/seed.ts` : données de démo réalistes (2 candidats, 2 entreprises, 1 CFA, 3
-  offres, candidatures, paiement, notification, salle de visio) — exécuté et vérifié
-  jusqu'à la tentative de connexion DB, jamais contre une vraie base
-- `packages/shared` : enums `ContractType`, `PaymentStatus`, `NotificationType` ajoutés,
-  synchronisés avec le schema Prisma
+  `NotificationType`, `VideoRoomStatus`) — `snake_case` natif en base (colonnes Eloquent),
+  cascades justifiées en commentaire dans chaque migration
+- Défini originellement via `prisma/schema.prisma` (phase 1, NestJS), puis intégralement
+  recréé en 14 migrations Laravel (`apps/api/database/migrations/`) lors de la bascule
+  vers PHP — **appliqué et validé contre une vraie base MySQL** (`php artisan migrate` +
+  seed, voir section "Base de données de dev" ci-dessous)
+- `apps/api/database/seeders/DatabaseSeeder.php` : données de démo réalistes (2
+  candidats, 2 entreprises, 1 CFA, 3 offres, candidatures, paiement, notification, salle
+  de visio) — exécuté et vérifié contre la vraie base Clever Cloud
+- `packages/shared` : enums `ContractType`, `PaymentStatus`, `NotificationType` présents
+  côté TS (frontend) ; leur pendant PHP vit dans `apps/api/app/Enums/`, synchronisation
+  manuelle entre les deux depuis la bascule (voir `CONVENTIONS.md` §5)
 - Choix de modélisation faits sans validation préalable (à relire) : `JobOffer` rattachée
-  à `Company` OU `CfaOrganization` via deux FK nullables (invariant validé côté DTO, pas
-  en base) ; `ContractType` (ALTERNANCE/SAISONNIER/BENEVOLAT) déduit du positionnement
-  produit mais non explicitement listé dans ce fichier ; `Payment` non cascade-supprimé
-  avec l'utilisateur (obligation légale de conservation des pièces comptables)
+  à `Company` OU `CfaOrganization` via deux FK nullables (invariant validé côté Form
+  Request, pas en base) ; `ContractType` (ALTERNANCE/SAISONNIER/BENEVOLAT) déduit du
+  positionnement produit mais non explicitement listé dans ce fichier ; `Payment` non
+  cascade-supprimé avec l'utilisateur (obligation légale de conservation des pièces
+  comptables)
 
-**Authentification : terminée**
+**Authentification : terminée** (implémentation Laravel actuelle ; voir "Bascule NestJS
+→ Laravel" ci-dessous pour l'implémentation NestJS d'origine, remplacée)
 
-- `apps/api` module `auth` : register/login/refresh/logout/me, mot de passe oublié
-  (token JWT signé, email via Resend), Google OAuth (création ou association de compte
-  par email) — strategies Passport local + JWT + Google, `JwtAuthGuard`/`RolesGuard` +
-  `@Roles()`/`@CurrentUser()` dans `common/`
+- `apps/api` : register/login/refresh/logout/me, mot de passe oublié (token JWT signé,
+  email via Resend), Google OAuth (création ou association de compte par email) via
+  `App\Services\AuthService`/`JwtService`/`MailService`, `App\Auth\JwtGuard` (garde
+  Laravel custom, `auth:api`) + middleware `role:XXX`
+  (`App\Http\Middleware\EnsureUserHasRole`)
 - Access token courte durée (15 min, réponse JSON) + refresh token longue durée (7 jours,
   cookie httpOnly `jeuncy_refresh_token`, jamais exposé au JS) — rotation à chaque refresh
 - Format de réponse standard `{ success, data }` / `{ success, error }` appliqué
-  globalement (`ResponseInterceptor` + `HttpExceptionFilter`)
+  globalement via `App\Http\Middleware\WrapApiResponse` (succès) et les callbacks
+  `render`/`respond` de `bootstrap/app.php` (erreurs)
 - `apps/web` : store Zustand de session **non persisté** (accessToken en mémoire
   uniquement), `AuthProvider` qui restaure la session via `/auth/refresh` au chargement,
   client API typé avec retry automatique sur 401, pages login/register/mot de passe
-  oublié/réinitialisation + callback Google OAuth (RHF + Zod, erreurs `role="alert"`)
-- 14 tests unitaires sur `AuthService`
-- Correctif de fond : `packages/shared` repassé en CommonJS (était `"type": "module"`,
-  incompatible avec la compilation CJS de NestJS — `require()` d'un module ESM échoue au
-  runtime, pas seulement au typecheck) ; extensions `.js` explicites dans ses exports
-  internes (requis par la résolution `nodenext` d'`apps/api`)
+  oublié/réinitialisation + callback Google OAuth (RHF + Zod, erreurs `role="alert"`) —
+  inchangé par la bascule backend, consomme la même API HTTP
+- 15 tests PHPUnit sur `AuthService` (`apps/api/tests/Feature/AuthServiceTest.php`,
+  `RefreshDatabase` + Mockery pour `MailService`)
 - Choix faits sans validation préalable (à relire) : inscription Google sans sélection de
   rôle → `CANDIDATE` par défaut ; page `/auth/callback` reçoit l'access token en query
   string (pas idéal niveau exposition — historique navigateur — mais le refresh token
@@ -254,16 +285,37 @@ logique métier — controllers/services/DTO à écrire phase par phase)
 - **Testé en conditions réelles contre une vraie base MySQL** (voir section suivante) :
   register/login/refresh/logout/me/forgot-password/reset-password, erreurs de
   validation, email déjà utilisé, mauvais mot de passe, accès non authentifié — tous
-  conformes, via curl et via le navigateur. **Toujours pas testé** : connexion Google
-  OAuth (`GOOGLE_CLIENT_ID` placeholder), envoi d'email réel (`RESEND_API_KEY` absent →
-  log au lieu d'envoyer, comportement vérifié)
-- Bugs trouvés en testant pour de vrai (corrigés) : `nest start`/`start:dev` compilent
-  puis exécutent le JS via Node natif (pas ts-node) — `packages/shared`, consommé comme
-  source TS brute, n'avait pas d'étape de build et faisait planter l'API au démarrage
-  (fonctionnait en test/seed car ts-jest et ts-node transpilent à la volée, mais pas
-  Node natif) ; `GoogleStrategy` exige un `clientID` non vide dès sa construction et
-  faisait planter toute l'API (pas juste les routes Google) tant que
-  `GOOGLE_CLIENT_ID` est un placeholder — n'est désormais enregistrée que si configurée
+  conformes (parité de réponse vérifiée avec l'ancienne implémentation NestJS), via curl.
+  **Toujours pas testé** : connexion Google OAuth (`GOOGLE_CLIENT_ID` placeholder), envoi
+  d'email réel (`RESEND_API_KEY` absent → log au lieu d'envoyer, comportement vérifié)
+
+**Bascule NestJS → Laravel (PHP) : terminée**
+
+- Décidé le 2026-07-17, à la demande explicite de l'utilisateur : l'hébergement du
+  projet reste l'offre OVH mutualisée PRO déjà souscrite (`jeuncy.com`), qui ne supporte
+  que PHP (aucun runtime Node.js possible, confirmé dans le manager OVH). Plutôt que de
+  migrer vers un hébergement supportant Node.js, le choix a été de réécrire le backend
+  en PHP pour rester sur cet hébergement.
+- `apps/api` (NestJS + Prisma) entièrement supprimé et réécrit en **Laravel 13 / PHP
+  8.3**, en conservant à l'identique toutes les décisions déjà validées : même design JWT
+  access+refresh, même format de réponse, mêmes rôles, même modèle de données (voir
+  sections ci-dessus). JWT via `firebase/php-jwt` (le package `jwt-auth` habituel de
+  l'écosystème Laravel ne supporte pas encore Laravel 13), OAuth via Laravel Socialite,
+  style PHP via Laravel Pint.
+- Toute la suite d'endpoints d'authentification revalidée par des appels curl réels
+  contre la même base Clever Cloud MySQL, avec des réponses identiques à l'ancienne
+  implémentation NestJS (y compris les cas d'erreur).
+- Bugs rencontrés en installant/configurant Laravel (corrigés) : garde JWT du package
+  `jwt-auth` incompatible Laravel 13 → écriture d'une garde custom
+  (`App\Auth\JwtGuard`) ; middleware d'auth par défaut de Laravel tente de rediriger
+  vers une route `login` web inexistante sur une 401 (au lieu de répondre en JSON) →
+  `redirectGuestsTo(fn () => null)` dans `bootstrap/app.php` pour forcer le JSON ;
+  pluralisation automatique d'Eloquent devine `education` (singulier) au lieu de la
+  vraie table `educations` → `$table` explicite ajouté sur les 13 modèles par sécurité,
+  pas seulement celui en défaut.
+- `packages/shared` reste en TypeScript, utilisé uniquement par `apps/web` désormais —
+  plus de génération de types partagée avec le backend (PHP), synchronisation manuelle
+  requise pour toute évolution d'enum.
 
 **Base de données de dev**
 
@@ -279,15 +331,12 @@ logique métier — controllers/services/DTO à écrire phase par phase)
 
 **Connu et à traiter plus tard**
 
-- **Hébergement de production non résolu** : l'hébergement mutualisé OVH prévu pour le
-  site (`jeuncy.com`, offre PRO) est PHP uniquement (confirmé dans le manager OVH,
-  aucun sélecteur de runtime Node.js) — `apps/api` (NestJS) ne peut pas y tourner tel
-  quel. `apps/web` (fichiers statiques après build) peut en revanche y être déployé
-  sans problème. Pistes à trancher : VPS/Public Cloud OVH, hébergeur Node.js dédié
-  (Railway/Render/Fly.io...), ou upgrade vers une offre OVH supportant Node.js
-- Prisma reste en v6.19 (v7 supprime le support de `package.json#prisma`, utilisé ici
-  pour pointer vers `/prisma/schema.prisma` — migration vers `prisma.config.ts` à
-  prévoir si besoin)
+- Déploiement réel sur l'hébergement OVH mutualisée PRO pas encore fait/documenté (accès
+  FTP disponibles, mais process de déploiement — build du frontend, upload PHP, config
+  `.env` prod, cron si besoin d'une queue — à définir en phase de mise en prod)
+- Le PDF final du CV (génération côté serveur) devra utiliser une lib PHP
+  (`barryvdh/laravel-dompdf` ou `spatie/browsershot` pressenties) — `@react-pdf/renderer`
+  ne fonctionne qu'en JS, reste utilisable uniquement côté client pour la prévisualisation
 - Logos `apps/web/public/logo/logo-light.png` et `logo-dark.png` sont les versions
   circulaires (badge) redimensionnées à 128×128 ; la version pleine avec tagline
   (`logo_jeuncy.png` à la racine, hors repo web) n'a pas encore d'usage assigné
