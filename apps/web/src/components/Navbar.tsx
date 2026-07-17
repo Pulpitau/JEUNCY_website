@@ -1,4 +1,5 @@
 import { Link, useNavigate } from 'react-router-dom';
+import { UserRole } from '@jeuncy/shared';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { useThemeStore } from '@/store/theme-store';
@@ -54,6 +55,14 @@ export function Navbar() {
           <ThemeToggle />
           {user ? (
             <>
+              {user.role === UserRole.CANDIDATE && (
+                <Link
+                  to="/profile"
+                  className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }))}
+                >
+                  Mon profil
+                </Link>
+              )}
               <span className="hidden font-inter text-sm text-muted-foreground sm:inline">
                 {user.email}
               </span>
