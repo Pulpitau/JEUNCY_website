@@ -8,6 +8,9 @@ use App\Models\Education;
 use App\Models\Experience;
 use App\Models\Skill;
 use App\Models\User;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class CandidateProfileService
 {
@@ -86,6 +89,56 @@ class CandidateProfileService
         $profile->skills()->sync($skillIds);
 
         return $profile->load('skills');
+    }
+
+    public function updatePhoto(User $user, UploadedFile $file): CandidateProfile
+    {
+        $profile = $this->requireProfile($user);
+
+        if ($profile->photo_url) {
+            $this->deleteStoredPhoto($profile->photo_url);
+        }
+
+        $filename = $profile->id.'-'.Str::uuid().'.'.$file->extension();
+        $path = $file->storeAs('photos', $filename, 'public');
+        $profile->update(['photo_url' => Storage::disk('public')->url($path)]);
+
+        return $profile->load(['experiences', 'educations', 'skills']);
+    }
+
+    public function removePhoto(User $user): CandidateProfile
+    {
+        $profile = $this->requireProfile($user);
+
+        if ($profile->photo_url) {
+            $this->deleteStoredPhoto($profile->photo_url);
+            $profile->update(['photo_url' => null]);
+        }
+
+        return $profile->load(['experiences', 'educations', 'skills']);
+    }
+
+    // Chemin absolu sur disque de la photo de profil, pour l'incorporer en base64
+    // dans le PDF du CV (voir CvService) sans dependre d'un aller-retour HTTP.
+    public function photoAbsolutePath(CandidateProfile $profile): ?string
+    {
+        if (! $profile->photo_url) {
+            return null;
+        }
+
+        return Storage::disk('public')->path($this->relativePhotoPath($profile->photo_url));
+    }
+
+    private function relativePhotoPath(string $photoUrl): string
+    {
+        $base = rtrim(Storage::disk('public')->url(''), '/').'/';
+
+        return Str::startsWith($photoUrl, $base) ? substr($photoUrl, strlen($base)) : $photoUrl;
+    }
+
+    private function deleteStoredPhoto(string $photoUrl): void
+    {
+        Storage::disk('public')->delete($this->relativePhotoPath($photoUrl));
     }
 
     public function requireProfile(User $user): CandidateProfile

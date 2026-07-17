@@ -5,6 +5,7 @@ use App\Http\Controllers\CandidateSkillController;
 use App\Http\Controllers\EducationController;
 use App\Http\Controllers\ExperienceController;
 use App\Http\Controllers\GeneratedCvController;
+use App\Http\Controllers\ProfilePhotoController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('candidate-profile')->middleware(['auth:api', 'role:CANDIDATE'])->group(function () {
@@ -21,6 +22,9 @@ Route::prefix('candidate-profile')->middleware(['auth:api', 'role:CANDIDATE'])->
     Route::delete('educations/{education}', [EducationController::class, 'destroy']);
 
     Route::put('skills', [CandidateSkillController::class, 'sync']);
+
+    Route::post('photo', [ProfilePhotoController::class, 'store']);
+    Route::delete('photo', [ProfilePhotoController::class, 'destroy']);
 
     Route::post('cv', [GeneratedCvController::class, 'store']);
     Route::get('cv', [GeneratedCvController::class, 'index']);

@@ -7,6 +7,8 @@ use App\Exceptions\ApiException;
 use App\Models\User;
 use App\Services\CandidateProfileService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class CandidateProfileServiceTest extends TestCase
@@ -146,5 +148,47 @@ class CandidateProfileServiceTest extends TestCase
         $profile = $this->service->syncSkills($user->fresh(), ['Vente']);
 
         $this->assertSame(['Vente'], $profile->skills->pluck('name')->all());
+    }
+
+    public function test_update_photo_stores_file_and_sets_photo_url(): void
+    {
+        Storage::fake('public');
+        $user = $this->makeUser();
+        $this->service->createForUser($user, ['first_name' => 'Léa', 'last_name' => 'Girard']);
+
+        $profile = $this->service->updatePhoto($user->fresh(), UploadedFile::fake()->create('photo.jpg', 100, 'image/jpeg'));
+
+        $this->assertNotNull($profile->photo_url);
+        $path = $this->service->photoAbsolutePath($profile);
+        $this->assertTrue(is_file($path));
+    }
+
+    public function test_update_photo_replaces_previous_file(): void
+    {
+        Storage::fake('public');
+        $user = $this->makeUser();
+        $this->service->createForUser($user, ['first_name' => 'Léa', 'last_name' => 'Girard']);
+
+        $first = $this->service->updatePhoto($user->fresh(), UploadedFile::fake()->create('a.jpg', 100, 'image/jpeg'));
+        $firstPath = $this->service->photoAbsolutePath($first);
+
+        $second = $this->service->updatePhoto($user->fresh(), UploadedFile::fake()->create('b.jpg', 100, 'image/jpeg'));
+
+        $this->assertFalse(is_file($firstPath));
+        $this->assertNotSame($first->photo_url, $second->photo_url);
+    }
+
+    public function test_remove_photo_clears_url_and_deletes_file(): void
+    {
+        Storage::fake('public');
+        $user = $this->makeUser();
+        $this->service->createForUser($user, ['first_name' => 'Léa', 'last_name' => 'Girard']);
+        $withPhoto = $this->service->updatePhoto($user->fresh(), UploadedFile::fake()->create('photo.jpg', 100, 'image/jpeg'));
+        $path = $this->service->photoAbsolutePath($withPhoto);
+
+        $profile = $this->service->removePhoto($user->fresh());
+
+        $this->assertNull($profile->photo_url);
+        $this->assertFalse(is_file($path));
     }
 }
