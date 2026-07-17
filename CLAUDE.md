@@ -329,16 +329,57 @@ logique métier — controllers/services/Form Requests à écrire phase par phas
 - Identifiants réels dans `apps/api/.env` (gitignored, jamais commité) — à régénérer/
   changer si le plan DEV Clever Cloud est abandonné plus tard
 
+**Phase 2 — profil + CV : terminée**
+
+- `apps/api` : CRUD complet du profil candidat (`App\Services\CandidateProfileService`)
+  — infos personnelles (création/mise à jour), expériences, formations, compétences
+  (sync par nom via `Skill::firstOrCreate`, dédoublonnage), chaque ressource imbriquée
+  (expérience/formation) vérifiée comme appartenant bien au profil de l'utilisateur
+  authentifié avant modification/suppression (`FORBIDDEN` sinon). Routes sous
+  `candidate-profile/*`, protégées par `auth:api` + `role:CANDIDATE`.
+- Génération de CV PDF côté serveur via **`barryvdh/laravel-dompdf`** (choix tranché en
+  phase 2, cf. note ci-dessous) : template Blade aux couleurs Jeuncy
+  (`resources/views/cv/template.blade.php`), PDF stocké sur le disque `public` (symlink
+  `storage:link`), historique des CV générés par profil (`GeneratedCv`,
+  `App\Services\CvService`). `@react-pdf/renderer` reste non utilisé pour l'instant : pas
+  d'aperçu live côté client avant génération, seulement le PDF final téléchargeable — à
+  réévaluer si le besoin d'une prévisualisation instantanée se confirme.
+- `apps/web` : page `/profile` (TanStack Query pour le fetch/cache + mutations, RHF/Zod
+  pour chaque formulaire), protégée par un nouveau composant `RequireAuth` (redirige vers
+  `/login` si non connecté, vers `/` si le rôle ne correspond pas), lien "Mon profil"
+  ajouté à la Navbar pour les candidats connectés. Composants découpés dans
+  `components/features/profile/` (`ProfileInfoForm`, `ExperienceSection`,
+  `EducationSection`, `SkillsSection`, `CvSection`).
+- 10 tests PHPUnit sur `CandidateProfileService`
+  (`apps/api/tests/Feature/CandidateProfileServiceTest.php`, 25/25 au total avec ceux
+  d'auth), plus **testé en conditions réelles contre la vraie base MySQL** (curl :
+  création/duplication/mise à jour de profil, CRUD expérience/formation avec garde
+  d'appartenance croisée entre deux comptes, sync de compétences, génération + téléchargement
+  de CV, 401/403) et **vérifié dans le navigateur** avec le compte de démo Léa Girard
+  (formulaires, ajout de compétence, génération de CV, light et dark mode).
+- Deux bugs latents découverts et corrigés pendant cette vérification (préexistants,
+  pas introduits par phase 2) : `apps/web/.env.example` documentait
+  `VITE_API_URL=http://localhost:3000` sans le préfixe `/api` qu'utilisent toutes les
+  routes Laravel (`bootstrap/app.php` préfixe automatiquement les routes `api.php`) —
+  cassait silencieusement tout appel API côté frontend tant qu'aucun `.env` local ne
+  corrigeait la valeur ; `packages/shared` était compilé en CommonJS (correctif fait en
+  phase 1 pour l'ancien backend NestJS, qui `require()`-ait le package), mais Vite/Rollup
+  ne sait pas analyser statiquement les ré-exports `export *` d'un module CJS et
+  refusait de builder dès qu'un import nommé (`UserRole`) traversait ce barrel — recompilé
+  en ESM (`"type": "module"` dans `packages/shared/package.json`), correct désormais
+  puisque `apps/api` (Laravel) n'est plus un consommateur JS de ce package.
+
 **Connu et à traiter plus tard**
 
 - Déploiement réel sur l'hébergement OVH mutualisée PRO pas encore fait/documenté (accès
   FTP disponibles, mais process de déploiement — build du frontend, upload PHP, config
   `.env` prod, cron si besoin d'une queue — à définir en phase de mise en prod)
-- Le PDF final du CV (génération côté serveur) devra utiliser une lib PHP
-  (`barryvdh/laravel-dompdf` ou `spatie/browsershot` pressenties) — `@react-pdf/renderer`
-  ne fonctionne qu'en JS, reste utilisable uniquement côté client pour la prévisualisation
+- Pas de prévisualisation client (`@react-pdf/renderer`) avant génération du CV — voir
+  note phase 2 ci-dessus
+- Pas d'upload de photo de profil (`photo_url` existe en base mais aucun endpoint dédié
+  n'a été écrit — hors scope phase 2, à faire si le besoin se confirme)
 - Logos `apps/web/public/logo/logo-light.png` et `logo-dark.png` sont les versions
   circulaires (badge) redimensionnées à 128×128 ; la version pleine avec tagline
   (`logo_jeuncy.png` à la racine, hors repo web) n'a pas encore d'usage assigné
 
-**Phase 2 — profil + CV : à faire**
+**Phase 3 — offres + paiement : à faire**
