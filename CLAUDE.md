@@ -409,4 +409,90 @@ logique métier — controllers/services/Form Requests à écrire phase par phas
   version pleine avec tagline (`logo_jeuncy.png` à la racine, hors repo web) n'a pas
   encore d'usage assigné
 
-**Phase 3 — offres + paiement : à faire**
+**Phase 3 — offres + paiement : terminée**
+
+- `apps/api` : profil entreprise (`CompanyService`) et profil CFA
+  (`CfaOrganizationService`), CRUD miroir de `CandidateProfileService` (show/
+  store/update, `COMPANY_NOT_FOUND`/`CFA_ORGANIZATION_NOT_FOUND` sinon).
+  Routes `company/*` (role `COMPANY`) et `cfa-organization/*` (role `CFA`).
+- CRUD des offres d'emploi (`JobOfferService`/`JobOfferController`, routes
+  `job-offers/*`, role `COMPANY,CFA`) : création en `DRAFT`/`payment_status
+PENDING`, l'appartenance à une `Company` OU un `CfaOrganization` (jamais les
+  deux) est déterminée côté service à partir du rôle de l'utilisateur —
+  jamais acceptée en entrée côté client. Garde d'appartenance
+  (`requireOwnedOffer`) réutilisée pour la mise à jour, l'archivage et le
+  paiement.
+- Recherche/consultation publique des offres (`PublicJobOfferController`,
+  routes `GET job-offers/search` et `GET job-offers/{id}`, sans
+  authentification) : uniquement les offres `PUBLISHED`, filtres mot-clé
+  (titre/description), type de contrat, ville, pagination (12/page). La page
+  `/offres/{id}` d'une offre non publiée renvoie `JOB_OFFER_NOT_FOUND` (404),
+  pas de fuite des brouillons d'un concurrent.
+- Paiement Stripe (`PaymentService`, `stripe/stripe-php`) : `POST
+job-offers/{id}/checkout` crée une session Stripe Checkout (montant fixe,
+  `STRIPE_JOB_OFFER_PRICE_CENTS`, 49,00 € par défaut) après avoir vérifié que
+  l'offre appartient à l'utilisateur et est encore en brouillon, et crée un
+  `Payment` local (`PENDING`, `stripe_session_id`). `POST stripe/webhook`
+  (hors `auth:api`, signature Stripe vérifiée à la place) traite
+  `checkout.session.completed` : marque le `Payment` `SUCCEEDED`, publie
+  l'offre (`status PUBLISHED`, `payment_status SUCCEEDED`, `published_at`),
+  et notifie l'utilisateur (`NotificationType::PAYMENT_SUCCEEDED`). La
+  logique métier du webhook (`markPaymentSucceeded`) est volontairement
+  isolée de la vérification de signature pour rester testable sans réseau.
+- `apps/web` : page `/organization` unique (formulaire entreprise avec SIRET
+  ou formulaire CFA selon `user.role`), tableau de bord `/mes-offres`
+  (création, édition, archivage, bouton "Publier (paiement)" qui redirige
+  vers Stripe Checkout), page publique `/offres` (recherche/filtre, état dans
+  l'URL via `useSearchParams`, pagination) et `/offres/:id` (détail). La
+  barre de recherche de la page d'accueil redirige désormais vers `/offres`.
+  `RequireAuth` accepte maintenant `role` sous forme de tableau
+  (`[UserRole.COMPANY, UserRole.CFA]`) en plus d'un rôle unique.
+- 17 tests PHPUnit sur les 4 nouveaux services (45/45 au total) : profil
+  entreprise/CFA (création, doublon refusé, mise à jour), offres (invariant
+  `company_id`/`cfa_organization_id`, garde d'appartenance croisée entre deux
+  entreprises, `requireOwnedDraftOffer` rejette une offre déjà publiée,
+  recherche publique ne renvoie que les offres publiées), et paiement
+  (`markPaymentSucceeded` publie l'offre et notifie, idempotent sur un même
+  événement Stripe rejoué, ignore une session inconnue).
+- **Testé en conditions réelles contre la vraie base MySQL** (curl) : création
+  de profils entreprise/CFA, création/mise à jour/archivage d'offres, garde
+  d'appartenance croisée (403), recherche publique avec filtres, offre en
+  brouillon invisible publiquement (404), guard de rôle (403 pour un
+  candidat), et **simulation du webhook via `tinker`** (création du `Payment`
+  puis `PaymentService::markPaymentSucceeded` directement, contournant
+  uniquement l'appel réseau à Stripe) pour valider l'effet complet — offre
+  publiée, paiement marqué réussi, notification créée — contre la vraie base.
+  **Vérifié dans le navigateur** : profil NexaTech pré-rempli, création et
+  édition d'une offre, recherche/détail publics, light et dark mode.
+- **Non testé contre le vrai Stripe** : aucune clé API disponible dans cet
+  environnement (`STRIPE_SECRET_KEY`/`STRIPE_WEBHOOK_SECRET` vides), même
+  limitation documentée que Google OAuth/Resend. Le endpoint de paiement
+  échoue proprement (500, message clair) faute de clé — vérifié que ça ne
+  casse pas le reste du contrôleur (voir bug corrigé ci-dessous). À tester
+  dès que des clés de test Stripe seront disponibles.
+- Bug réel découvert et corrigé pendant la vérification : `PaymentService`
+  construisait un `StripeClient` dès son constructeur, donc **le endpoint
+  webhook plantait aussi** faute de clé Stripe alors qu'il n'en a pourtant pas
+  besoin (`Stripe\Webhook::constructEvent` est un appel statique) — le client
+  Stripe est désormais construit à la demande (`stripe()`, appelée uniquement
+  par `createCheckoutSessionForOffer`), pas au constructeur du service.
+- `apps/api/.env.example` n'avait jamais été mis à jour depuis la bascule
+  NestJS → Laravel : il manquait `JWT_*`, `FRONTEND_URL`, `GOOGLE_*`,
+  `RESEND_*` en plus des nouvelles variables `STRIPE_*` — corrigé au passage
+  pour refléter les vraies variables consommées par `apps/api/.env`.
+
+**Connu et à traiter plus tard (phase 3)**
+
+- Paiement jamais vérifié contre le vrai Stripe (voir ci-dessus) — prévoir un
+  test avec de vraies clés de test (`sk_test_...`) et `stripe listen` avant la
+  mise en production.
+- Pas de liste des paiements/factures côté entreprise (le modèle `Payment`
+  existe et est peuplé, mais aucun endpoint ne l'expose encore côté
+  frontend).
+- Pas de gestion de l'expiration des offres (`status EXPIRED`, `expires_at`
+  existent en base mais rien ne les fait transitionner automatiquement —
+  prévoir une tâche planifiée en phase 6).
+- Pas encore de bouton "Postuler" sur le détail d'une offre publique : c'est
+  volontairement hors scope (phase 4 : candidatures).
+
+**Phase 4 — candidatures : à faire**
