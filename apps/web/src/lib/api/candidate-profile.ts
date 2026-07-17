@@ -129,6 +129,20 @@ export function syncSkills(names: string[]) {
   });
 }
 
+export function uploadProfilePhoto(file: File) {
+  const formData = new FormData();
+  formData.append('photo', file);
+
+  return apiRequest<CandidateProfile>('/candidate-profile/photo', {
+    method: 'POST',
+    body: formData,
+  });
+}
+
+export function removeProfilePhoto() {
+  return apiRequest<CandidateProfile>('/candidate-profile/photo', { method: 'DELETE' });
+}
+
 export function generateCv() {
   return apiRequest<GeneratedCv>('/candidate-profile/cv', { method: 'POST' });
 }

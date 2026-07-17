@@ -28,8 +28,11 @@ interface RequestOptions extends Omit<RequestInit, 'body'> {
 
 async function rawRequest(path: string, options: RequestOptions = {}): Promise<Response> {
   const { accessToken } = useAuthStore.getState();
+  const isFormData = options.body instanceof FormData;
   const headers = new Headers(options.headers);
-  if (options.body !== undefined) {
+  if (options.body !== undefined && !isFormData) {
+    // Pour FormData, ne jamais fixer Content-Type nous-memes : le navigateur doit
+    // generer la boundary multipart lui-meme, sinon la requete est mal formee.
     headers.set('Content-Type', 'application/json');
   }
   if (accessToken) {
@@ -40,7 +43,11 @@ async function rawRequest(path: string, options: RequestOptions = {}): Promise<R
     ...options,
     headers,
     credentials: 'include',
-    body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
+    body: isFormData
+      ? (options.body as FormData)
+      : options.body !== undefined
+        ? JSON.stringify(options.body)
+        : undefined,
   });
 }
 

@@ -7,6 +7,7 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { ProfileInfoForm } from '@/components/features/profile/ProfileInfoForm';
+import { ProfilePhotoUpload } from '@/components/features/profile/ProfilePhotoUpload';
 import { ExperienceSection } from '@/components/features/profile/ExperienceSection';
 import { EducationSection } from '@/components/features/profile/EducationSection';
 import { SkillsSection } from '@/components/features/profile/SkillsSection';
@@ -20,6 +21,8 @@ import {
   addEducation,
   deleteEducation,
   syncSkills,
+  uploadProfilePhoto,
+  removeProfilePhoto,
   generateCv,
   listGeneratedCvs,
 } from '@/lib/api/candidate-profile';
@@ -87,6 +90,14 @@ export function Profile() {
     mutationFn: syncSkills,
     onSuccess: invalidateProfile,
   });
+  const uploadPhotoMutation = useMutation({
+    mutationFn: uploadProfilePhoto,
+    onSuccess: invalidateProfile,
+  });
+  const removePhotoMutation = useMutation({
+    mutationFn: removeProfilePhoto,
+    onSuccess: invalidateProfile,
+  });
   const generateCvMutation = useMutation({
     mutationFn: generateCv,
     onSuccess: () => queryClient.invalidateQueries({ queryKey: CVS_QUERY_KEY }),
@@ -124,7 +135,18 @@ export function Profile() {
               : 'Crée ton profil pour commencer.'}
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="flex flex-col gap-6">
+          {profile && (
+            <ProfilePhotoUpload
+              photoUrl={profile.photo_url}
+              firstName={profile.first_name}
+              lastName={profile.last_name}
+              isUploading={uploadPhotoMutation.isPending}
+              isRemoving={removePhotoMutation.isPending}
+              onUpload={(file) => uploadPhotoMutation.mutateAsync(file)}
+              onRemove={() => removePhotoMutation.mutateAsync()}
+            />
+          )}
           <ProfileInfoForm
             profile={profile}
             isSubmitting={createMutation.isPending || updateMutation.isPending}
