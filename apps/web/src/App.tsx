@@ -10,6 +10,10 @@ import { ForgotPassword } from '@/pages/ForgotPassword';
 import { ResetPassword } from '@/pages/ResetPassword';
 import { AuthCallback } from '@/pages/AuthCallback';
 import { Profile } from '@/pages/Profile';
+import { OrganizationProfile } from '@/pages/OrganizationProfile';
+import { MyJobOffers } from '@/pages/MyJobOffers';
+import { JobOffers } from '@/pages/JobOffers';
+import { JobOfferDetail } from '@/pages/JobOfferDetail';
 
 export default function App() {
   return (
@@ -18,6 +22,8 @@ export default function App() {
       <div className="flex-1">
         <Routes>
           <Route path="/" element={<Home />} />
+          <Route path="/offres" element={<JobOffers />} />
+          <Route path="/offres/:id" element={<JobOfferDetail />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
@@ -28,6 +34,22 @@ export default function App() {
             element={
               <RequireAuth role={UserRole.CANDIDATE}>
                 <Profile />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/organization"
+            element={
+              <RequireAuth role={[UserRole.COMPANY, UserRole.CFA]}>
+                <OrganizationProfile />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/mes-offres"
+            element={
+              <RequireAuth role={[UserRole.COMPANY, UserRole.CFA]}>
+                <MyJobOffers />
               </RequireAuth>
             }
           />

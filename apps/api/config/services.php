@@ -29,6 +29,13 @@ return [
         'redirect' => env('GOOGLE_REDIRECT_URI'),
     ],
 
+    'stripe' => [
+        'secret' => env('STRIPE_SECRET_KEY'),
+        'webhook_secret' => env('STRIPE_WEBHOOK_SECRET'),
+        // Prix fixe (en centimes) de publication d'une offre d'emploi.
+        'job_offer_price_cents' => (int) env('STRIPE_JOB_OFFER_PRICE_CENTS', 4900),
+    ],
+
     'ses' => [
         'key' => env('AWS_ACCESS_KEY_ID'),
         'secret' => env('AWS_SECRET_ACCESS_KEY'),

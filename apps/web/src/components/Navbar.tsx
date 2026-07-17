@@ -8,7 +8,7 @@ import { logout as logoutRequest } from '@/lib/api/auth';
 import { cn } from '@/lib/utils';
 
 const NAV_LINKS = [
-  { label: 'Offres', href: '#offres' },
+  { label: 'Offres', href: '/offres' },
   { label: 'Entreprises', href: '#entreprises' },
   { label: 'CFA', href: '#cfa' },
 ];
@@ -40,15 +40,25 @@ export function Navbar() {
           className="hidden items-center gap-6 md:flex"
           aria-label="Navigation principale"
         >
-          {NAV_LINKS.map((link) => (
-            <a
-              key={link.href}
-              href={link.href}
-              className="font-inter text-sm font-medium text-foreground/80 transition-colors hover:text-foreground"
-            >
-              {link.label}
-            </a>
-          ))}
+          {NAV_LINKS.map((link) =>
+            link.href.startsWith('/') ? (
+              <Link
+                key={link.href}
+                to={link.href}
+                className="font-inter text-sm font-medium text-foreground/80 transition-colors hover:text-foreground"
+              >
+                {link.label}
+              </Link>
+            ) : (
+              <a
+                key={link.href}
+                href={link.href}
+                className="font-inter text-sm font-medium text-foreground/80 transition-colors hover:text-foreground"
+              >
+                {link.label}
+              </a>
+            ),
+          )}
         </nav>
 
         <div className="flex items-center gap-2">
@@ -62,6 +72,22 @@ export function Navbar() {
                 >
                   Mon profil
                 </Link>
+              )}
+              {(user.role === UserRole.COMPANY || user.role === UserRole.CFA) && (
+                <>
+                  <Link
+                    to="/organization"
+                    className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }))}
+                  >
+                    {user.role === UserRole.COMPANY ? 'Mon entreprise' : 'Mon CFA'}
+                  </Link>
+                  <Link
+                    to="/mes-offres"
+                    className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }))}
+                  >
+                    Mes offres
+                  </Link>
+                </>
               )}
               <span className="hidden font-inter text-sm text-muted-foreground sm:inline">
                 {user.email}
