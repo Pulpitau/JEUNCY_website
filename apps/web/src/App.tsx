@@ -15,6 +15,8 @@ import { MyJobOffers } from '@/pages/MyJobOffers';
 import { JobOffers } from '@/pages/JobOffers';
 import { JobOfferDetail } from '@/pages/JobOfferDetail';
 import { MyApplications } from '@/pages/MyApplications';
+import { MyVideoRooms } from '@/pages/MyVideoRooms';
+import { DemoRoom } from '@/pages/DemoRoom';
 
 export default function App() {
   return (
@@ -59,6 +61,15 @@ export default function App() {
             element={
               <RequireAuth role={UserRole.CANDIDATE}>
                 <MyApplications />
+              </RequireAuth>
+            }
+          />
+          <Route path="/demo/:roomId" element={<DemoRoom />} />
+          <Route
+            path="/mes-visios"
+            element={
+              <RequireAuth role={[UserRole.COMPANY, UserRole.CFA]}>
+                <MyVideoRooms />
               </RequireAuth>
             }
           />
