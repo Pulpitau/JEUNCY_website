@@ -492,7 +492,59 @@ job-offers/{id}/checkout` crée une session Stripe Checkout (montant fixe,
 - Pas de gestion de l'expiration des offres (`status EXPIRED`, `expires_at`
   existent en base mais rien ne les fait transitionner automatiquement —
   prévoir une tâche planifiée en phase 6).
-- Pas encore de bouton "Postuler" sur le détail d'une offre publique : c'est
-  volontairement hors scope (phase 4 : candidatures).
 
-**Phase 4 — candidatures : à faire**
+**Phase 4 — candidatures : terminée**
+
+- `apps/api` : candidature côté candidat (`ApplicationService::applyForUser`)
+  — nécessite un profil candidat existant, l'offre doit être `PUBLISHED`
+  (`JOB_OFFER_NOT_PUBLISHED` sinon), un seul essai par offre (contrainte
+  unique `candidate_profile_id`/`job_offer_id` en base + garde applicative,
+  `APPLICATION_ALREADY_EXISTS` sinon). Routes `POST/GET applications`, role
+  `CANDIDATE`.
+- Gestion côté entreprise/CFA : `GET job-offers/{id}/applications` (liste des
+  candidatures reçues, garde d'appartenance réutilisée de
+  `JobOfferService::requireOwnedOffer`) et `PATCH applications/{id}/status`
+  (transition vers `SEEN`/`INTERVIEW`/`ACCEPTED`/`REJECTED` — jamais `SENT`,
+  statut initial automatique, exclu de la validation). Routes role
+  `COMPANY,CFA`.
+- Notifications : le modèle `Notification` existait depuis la phase 1 (schéma
+  de données) mais n'avait ni service ni endpoint avant cette phase — ajout de
+  `NotificationService`/`NotificationController` (liste des 30 dernières,
+  marquer comme lu, tout marquer comme lu). Chaque candidature crée une
+  notification `NEW_APPLICATION` pour le propriétaire de l'offre ; chaque
+  changement de statut crée une notification `APPLICATION_STATUS_CHANGED`
+  pour le candidat.
+- `apps/web` : bouton "Postuler" sur `/offres/:id` (`ApplyToOfferSection`,
+  lettre de motivation facultative, visible uniquement pour un candidat
+  connecté, invite à se connecter sinon), page `/mes-candidatures` (suivi des
+  candidatures et de leur statut). Côté entreprise/CFA, un bouton "Voir les
+  candidatures" sur chaque offre publiée dans `/mes-offres` déplie la liste
+  des candidats avec un sélecteur de statut. Cloche de notifications dans la
+  Navbar (badge de compteur, panneau déroulant, rafraîchissement toutes les
+  30s, clic = marque comme lu + navigue vers le lien associé) visible pour
+  tout utilisateur connecté.
+- 11 tests PHPUnit sur les 2 nouveaux services (56/56 au total) : candidature
+  - notification au propriétaire, refus offre non publiée, refus de doublon,
+    garde d'appartenance croisée sur la liste et le changement de statut,
+    notification au candidat lors du changement de statut, marquage lu/tout
+    lu, garde sur une notification étrangère.
+- **Testé en conditions réelles contre la vraie base MySQL** (curl) : parcours
+  complet candidat → entreprise (candidature, doublon refusé, offre brouillon
+  refusée, liste des candidatures reçues, garde d'appartenance croisée 403,
+  changement de statut, statut `SENT` refusé en entrée 400) et vérifié via
+  `tinker` que la notification est bien créée. **Vérifié dans le navigateur**
+  avec les comptes de démo Léa Girard (candidate) et NexaTech (entreprise) :
+  candidature envoyée avec lettre de motivation depuis le détail d'offre,
+  visible dans "Mes candidatures", changement de statut depuis "Mes offres"
+  côté NexaTech, notification reçue et badge de la cloche mis à jour côté
+  Léa en quasi temps réel (rafraîchissement 30s ou changement de page).
+
+**Connu et à traiter plus tard (phase 4)**
+
+- Pas de suppression/annulation de candidature côté candidat (une fois
+  envoyée, elle ne peut être retirée).
+- Pas de notification email (Resend) en plus de la notification in-app — à
+  évaluer si le besoin se confirme, `MailService` existe déjà pour le socle
+  technique (reset de mot de passe).
+
+**Phase 5 — visioconférence : à faire**
