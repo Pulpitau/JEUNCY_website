@@ -14,6 +14,7 @@ import { OrganizationProfile } from '@/pages/OrganizationProfile';
 import { MyJobOffers } from '@/pages/MyJobOffers';
 import { JobOffers } from '@/pages/JobOffers';
 import { JobOfferDetail } from '@/pages/JobOfferDetail';
+import { MyApplications } from '@/pages/MyApplications';
 
 export default function App() {
   return (
@@ -50,6 +51,14 @@ export default function App() {
             element={
               <RequireAuth role={[UserRole.COMPANY, UserRole.CFA]}>
                 <MyJobOffers />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/mes-candidatures"
+            element={
+              <RequireAuth role={UserRole.CANDIDATE}>
+                <MyApplications />
               </RequireAuth>
             }
           />

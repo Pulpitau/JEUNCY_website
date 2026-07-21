@@ -71,6 +71,20 @@ class JobOfferService
         return $jobOffer;
     }
 
+    // Utilisateur (compte COMPANY ou CFA) proprietaire de l'offre, pour lui
+    // notifier une nouvelle candidature (voir ApplicationService).
+    public function ownerUser(JobOffer $jobOffer): ?User
+    {
+        if ($jobOffer->company_id) {
+            return $jobOffer->company?->user;
+        }
+        if ($jobOffer->cfa_organization_id) {
+            return $jobOffer->cfaOrganization?->user;
+        }
+
+        return null;
+    }
+
     private function isOwner(User $user, JobOffer $jobOffer): bool
     {
         return match ($user->role) {
