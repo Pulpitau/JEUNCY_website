@@ -618,4 +618,91 @@ job-offers/{id}/checkout` crée une session Stripe Checkout (montant fixe,
   automatique de connexion/déconnexion des participants via l'API Jitsi
   — hors scope pour une simple démo).
 
-**Phase 6 — admin + polish : à faire**
+**Phase 6 — admin + polish : terminée**
+
+- `apps/api` : `AdminService` + controllers `Admin/*` (`StatsController`,
+  `UserController`, `JobOfferController`, `PaymentController`,
+  `VideoRoomController`), routes `admin/*` (`auth:api` + `role:ADMIN`) :
+  - statistiques plateforme (`GET admin/stats`) : utilisateurs par rôle,
+    offres par statut, candidatures, paiements réussis/revenus, salles de
+    visio.
+  - modération des comptes (`GET admin/users` filtrable par rôle, `POST
+admin/users/{id}/suspend`/`reactivate`) : un admin ne peut pas se
+    suspendre lui-même (`CANNOT_SUSPEND_SELF`).
+  - modération des offres (`GET admin/job-offers` filtrable par statut,
+    `POST admin/job-offers/{id}/archive`) : archivage forcé sans
+    vérification de propriétaire, contrairement à
+    `JobOfferService::archiveForUser` réservé au propriétaire.
+  - supervision des paiements (`GET admin/payments` filtrable par statut,
+    lecture seule) et des visios (`GET admin/video-rooms` filtrable par
+    statut, `POST admin/video-rooms/{id}/end` sans vérification d'hôte).
+- Suspension de compte : migration `users.is_suspended` (boolean, défaut
+  `false`). Bloquée dans `AuthService` à la connexion par mot de passe, au
+  rafraîchissement de token et à la connexion Google OAuth (existant ou
+  associé), toutes via `assertNotSuspended()` (`ApiException
+ACCOUNT_SUSPENDED`, 403). Un access token déjà émis est **aussi** coupé
+  immédiatement dans `JwtGuard::user()` — pas besoin d'attendre son
+  expiration (15 min) pour qu'une suspension prenne effet.
+- Polish (items notés "à traiter plus tard" dans les phases précédentes) :
+  - `job-offers:expire` (`app/Console/Commands/ExpireJobOffers.php`) :
+    passe au statut `EXPIRED` les offres `PUBLISHED` dont `expires_at` est
+    dépassé. Planifiée quotidiennement via `bootstrap/app.php`
+    (`->withSchedule(...)`, nécessite un cron `schedule:run` côté
+    hébergement en production — non configuré dans cet environnement de
+    dev).
+  - `GET payments/mine` (`PaymentService::listOwn`, role `COMPANY,CFA`) :
+    historique des paiements de l'entreprise/CFA connecté(e), manquant
+    depuis la phase 3.
+- Compte de démo `admin@jeuncy.com` ajouté au seeder (même mot de passe
+  commun).
+- 26 tests PHPUnit supplémentaires (79/79 au total) :
+  `AdminServiceTest` (stats, filtres, garde anti-auto-suspension,
+  archivage/fin forcés ignorant la propriété/l'hôte), suspension dans
+  `AuthServiceTest` (login et refresh rejetés), `ExpireJobOffersCommandTest`
+  (offre expirée transitionnée, offre encore valide inchangée),
+  `PaymentServiceTest::test_list_own_returns_only_users_payments`.
+- **Testé en conditions réelles contre la vraie base MySQL** (curl) :
+  stats, suspension/réactivation, connexion refusée pour un compte
+  suspendu, accès coupé en cours de session sur un access token déjà émis
+  (`/auth/me` passe de 200 à 401 dès la suspension, sans attendre
+  l'expiration du token), garde anti-auto-suspension, modération d'offre,
+  listes paginées/filtrées (utilisateurs/offres/paiements/visios), fin
+  forcée d'une salle, garde de rôle (403 pour un compte non-admin) et
+  `payments/mine` (compte entreprise), commande d'expiration exécutée
+  manuellement (`php artisan job-offers:expire`) sur une offre à la date
+  backdatée.
+- `apps/web` : page `/admin` (`RequireAuth role={UserRole.ADMIN}`) —
+  tableau de bord à 5 onglets (boutons simples, pas de nouveau composant
+  `Tabs` shadcn ajouté pour une seule page) : Statistiques (grille de
+  cartes), Utilisateurs/Offres/Paiements/Visios (chacun : filtre par
+  statut/rôle, liste paginée via un composant `AdminPager` partagé,
+  actions de modération le cas échéant). Page `/mes-paiements`
+  (`RequireAuth role={[UserRole.COMPANY, UserRole.CFA]}`) : historique des
+  paiements. Liens "Administration" (rôle ADMIN) et "Paiements"
+  (COMPANY/CFA) ajoutés à la `Navbar`.
+- **Vérifié dans le navigateur** avec le compte de démo `admin@jeuncy.com`
+  : les 5 onglets du tableau de bord, suspension puis réactivation de
+  `contact@cafedeslices.example.com` (badge et bouton mis à jour en
+  place), archivage forcé de l'offre bénévole en brouillon, fin forcée
+  d'une salle de visio programmée (jamais démarrée par son hôte). Vérifié
+  aussi `/mes-paiements` avec le compte NexaTech (paiement de démo
+  affiché, badge "Réussi"), light et dark mode.
+
+**Connu et à traiter plus tard (phase 6)**
+
+- Planification réelle du cron Laravel (`schedule:run` toutes les
+  minutes) non configurée dans cet environnement de dev — à mettre en
+  place lors du déploiement en production (cron système ou tâche
+  planifiée de l'hébergeur).
+- Pas de remboursement Stripe depuis le back-office (le modèle `Payment`
+  a un statut `REFUNDED` mais aucune action ne le déclenche encore) — même
+  limitation que le reste de l'intégration Stripe, jamais testée contre
+  de vraies clés (voir phase 3).
+- Pas de rappel automatique avant une visio programmée, ni de suppression/
+  annulation de candidature côté candidat — reportés depuis les phases 4
+  et 5, toujours pas traités.
+- Les 6 phases du plan initial (`CLAUDE.md` section 11) sont maintenant
+  toutes terminées ; les items listés ici et dans les sections "connu et à
+  traiter plus tard" des phases précédentes constituent le backlog restant
+  avant une mise en production complète (voir aussi section "Connu et à
+  traiter plus tard" générale après la phase 3 pour le déploiement OVH).
