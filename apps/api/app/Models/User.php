@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 
-#[Fillable(['email', 'password_hash', 'google_id', 'role'])]
+#[Fillable(['email', 'password_hash', 'google_id', 'role', 'is_suspended'])]
 #[Hidden(['password_hash'])]
 class User extends Authenticatable
 {
@@ -20,6 +20,7 @@ class User extends Authenticatable
         return [
             'password_hash' => 'hashed',
             'role' => UserRole::class,
+            'is_suspended' => 'boolean',
         ];
     }
 

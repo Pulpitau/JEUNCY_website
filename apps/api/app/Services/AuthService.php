@@ -23,6 +23,8 @@ class AuthService
             throw new ApiException('INVALID_CREDENTIALS', 'Email ou mot de passe incorrect.', 401);
         }
 
+        $this->assertNotSuspended($user);
+
         return $user;
     }
 
@@ -60,6 +62,9 @@ class AuthService
         if (! $user) {
             throw new ApiException('INVALID_REFRESH_TOKEN', 'Session expirée, merci de te reconnecter.', 401);
         }
+        // Compte suspendu apres coup : on coupe le rafraichissement plutot que de
+        // laisser une session deja ouverte se prolonger indefiniment.
+        $this->assertNotSuspended($user);
 
         return $this->issueTokens($user);
     }
@@ -68,11 +73,14 @@ class AuthService
     {
         $existingByGoogleId = User::where('google_id', $googleId)->first();
         if ($existingByGoogleId) {
+            $this->assertNotSuspended($existingByGoogleId);
+
             return $existingByGoogleId;
         }
 
         $existingByEmail = User::where('email', $email)->first();
         if ($existingByEmail) {
+            $this->assertNotSuspended($existingByEmail);
             // Compte cree via email/mot de passe : on associe le compte Google.
             $existingByEmail->update(['google_id' => $googleId]);
 
@@ -116,5 +124,12 @@ class AuthService
         }
 
         $user->update(['password_hash' => $newPassword]);
+    }
+
+    private function assertNotSuspended(User $user): void
+    {
+        if ($user->is_suspended) {
+            throw new ApiException('ACCOUNT_SUSPENDED', 'Ce compte a été suspendu. Contacte le support Jeuncy.', 403);
+        }
     }
 }

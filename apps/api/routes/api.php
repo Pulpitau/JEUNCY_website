@@ -9,3 +9,4 @@ require __DIR__.'/api/payments.php';
 require __DIR__.'/api/applications.php';
 require __DIR__.'/api/notifications.php';
 require __DIR__.'/api/video-rooms.php';
+require __DIR__.'/api/admin.php';

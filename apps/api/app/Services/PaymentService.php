@@ -9,6 +9,7 @@ use App\Exceptions\ApiException;
 use App\Models\JobOffer;
 use App\Models\Payment;
 use App\Models\User;
+use Illuminate\Database\Eloquent\Collection;
 use Stripe\Exception\SignatureVerificationException;
 use Stripe\StripeClient;
 use Stripe\Webhook;
@@ -64,6 +65,13 @@ class PaymentService
         ]);
 
         return $session->url;
+    }
+
+    // Historique des paiements/factures de l'entreprise ou du CFA connecte (voir
+    // "connu et a traiter plus tard" phase 3 dans CLAUDE.md).
+    public function listOwn(User $user): Collection
+    {
+        return Payment::where('user_id', $user->id)->with('jobOffer')->latest()->get();
     }
 
     public function handleWebhook(string $payload, string $signature): void

@@ -88,4 +88,29 @@ class PaymentServiceTest extends TestCase
 
         $this->assertSame(0, Payment::count());
     }
+
+    public function test_list_own_returns_only_users_payments(): void
+    {
+        [$user] = $this->makeOfferAwaitingPayment();
+        $other = User::create(['email' => 'contact@cafedeslices.example.com', 'password_hash' => 'x', 'role' => UserRole::COMPANY]);
+        $this->app->make(CompanyService::class)->createForUser($other, ['name' => 'Café des Lices']);
+        $otherOffer = $this->jobOfferService->createForUser($other->fresh(), [
+            'title' => 'Serveur en saisonnier',
+            'description' => 'Rejoins notre équipe.',
+            'contract_type' => ContractType::SAISONNIER->value,
+        ]);
+        Payment::create([
+            'user_id' => $other->id,
+            'job_offer_id' => $otherOffer->id,
+            'amount_cents' => 4900,
+            'currency' => 'EUR',
+            'status' => PaymentStatus::PENDING,
+            'stripe_session_id' => 'cs_test_other',
+        ]);
+
+        $payments = $this->service->listOwn($user);
+
+        $this->assertCount(1, $payments);
+        $this->assertSame('cs_test_demo123', $payments->first()->stripe_session_id);
+    }
 }
