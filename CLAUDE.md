@@ -547,4 +547,75 @@ job-offers/{id}/checkout` crée une session Stripe Checkout (montant fixe,
   évaluer si le besoin se confirme, `MailService` existe déjà pour le socle
   technique (reset de mot de passe).
 
-**Phase 5 — visioconférence : à faire**
+**Phase 5 — visioconférence : terminée**
+
+- `apps/api` : `VideoRoomService` — création de salle (`jitsi_room_name`
+  généré via `Str::uuid()`, non devinable), résolution facultative d'un
+  participant par email (candidat existant, sinon `PARTICIPANT_NOT_FOUND`),
+  listing des salles pour un utilisateur (hôte OU participant, avec
+  `host`/`participant` chargés), démarrage/fin de salle réservés au hôte
+  (`requireHost` privé, 403 `FORBIDDEN` sinon). Routes `video-rooms/*`
+  (`VideoRoomController`, `auth:api` + `role:COMPANY,CFA,ADMIN`) : `index`/
+  `store`/`{id}/start`/`{id}/end`.
+- Consultation publique (`PublicVideoRoomController`, route
+  `GET video-rooms/room/{roomName}`, **sans authentification**, déclarée
+  avant le groupe protégé pour ne pas passer par `auth:api`) : renvoie un
+  payload volontairement minimal (`jitsi_room_name`, `status`,
+  `scheduled_at`) sans identité hôte/participant — décision proactive de
+  hygiène de données, le nom de salle UUID étant le seul mécanisme de
+  contrôle d'accès sur cet endpoint ouvert (nécessaire pour qu'un
+  prospect sans compte Jeuncy puisse rejoindre une démo).
+- 9 tests PHPUnit sur `VideoRoomService`
+  (`apps/api/tests/Feature/VideoRoomServiceTest.php`, 65/65 au total) :
+  création avec/sans participant, participant email inconnu rejeté,
+  salle publique introuvable/trouvée, démarrage/fin (statut + horodatage),
+  démarrage rejeté pour un non-hôte, listing hôte + participant.
+- **Testé en conditions réelles contre la vraie base MySQL** (curl) :
+  création de salle, listing, démarrage/fin, garde de rôle (403 pour un
+  candidat non hôte), consultation publique sans authentification.
+- `apps/web` : `JitsiRoom` (`components/features/video-rooms/`) —
+  wrapper de `@jitsi/react-sdk` sur l'instance publique `meet.jit.si`,
+  page de pré-connexion **native de Jitsi** (pas de formulaire custom,
+  choix de minimisation de scope), toolbar allégée avec le partage
+  d'écran en priorité (`configOverwrite`/`toolbarButtons`). Page publique
+  `/demo/:roomId` (`DemoRoom.tsx`, **hors `RequireAuth`** — un prospect
+  sans compte doit pouvoir rejoindre) : gère salle introuvable et salle
+  déjà terminée avant de monter le composant Jitsi. Tableau de bord
+  `/mes-visios` (`MyVideoRooms.tsx`, `RequireAuth`
+  `[UserRole.COMPANY, UserRole.CFA]`) : formulaire de création (email
+  participant + date facultatifs, RHF + Zod), liste des salles avec
+  badge de statut, lien d'invitation copiable (`/demo/{jitsi_room_name}`),
+  actions démarrer/terminer. Lien "Visio démo" ajouté à la `Navbar` pour
+  COMPANY/CFA, à côté de "Mon entreprise"/"Mes offres".
+- **Vérifié dans le navigateur** avec le compte de démo NexaTech
+  (`rh@nexatech.example.com`) : création d'une salle pour
+  `malik.benali@example.com` (apparaît immédiatement dans la liste),
+  démarrage puis fin de salle (statut `Programmée` → `En cours` →
+  `Terminée`, requêtes réseau confirmées), navigation vers
+  `/demo/{roomId}` qui récupère la salle publique et monte le composant
+  Jitsi (l'iframe a bien déclenché une demande d'accès caméra/micro,
+  preuve que `JitsiMeeting` s'est initialisé correctement — la capture
+  d'écran de cette étape précise n'a pas pu être prise, le bac à sable du
+  navigateur de développement restant bloqué sur cette permission ;
+  limite de l'environnement de vérification, pas un défaut de l'app,
+  confirmée via le texte de page et les requêtes réseau à la place).
+- Limites connues à documenter pour l'utilisateur (déjà énoncées en
+  section 7) : l'instance publique `meet.jit.si` ne permet pas de
+  branding complet (logo Jeuncy) ni l'enregistrement des sessions —
+  migration vers un self-hosting Jitsi via Docker envisageable en V2 si
+  le besoin se confirme.
+
+**Connu et à traiter plus tard (phase 5)**
+
+- Pas de rappel/notification automatique avant une visio programmée
+  (`scheduled_at` stocké mais rien ne notifie l'hôte/le participant à
+  l'approche de l'heure — prévoir une tâche planifiée en phase 6, comme
+  pour l'expiration des offres).
+- Pas de limite de durée de vie du lien d'invitation (`/demo/:roomId`
+  reste valide tant que la salle n'est pas marquée `ENDED` par l'hôte,
+  aucune expiration automatique côté serveur).
+- Statuts `LIVE`/`ENDED` gérés manuellement par l'hôte (pas de détection
+  automatique de connexion/déconnexion des participants via l'API Jitsi
+  — hors scope pour une simple démo).
+
+**Phase 6 — admin + polish : à faire**
