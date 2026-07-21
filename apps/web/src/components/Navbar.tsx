@@ -97,6 +97,12 @@ export function Navbar() {
                   >
                     Mes offres
                   </Link>
+                  <Link
+                    to="/mes-visios"
+                    className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }))}
+                  >
+                    Visio démo
+                  </Link>
                 </>
               )}
               <span className="hidden font-inter text-sm text-muted-foreground sm:inline">
