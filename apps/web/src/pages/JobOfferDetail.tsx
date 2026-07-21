@@ -11,6 +11,7 @@ import {
 } from '@/components/ui/card';
 import { getPublicOffer } from '@/lib/api/job-offers';
 import { ApiError } from '@/lib/api/client';
+import { ApplyToOfferSection } from '@/components/features/job-offers/ApplyToOfferSection';
 
 const CONTRACT_TYPE_LABELS: Record<string, string> = {
   [ContractType.ALTERNANCE]: 'Alternance',
@@ -82,6 +83,8 @@ export function JobOfferDetail() {
           <p className="whitespace-pre-line font-inter text-sm leading-relaxed text-foreground">
             {offer.description}
           </p>
+
+          <ApplyToOfferSection jobOfferId={offer.id} />
         </CardContent>
       </Card>
     </main>

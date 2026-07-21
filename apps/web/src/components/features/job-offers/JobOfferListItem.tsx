@@ -3,6 +3,7 @@ import { JobOfferStatus, ContractType } from '@jeuncy/shared';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { JobOfferForm } from '@/components/features/job-offers/JobOfferForm';
+import { ApplicationsForOfferSection } from '@/components/features/job-offers/ApplicationsForOfferSection';
 import type { JobOffer, JobOfferInput } from '@/lib/api/job-offers';
 
 const STATUS_LABELS: Record<string, string> = {
@@ -36,6 +37,7 @@ export function JobOfferListItem({
   isPublishing,
 }: JobOfferListItemProps) {
   const [isEditing, setIsEditing] = useState(false);
+  const [showApplications, setShowApplications] = useState(false);
 
   if (isEditing) {
     return (
@@ -111,7 +113,19 @@ export function JobOfferListItem({
             Archiver
           </Button>
         )}
+        {offer.status === JobOfferStatus.PUBLISHED && (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setShowApplications((current) => !current)}
+          >
+            {showApplications ? 'Masquer les candidatures' : 'Voir les candidatures'}
+          </Button>
+        )}
       </div>
+
+      {showApplications && <ApplicationsForOfferSection jobOfferId={offer.id} />}
     </div>
   );
 }

@@ -2,6 +2,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { UserRole } from '@jeuncy/shared';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { ThemeToggle } from '@/components/ThemeToggle';
+import { NotificationBell } from '@/components/NotificationBell';
 import { useThemeStore } from '@/store/theme-store';
 import { useAuthStore } from '@/store/auth-store';
 import { logout as logoutRequest } from '@/lib/api/auth';
@@ -63,15 +64,24 @@ export function Navbar() {
 
         <div className="flex items-center gap-2">
           <ThemeToggle />
+          {user && <NotificationBell />}
           {user ? (
             <>
               {user.role === UserRole.CANDIDATE && (
-                <Link
-                  to="/profile"
-                  className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }))}
-                >
-                  Mon profil
-                </Link>
+                <>
+                  <Link
+                    to="/profile"
+                    className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }))}
+                  >
+                    Mon profil
+                  </Link>
+                  <Link
+                    to="/mes-candidatures"
+                    className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }))}
+                  >
+                    Mes candidatures
+                  </Link>
+                </>
               )}
               {(user.role === UserRole.COMPANY || user.role === UserRole.CFA) && (
                 <>
