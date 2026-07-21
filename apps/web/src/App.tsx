@@ -17,6 +17,8 @@ import { JobOfferDetail } from '@/pages/JobOfferDetail';
 import { MyApplications } from '@/pages/MyApplications';
 import { MyVideoRooms } from '@/pages/MyVideoRooms';
 import { DemoRoom } from '@/pages/DemoRoom';
+import { Admin } from '@/pages/Admin';
+import { MyPayments } from '@/pages/MyPayments';
 
 export default function App() {
   return (
@@ -70,6 +72,22 @@ export default function App() {
             element={
               <RequireAuth role={[UserRole.COMPANY, UserRole.CFA]}>
                 <MyVideoRooms />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/admin"
+            element={
+              <RequireAuth role={UserRole.ADMIN}>
+                <Admin />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/mes-paiements"
+            element={
+              <RequireAuth role={[UserRole.COMPANY, UserRole.CFA]}>
+                <MyPayments />
               </RequireAuth>
             }
           />

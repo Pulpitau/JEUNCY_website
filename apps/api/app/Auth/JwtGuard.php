@@ -37,7 +37,14 @@ class JwtGuard implements Guard
             return null;
         }
 
-        return $this->user = User::find($payload->sub);
+        $user = User::find($payload->sub);
+        // Compte suspendu : on coupe l'acces immediatement, meme si l'access
+        // token (courte duree) reste valide encore quelques minutes.
+        if (! $user || $user->is_suspended) {
+            return null;
+        }
+
+        return $this->user = $user;
     }
 
     public function validate(array $credentials = []): bool

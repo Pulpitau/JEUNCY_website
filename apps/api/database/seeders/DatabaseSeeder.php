@@ -177,6 +177,12 @@ class DatabaseSeeder extends Seeder
             'scheduled_at' => now()->addDay(),
         ]);
 
+        User::create([
+            'email' => 'admin@jeuncy.com',
+            'password_hash' => self::DEMO_PASSWORD,
+            'role' => UserRole::ADMIN,
+        ]);
+
         $this->command->info('Seed terminé.');
         $this->command->info('Comptes de démo (mot de passe commun : '.self::DEMO_PASSWORD.') :');
         $this->command->info('- lea.girard@example.com (candidate)');
@@ -184,5 +190,6 @@ class DatabaseSeeder extends Seeder
         $this->command->info('- rh@nexatech.example.com (company)');
         $this->command->info('- contact@cafedeslices.example.com (company)');
         $this->command->info('- contact@cfa-sup-alternance.example.com (cfa)');
+        $this->command->info('- admin@jeuncy.com (admin)');
     }
 }

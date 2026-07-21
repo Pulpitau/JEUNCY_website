@@ -103,7 +103,21 @@ export function Navbar() {
                   >
                     Visio démo
                   </Link>
+                  <Link
+                    to="/mes-paiements"
+                    className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }))}
+                  >
+                    Paiements
+                  </Link>
                 </>
+              )}
+              {user.role === UserRole.ADMIN && (
+                <Link
+                  to="/admin"
+                  className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }))}
+                >
+                  Administration
+                </Link>
               )}
               <span className="hidden font-inter text-sm text-muted-foreground sm:inline">
                 {user.email}

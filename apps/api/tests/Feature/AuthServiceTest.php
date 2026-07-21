@@ -61,6 +61,26 @@ class AuthServiceTest extends TestCase
         $this->assertTrue($result->is($user));
     }
 
+    public function test_validate_credentials_rejects_suspended_account(): void
+    {
+        User::create([
+            'email' => 'lea@example.com', 'password_hash' => 'bonMotDePasse', 'role' => UserRole::CANDIDATE, 'is_suspended' => true,
+        ]);
+
+        $this->expectException(ApiException::class);
+        $this->authService->validateCredentials('lea@example.com', 'bonMotDePasse');
+    }
+
+    public function test_refresh_tokens_rejects_suspended_account(): void
+    {
+        $user = User::create(['email' => 'lea@example.com', 'password_hash' => 'x', 'role' => UserRole::CANDIDATE]);
+        $tokens = $this->authService->issueTokens($user);
+        $user->update(['is_suspended' => true]);
+
+        $this->expectException(ApiException::class);
+        $this->authService->refreshTokens($tokens['refreshToken']);
+    }
+
     public function test_register_refuses_duplicate_email(): void
     {
         User::create(['email' => 'lea@example.com', 'password_hash' => 'x', 'role' => UserRole::CANDIDATE]);
