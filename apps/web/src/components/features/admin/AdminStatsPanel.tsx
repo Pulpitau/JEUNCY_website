@@ -24,6 +24,14 @@ export function AdminStatsPanel() {
     return <p className="font-inter text-sm text-muted-foreground">Chargement…</p>;
   }
 
+  if (statsQuery.isError) {
+    return (
+      <p role="alert" className="font-inter text-sm text-destructive">
+        Impossible de charger les statistiques pour le moment, réessaie plus tard.
+      </p>
+    );
+  }
+
   const stats = statsQuery.data;
   if (!stats) return null;
 

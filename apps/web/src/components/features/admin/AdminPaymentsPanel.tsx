@@ -58,6 +58,10 @@ export function AdminPaymentsPanel() {
 
       {paymentsQuery.isLoading ? (
         <p className="font-inter text-sm text-muted-foreground">Chargement…</p>
+      ) : paymentsQuery.isError ? (
+        <p role="alert" className="font-inter text-sm text-destructive">
+          Impossible de charger les paiements pour le moment, réessaie plus tard.
+        </p>
       ) : payments.length === 0 ? (
         <p className="font-inter text-sm text-muted-foreground">Aucun paiement.</p>
       ) : (

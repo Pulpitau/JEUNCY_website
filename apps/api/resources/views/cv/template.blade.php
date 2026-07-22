@@ -183,6 +183,17 @@
                     </div>
                 @endif
 
+                @if($profile->software->isNotEmpty())
+                    <div class="section">
+                        <p class="section-heading">Logiciels</p>
+                        <ul class="bullet-list">
+                            @foreach($profile->software as $item)
+                                <li>{{ $item->name }}</li>
+                            @endforeach
+                        </ul>
+                    </div>
+                @endif
+
                 @if($profile->languages->isNotEmpty())
                     <div class="section">
                         <p class="section-heading">Langues</p>

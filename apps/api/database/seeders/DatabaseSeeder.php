@@ -11,6 +11,7 @@ use App\Enums\UserRole;
 use App\Enums\VideoRoomStatus;
 use App\Models\JobOffer;
 use App\Models\Skill;
+use App\Models\Software;
 use App\Models\User;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Str;
@@ -25,6 +26,10 @@ class DatabaseSeeder extends Seeder
         [$reactSkill, $nodeSkill, $salesSkill, $serviceSkill, $prospectionSkill, $typescriptSkill] = collect([
             'React', 'Node.js', 'Vente', 'Relation client', 'Prospection', 'TypeScript',
         ])->map(fn (string $name) => Skill::firstOrCreate(['name' => $name]))->all();
+
+        [$excelSoftware, $wordSoftware, $vsCodeSoftware, $figmaSoftware] = collect([
+            'Excel', 'Word', 'VS Code', 'Figma',
+        ])->map(fn (string $name) => Software::firstOrCreate(['name' => $name]))->all();
 
         $lea = User::create([
             'email' => 'lea.girard@example.com',
@@ -73,6 +78,7 @@ class DatabaseSeeder extends Seeder
             'description' => "Accueil et orientation des visiteurs\nDistribution de documentation commerciale\nRemontée des retours visiteurs à l'équipe organisatrice",
         ]);
         $leaProfile->skills()->attach([$salesSkill->id, $serviceSkill->id, $prospectionSkill->id]);
+        $leaProfile->software()->attach([$excelSoftware->id, $wordSoftware->id]);
 
         $malik = User::create([
             'email' => 'malik.benali@example.com',
@@ -113,6 +119,7 @@ class DatabaseSeeder extends Seeder
             'description' => "Développement de composants React pour un site vitrine client\nIntégration d'une API REST Node.js/Express\nCorrection de bugs et écriture de tests unitaires",
         ]);
         $malikProfile->skills()->attach([$reactSkill->id, $nodeSkill->id, $typescriptSkill->id]);
+        $malikProfile->software()->attach([$vsCodeSoftware->id, $figmaSoftware->id]);
 
         $nexatechUser = User::create([
             'email' => 'rh@nexatech.example.com',

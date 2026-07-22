@@ -24,6 +24,7 @@ class JwtService
             'sub' => $user->id,
             'email' => $user->email,
             'role' => $user->role->value,
+            'tv' => $user->token_version,
             'iat' => $now,
             'exp' => $now + config('jwt.ttl_minutes') * 60,
         ], config('jwt.secret'), 'HS256');
@@ -35,6 +36,7 @@ class JwtService
 
         return JWT::encode([
             'sub' => $user->id,
+            'tv' => $user->token_version,
             'iat' => $now,
             'exp' => $now + config('jwt.refresh_ttl_minutes') * 60,
         ], config('jwt.refresh_secret'), 'HS256');
@@ -57,19 +59,46 @@ class JwtService
         return JWT::encode([
             'sub' => $user->id,
             'purpose' => self::PASSWORD_RESET_PURPOSE,
+            // Empreinte du hash de mot de passe courant : rend le token a usage
+            // unique sans etat serveur a part — un reset reussi change
+            // password_hash, donc rejouer le meme token echoue ensuite car
+            // l'empreinte ne correspond plus (voir AuthService::resetPassword).
+            'pwd' => $this->passwordFingerprint($user),
             'iat' => $now,
             'exp' => $now + 3600,
         ], config('jwt.secret'), 'HS256');
     }
 
-    public function verifyPasswordResetToken(string $token): ?object
+    public function verifyPasswordResetToken(string $token, User $user): ?object
     {
         $decoded = $this->decode($token, config('jwt.secret'));
         if (! $decoded || ($decoded->purpose ?? null) !== self::PASSWORD_RESET_PURPOSE) {
             return null;
         }
 
+        if (($decoded->pwd ?? null) !== $this->passwordFingerprint($user)) {
+            return null;
+        }
+
         return $decoded;
+    }
+
+    // Lecture seule du "sub" avant de savoir quel utilisateur charger : la
+    // verification complete (verifyPasswordResetToken) a besoin du User pour
+    // recalculer l'empreinte du mot de passe.
+    public function decodeResetTokenSubject(string $token): ?int
+    {
+        $decoded = $this->decode($token, config('jwt.secret'));
+        if (! $decoded || ($decoded->purpose ?? null) !== self::PASSWORD_RESET_PURPOSE) {
+            return null;
+        }
+
+        return $decoded->sub ?? null;
+    }
+
+    private function passwordFingerprint(User $user): string
+    {
+        return substr(hash('sha256', $user->password_hash ?? ''), 0, 16);
     }
 
     private function decode(string $token, string $secret): ?object

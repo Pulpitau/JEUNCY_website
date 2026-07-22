@@ -60,8 +60,10 @@ class AuthController extends Controller
             ->cookie($this->makeRefreshCookie($tokens['refreshToken']));
     }
 
-    public function logout(): JsonResponse
+    public function logout(Request $request): JsonResponse
     {
+        $this->authService->logout($request->user());
+
         return response()
             ->json(['loggedOut' => true])
             ->cookie(Cookie::forget(self::REFRESH_COOKIE_NAME, self::REFRESH_COOKIE_PATH));

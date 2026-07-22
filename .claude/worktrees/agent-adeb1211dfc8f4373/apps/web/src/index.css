@@ -1,0 +1,75 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * Tokens semantiques (convention shadcn/ui) derives de l'identite Jeuncy.
+ * Fond/texte s'inversent entre light et dark ; corail/orange restent constants
+ * (voir CLAUDE.md section 2).
+ */
+:root {
+  --background: 60 17% 98%;
+  --foreground: 221 86% 17%;
+
+  --card: 0 0% 100%;
+  --card-foreground: 221 86% 17%;
+
+  --popover: 0 0% 100%;
+  --popover-foreground: 221 86% 17%;
+
+  --primary: 349 100% 59%;
+  --primary-foreground: 0 0% 100%;
+
+  --secondary: 26 100% 60%;
+  --secondary-foreground: 221 86% 17%;
+
+  --muted: 60 10% 94%;
+  --muted-foreground: 221 20% 40%;
+
+  --accent: 60 10% 94%;
+  --accent-foreground: 221 86% 17%;
+
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 0 0% 100%;
+
+  --border: 221 20% 88%;
+  --input: 221 20% 88%;
+  --ring: 349 100% 59%;
+
+  --radius: 0.5rem;
+}
+
+[data-theme='dark'] {
+  --background: 221 86% 17%;
+  --foreground: 60 17% 98%;
+
+  --card: 221 70% 22%;
+  --card-foreground: 60 17% 98%;
+
+  --popover: 221 70% 22%;
+  --popover-foreground: 60 17% 98%;
+
+  --primary: 349 100% 59%;
+  --primary-foreground: 0 0% 100%;
+
+  --secondary: 26 100% 60%;
+  --secondary-foreground: 221 86% 17%;
+
+  --muted: 221 40% 27%;
+  --muted-foreground: 60 10% 80%;
+
+  --accent: 221 40% 27%;
+  --accent-foreground: 60 17% 98%;
+
+  --destructive: 0 70% 55%;
+  --destructive-foreground: 0 0% 100%;
+
+  --border: 221 40% 30%;
+  --input: 221 40% 30%;
+  --ring: 349 100% 59%;
+}
+
+body {
+  margin: 0;
+  @apply bg-background text-foreground font-inter;
+}

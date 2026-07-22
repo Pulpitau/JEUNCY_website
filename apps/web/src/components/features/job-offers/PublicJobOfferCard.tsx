@@ -21,7 +21,7 @@ export function PublicJobOfferCard({ offer }: { offer: PublicJobOffer }) {
 
   return (
     <Link to={`/offres/${offer.id}`}>
-      <Card className="h-full transition-colors hover:border-primary">
+      <Card className="h-full transition-all duration-200 hover:-translate-y-1 hover:border-primary hover:shadow-lg">
         <CardHeader>
           <Badge variant="outline" className="w-fit">
             {CONTRACT_TYPE_LABELS[offer.contract_type]}

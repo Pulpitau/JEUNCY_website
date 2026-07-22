@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\CandidateProfileController;
 use App\Http\Controllers\CandidateSkillController;
+use App\Http\Controllers\CandidateSoftwareController;
 use App\Http\Controllers\CvImportController;
 use App\Http\Controllers\EducationController;
 use App\Http\Controllers\ExperienceController;
@@ -24,6 +25,7 @@ Route::prefix('candidate-profile')->middleware(['auth:api', 'role:CANDIDATE'])->
     Route::delete('educations/{education}', [EducationController::class, 'destroy']);
 
     Route::put('skills', [CandidateSkillController::class, 'sync']);
+    Route::put('software', [CandidateSoftwareController::class, 'sync']);
 
     Route::post('languages', [LanguageController::class, 'store']);
     Route::delete('languages/{language}', [LanguageController::class, 'destroy']);

@@ -39,8 +39,10 @@ class JwtGuard implements Guard
 
         $user = User::find($payload->sub);
         // Compte suspendu : on coupe l'acces immediatement, meme si l'access
-        // token (courte duree) reste valide encore quelques minutes.
-        if (! $user || $user->is_suspended) {
+        // token (courte duree) reste valide encore quelques minutes. Meme
+        // logique pour token_version : un logout ou un reset de mot de passe
+        // depuis l'emission de ce token le revoque immediatement.
+        if (! $user || $user->is_suspended || ($payload->tv ?? null) !== $user->token_version) {
             return null;
         }
 

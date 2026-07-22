@@ -33,6 +33,11 @@ export interface Language {
   level: string;
 }
 
+export interface Software {
+  id: number;
+  name: string;
+}
+
 export interface CandidateProfile {
   id: number;
   user_id: number;
@@ -52,6 +57,7 @@ export interface CandidateProfile {
   educations: Education[];
   skills: Skill[];
   languages: Language[];
+  software: Software[];
 }
 
 export interface GeneratedCv {
@@ -163,6 +169,13 @@ export function deleteLanguage(id: number) {
 
 export function syncSkills(names: string[]) {
   return apiRequest<CandidateProfile>('/candidate-profile/skills', {
+    method: 'PUT',
+    body: { names },
+  });
+}
+
+export function syncSoftware(names: string[]) {
+  return apiRequest<CandidateProfile>('/candidate-profile/software', {
     method: 'PUT',
     body: { names },
   });

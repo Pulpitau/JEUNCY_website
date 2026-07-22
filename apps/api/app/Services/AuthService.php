@@ -64,11 +64,26 @@ class AuthService
         if (! $user) {
             throw new ApiException('INVALID_REFRESH_TOKEN', 'Session expirée, merci de te reconnecter.', 401);
         }
+        // Le token porte la version au moment de son emission : si elle ne
+        // correspond plus (logout ou reset de mot de passe entre-temps), le
+        // refresh token est revoque meme s'il n'est pas encore expire.
+        if (($payload->tv ?? null) !== $user->token_version) {
+            throw new ApiException('INVALID_REFRESH_TOKEN', 'Session expirée, merci de te reconnecter.', 401);
+        }
         // Compte suspendu apres coup : on coupe le rafraichissement plutot que de
         // laisser une session deja ouverte se prolonger indefiniment.
         $this->assertNotSuspended($user);
 
         return $this->issueTokens($user);
+    }
+
+    // Incrementer token_version revoque immediatement tout access/refresh
+    // token deja emis pour ce compte (voir JwtGuard::user() et
+    // refreshTokens() ci-dessus) — les JWT sont stateless, sans ca rien ne
+    // permettait de faire expirer une session avant son terme naturel.
+    public function logout(User $user): void
+    {
+        $user->increment('token_version');
     }
 
     public function validateGoogleUser(string $googleId, string $email): User
@@ -117,17 +132,20 @@ class AuthService
 
     public function resetPassword(string $token, string $newPassword): void
     {
-        $payload = $this->jwtService->verifyPasswordResetToken($token);
-        if (! $payload) {
+        $subject = $this->jwtService->decodeResetTokenSubject($token);
+        $user = $subject ? User::find($subject) : null;
+        if (! $user || ! $this->jwtService->verifyPasswordResetToken($token, $user)) {
             throw new ApiException('INVALID_RESET_TOKEN', 'Ce lien de réinitialisation est invalide ou a expiré.', 401);
         }
 
-        $user = User::find($payload->sub);
-        if (! $user) {
-            throw new ApiException('INVALID_RESET_TOKEN', 'Ce lien de réinitialisation est invalide ou a expiré.', 401);
-        }
-
+        // token_version incremente au passage : un mot de passe reinitialise
+        // revoque aussi toute session (access/refresh token) deja ouverte.
+        // Deux appels distincts : token_version n'est volontairement pas dans
+        // le Fillable du modele (jamais modifiable par un client), donc
+        // update() l'ignorerait silencieusement — increment() le contourne,
+        // comme dans AuthService::logout().
         $user->update(['password_hash' => $newPassword]);
+        $user->increment('token_version');
     }
 
     private function assertNotSuspended(User $user): void

@@ -15,6 +15,15 @@ class User extends Authenticatable
 {
     protected $table = 'users';
 
+    // Le defaut DB (0) ne se reflete pas sur un modele fraichement cree en
+    // memoire (User::create() ne relit pas la ligne) : sans ca, un token emis
+    // juste apres l'inscription embarque tv=null alors qu'un rechargement
+    // depuis la base donne 0, faisant echouer la comparaison stricte dans
+    // JwtGuard/AuthService::refreshTokens des la premiere requete.
+    protected $attributes = [
+        'token_version' => 0,
+    ];
+
     protected function casts(): array
     {
         return [

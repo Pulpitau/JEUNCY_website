@@ -34,9 +34,15 @@ class JobOfferService
         ]);
     }
 
+    // Restreint au brouillon (comme le paiement, voir requireOwnedDraftOffer) :
+    // une fois publiee (payee), une offre ne doit plus pouvoir changer de
+    // contenu librement en gardant son statut/date de publication — le
+    // frontend ne montre deja le bouton "Modifier" que pour une offre en
+    // brouillon, cette restriction cote service ferme juste l'acces direct
+    // par API. Archiver puis recreer reste possible pour changer le contenu.
     public function updateForUser(User $user, JobOffer $jobOffer, array $data): JobOffer
     {
-        $jobOffer = $this->requireOwnedOffer($user, $jobOffer);
+        $jobOffer = $this->requireOwnedDraftOffer($user, $jobOffer);
         $jobOffer->update($data);
 
         return $jobOffer;
