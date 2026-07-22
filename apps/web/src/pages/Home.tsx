@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -17,17 +17,20 @@ const AUDIENCES = [
     description:
       'Crée ton profil, génère ton CV et postule aux offres qui te correspondent.',
     tag: 'Alternants & saisonniers',
+    anchor: '/a-propos#candidats',
   },
   {
     title: 'Entreprises',
     description:
       'Publie tes offres et gère tes candidatures depuis un seul tableau de bord.',
     tag: 'Recrutement',
+    anchor: '/a-propos#entreprises',
   },
   {
     title: 'CFA',
     description: 'Gère tes offres multi-filières et suis le placement de tes apprenants.',
     tag: 'Formation',
+    anchor: '/a-propos#cfa',
   },
 ];
 
@@ -92,9 +95,11 @@ export function Home() {
                 <CardDescription>{audience.description}</CardDescription>
               </CardHeader>
               <CardContent>
-                <Button variant="secondary" size="sm">
-                  En savoir plus
-                </Button>
+                <Link to={audience.anchor}>
+                  <Button variant="secondary" size="sm">
+                    En savoir plus
+                  </Button>
+                </Link>
               </CardContent>
             </Card>
           ))}

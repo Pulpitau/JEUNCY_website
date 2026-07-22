@@ -132,6 +132,11 @@ export function EducationSection({
                   aria-invalid={!!errors.start_date}
                   {...register('start_date')}
                 />
+                {errors.start_date && (
+                  <p role="alert" className="text-sm text-destructive">
+                    {errors.start_date.message}
+                  </p>
+                )}
               </div>
               <div className="flex flex-1 flex-col gap-1">
                 <Label htmlFor="edu-end">Fin</Label>

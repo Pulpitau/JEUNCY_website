@@ -22,8 +22,8 @@ class DatabaseSeeder extends Seeder
 
     public function run(): void
     {
-        [$reactSkill, $nodeSkill, $salesSkill, $serviceSkill] = collect([
-            'React', 'Node.js', 'Vente', 'Relation client',
+        [$reactSkill, $nodeSkill, $salesSkill, $serviceSkill, $prospectionSkill, $typescriptSkill] = collect([
+            'React', 'Node.js', 'Vente', 'Relation client', 'Prospection', 'TypeScript',
         ])->map(fn (string $name) => Skill::firstOrCreate(['name' => $name]))->all();
 
         $lea = User::create([
@@ -34,15 +34,27 @@ class DatabaseSeeder extends Seeder
         $leaProfile = $lea->candidateProfile()->create([
             'first_name' => 'Léa',
             'last_name' => 'Girard',
+            'headline' => 'Chargée de développement commercial en alternance',
             'phone' => '0612345678',
+            'birth_date' => '2003-04-12',
+            'address' => '12 rue de la Fosse',
             'city' => 'Nantes',
             'postal_code' => '44000',
-            'bio' => "Étudiante en BTS NDRC, à la recherche d'une alternance en développement commercial.",
+            'bio' => "Étudiante en BTS NDRC, à la recherche d'une alternance en développement commercial. Dynamique et à l'écoute, j'aime comprendre les besoins clients et proposer des solutions adaptées.",
+            'hobbies' => 'Photographie, football, lecture',
+            'driving_license' => 'B',
         ]);
+        $leaProfile->languages()->create(['name' => 'Anglais', 'level' => 'B2']);
         $leaProfile->educations()->create([
             'degree' => 'BTS Négociation et Digitalisation de la Relation Client',
             'school' => 'Lycée Livet',
             'start_date' => '2024-09-01',
+        ]);
+        $leaProfile->educations()->create([
+            'degree' => 'Baccalauréat général, spécialité SES',
+            'school' => 'Lycée Gabriel Guist\'hau',
+            'start_date' => '2021-09-01',
+            'end_date' => '2024-06-30',
         ]);
         $leaProfile->experiences()->create([
             'title' => 'Vendeuse saisonnière',
@@ -50,9 +62,17 @@ class DatabaseSeeder extends Seeder
             'location' => 'Nantes',
             'start_date' => '2023-06-01',
             'end_date' => '2023-08-31',
-            'description' => 'Accueil client, encaissement, mise en rayon.',
+            'description' => "Accueil et conseil personnalisé des clients en rayon\nGestion de l'encaissement et des retours produits\nMise en rayon et suivi des stocks",
         ]);
-        $leaProfile->skills()->attach([$salesSkill->id, $serviceSkill->id]);
+        $leaProfile->experiences()->create([
+            'title' => "Hôtesse d'accueil",
+            'company' => 'Salon Nantes Digital Week',
+            'location' => 'Nantes',
+            'start_date' => '2022-10-10',
+            'end_date' => '2022-10-12',
+            'description' => "Accueil et orientation des visiteurs\nDistribution de documentation commerciale\nRemontée des retours visiteurs à l'équipe organisatrice",
+        ]);
+        $leaProfile->skills()->attach([$salesSkill->id, $serviceSkill->id, $prospectionSkill->id]);
 
         $malik = User::create([
             'email' => 'malik.benali@example.com',
@@ -62,17 +82,37 @@ class DatabaseSeeder extends Seeder
         $malikProfile = $malik->candidateProfile()->create([
             'first_name' => 'Malik',
             'last_name' => 'Benali',
+            'headline' => 'Développeur web full-stack en alternance',
             'phone' => '0698765432',
+            'birth_date' => '2002-11-03',
+            'address' => '5 rue Saint-Melaine',
             'city' => 'Rennes',
             'postal_code' => '35000',
-            'bio' => 'Développeur en formation, en alternance dans le développement web.',
+            'bio' => "Développeur en formation, en alternance dans le développement web. Curieux et rigoureux, j'aime autant travailler le frontend que le backend et je continue à apprendre en dehors des cours.",
+            'hobbies' => 'Jeux vidéo, musculation, veille tech',
+            'driving_license' => 'B',
         ]);
+        $malikProfile->languages()->create(['name' => 'Anglais', 'level' => 'Courant']);
         $malikProfile->educations()->create([
             'degree' => 'Bachelor Développeur Web Full-Stack',
             'school' => 'CFA Sup Alternance',
             'start_date' => '2024-09-01',
         ]);
-        $malikProfile->skills()->attach([$reactSkill->id, $nodeSkill->id]);
+        $malikProfile->educations()->create([
+            'degree' => 'BUT Informatique, 1re année',
+            'school' => 'IUT de Rennes',
+            'start_date' => '2022-09-01',
+            'end_date' => '2023-06-30',
+        ]);
+        $malikProfile->experiences()->create([
+            'title' => 'Développeur web stagiaire',
+            'company' => 'Studio Kaolin',
+            'location' => 'Rennes',
+            'start_date' => '2024-01-08',
+            'end_date' => '2024-02-16',
+            'description' => "Développement de composants React pour un site vitrine client\nIntégration d'une API REST Node.js/Express\nCorrection de bugs et écriture de tests unitaires",
+        ]);
+        $malikProfile->skills()->attach([$reactSkill->id, $nodeSkill->id, $typescriptSkill->id]);
 
         $nexatechUser = User::create([
             'email' => 'rh@nexatech.example.com',
@@ -159,7 +199,7 @@ class DatabaseSeeder extends Seeder
 
         $nexatechUser->payments()->create([
             'job_offer_id' => $offreDev->id,
-            'amount_cents' => 4900,
+            'amount_cents' => 900,
             'status' => PaymentStatus::SUCCEEDED,
             'stripe_payment_intent_id' => 'pi_demo_seed_001',
         ]);

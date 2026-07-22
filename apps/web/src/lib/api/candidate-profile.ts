@@ -26,39 +26,60 @@ export interface Skill {
   name: string;
 }
 
+export interface Language {
+  id: number;
+  candidate_profile_id: number;
+  name: string;
+  level: string;
+}
+
 export interface CandidateProfile {
   id: number;
   user_id: number;
   first_name: string;
   last_name: string;
+  headline: string | null;
   phone: string | null;
   birth_date: string | null;
   address: string | null;
   city: string | null;
   postal_code: string | null;
   bio: string | null;
+  hobbies: string | null;
+  driving_license: string | null;
   photo_url: string | null;
   experiences: Experience[];
   educations: Education[];
   skills: Skill[];
+  languages: Language[];
 }
 
 export interface GeneratedCv {
   id: number;
   candidate_profile_id: number;
   file_url: string;
+  archived_at: string | null;
   generated_at: string;
+}
+
+export interface ImportedCvData {
+  email: string | null;
+  phone: string | null;
+  raw_text: string;
 }
 
 export interface CandidateProfileInput {
   first_name: string;
   last_name: string;
+  headline?: string | null;
   phone?: string | null;
   birth_date?: string | null;
   address?: string | null;
   city?: string | null;
   postal_code?: string | null;
   bio?: string | null;
+  hobbies?: string | null;
+  driving_license?: string | null;
 }
 
 export interface ExperienceInput {
@@ -76,6 +97,11 @@ export interface EducationInput {
   field_of_study?: string | null;
   start_date: string;
   end_date?: string | null;
+}
+
+export interface LanguageInput {
+  name: string;
+  level: string;
 }
 
 export function getMyProfile() {
@@ -122,6 +148,19 @@ export function deleteEducation(id: number) {
   });
 }
 
+export function addLanguage(input: LanguageInput) {
+  return apiRequest<Language>('/candidate-profile/languages', {
+    method: 'POST',
+    body: input,
+  });
+}
+
+export function deleteLanguage(id: number) {
+  return apiRequest<{ deleted: boolean }>(`/candidate-profile/languages/${id}`, {
+    method: 'DELETE',
+  });
+}
+
 export function syncSkills(names: string[]) {
   return apiRequest<CandidateProfile>('/candidate-profile/skills', {
     method: 'PUT',
@@ -149,4 +188,14 @@ export function generateCv() {
 
 export function listGeneratedCvs() {
   return apiRequest<GeneratedCv[]>('/candidate-profile/cv');
+}
+
+export function importCv(file: File) {
+  const formData = new FormData();
+  formData.append('cv', file);
+
+  return apiRequest<ImportedCvData>('/candidate-profile/cv/import', {
+    method: 'POST',
+    body: formData,
+  });
 }

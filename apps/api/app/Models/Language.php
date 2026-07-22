@@ -6,18 +6,12 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-#[Fillable(['candidate_profile_id', 'file_url', 'archived_at'])]
-class GeneratedCv extends Model
+#[Fillable(['candidate_profile_id', 'name', 'level'])]
+class Language extends Model
 {
-    protected $table = 'generated_cvs';
+    protected $table = 'languages';
 
-    // generated_at est peuplee par defaut MySQL (useCurrent() en migration).
     public $timestamps = false;
-
-    protected function casts(): array
-    {
-        return ['archived_at' => 'datetime'];
-    }
 
     public function candidateProfile(): BelongsTo
     {

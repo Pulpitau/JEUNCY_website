@@ -9,8 +9,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 #[Fillable([
-    'user_id', 'first_name', 'last_name', 'phone', 'birth_date',
-    'address', 'city', 'postal_code', 'bio', 'photo_url',
+    'user_id', 'first_name', 'last_name', 'headline', 'phone', 'birth_date',
+    'address', 'city', 'postal_code', 'bio', 'photo_url', 'hobbies', 'driving_license',
 ])]
 class CandidateProfile extends Model
 {
@@ -34,6 +34,11 @@ class CandidateProfile extends Model
     public function educations(): HasMany
     {
         return $this->hasMany(Education::class);
+    }
+
+    public function languages(): HasMany
+    {
+        return $this->hasMany(Language::class);
     }
 
     public function generatedCvs(): HasMany

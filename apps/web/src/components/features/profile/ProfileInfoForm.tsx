@@ -13,10 +13,15 @@ import type {
 const profileSchema = z.object({
   first_name: z.string().min(1, 'Le prénom est requis.'),
   last_name: z.string().min(1, 'Le nom est requis.'),
+  headline: z.string().optional().or(z.literal('')),
   phone: z.string().optional().or(z.literal('')),
+  birth_date: z.string().optional().or(z.literal('')),
+  address: z.string().optional().or(z.literal('')),
   city: z.string().optional().or(z.literal('')),
   postal_code: z.string().optional().or(z.literal('')),
   bio: z.string().optional().or(z.literal('')),
+  hobbies: z.string().optional().or(z.literal('')),
+  driving_license: z.string().optional().or(z.literal('')),
 });
 
 type ProfileFormValues = z.infer<typeof profileSchema>;
@@ -41,10 +46,15 @@ export function ProfileInfoForm({
     defaultValues: {
       first_name: profile?.first_name ?? '',
       last_name: profile?.last_name ?? '',
+      headline: profile?.headline ?? '',
       phone: profile?.phone ?? '',
+      birth_date: profile?.birth_date?.slice(0, 10) ?? '',
+      address: profile?.address ?? '',
       city: profile?.city ?? '',
       postal_code: profile?.postal_code ?? '',
       bio: profile?.bio ?? '',
+      hobbies: profile?.hobbies ?? '',
+      driving_license: profile?.driving_license ?? '',
     },
   });
 
@@ -52,10 +62,15 @@ export function ProfileInfoForm({
     await onSubmit({
       first_name: values.first_name,
       last_name: values.last_name,
+      headline: values.headline || null,
       phone: values.phone || null,
+      birth_date: values.birth_date || null,
+      address: values.address || null,
       city: values.city || null,
       postal_code: values.postal_code || null,
       bio: values.bio || null,
+      hobbies: values.hobbies || null,
+      driving_license: values.driving_license || null,
     });
   }
 
@@ -92,9 +107,30 @@ export function ProfileInfoForm({
             </p>
           )}
         </div>
+        <div className="flex flex-col gap-2 sm:col-span-2">
+          <Label htmlFor="headline">Titre professionnel</Label>
+          <Input
+            id="headline"
+            placeholder="Ex : Chargé de communication digitale"
+            {...register('headline')}
+          />
+        </div>
         <div className="flex flex-col gap-2">
           <Label htmlFor="phone">Téléphone</Label>
           <Input id="phone" autoComplete="tel" {...register('phone')} />
+        </div>
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="birth_date">Date de naissance</Label>
+          <Input
+            id="birth_date"
+            type="date"
+            autoComplete="bday"
+            {...register('birth_date')}
+          />
+        </div>
+        <div className="flex flex-col gap-2 sm:col-span-2">
+          <Label htmlFor="address">Adresse</Label>
+          <Input id="address" autoComplete="street-address" {...register('address')} />
         </div>
         <div className="flex flex-col gap-2">
           <Label htmlFor="city">Ville</Label>
@@ -108,11 +144,29 @@ export function ProfileInfoForm({
             {...register('postal_code')}
           />
         </div>
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="driving_license">Permis de conduire</Label>
+          <Input
+            id="driving_license"
+            placeholder="Ex : B"
+            {...register('driving_license')}
+          />
+        </div>
       </div>
 
       <div className="flex flex-col gap-2">
         <Label htmlFor="bio">Bio</Label>
         <Textarea id="bio" rows={4} {...register('bio')} />
+      </div>
+
+      <div className="flex flex-col gap-2">
+        <Label htmlFor="hobbies">Loisirs</Label>
+        <Textarea
+          id="hobbies"
+          rows={2}
+          placeholder="Ex : Photographie, football, lecture"
+          {...register('hobbies')}
+        />
       </div>
 
       <Button
