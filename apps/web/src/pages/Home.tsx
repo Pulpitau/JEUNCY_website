@@ -46,18 +46,21 @@ export function Home() {
   return (
     <main>
       <section className="mx-auto max-w-6xl px-4 py-20 text-center">
-        <Badge variant="secondary" className="mb-4">
+        <Badge
+          variant="secondary"
+          className="animate-in fade-in slide-in-from-bottom-2 mb-4 duration-500"
+        >
           Alternance · Saisonnier · Bénévolat
         </Badge>
-        <h1 className="font-poppins text-4xl font-bold tracking-tight text-foreground md:text-6xl">
+        <h1 className="animate-in fade-in slide-in-from-bottom-3 font-poppins text-4xl font-bold tracking-tight text-foreground duration-700 md:text-6xl">
           Ton alternance commence ici.
         </h1>
-        <p className="mx-auto mt-4 max-w-xl font-inter text-lg text-muted-foreground">
+        <p className="animate-in fade-in slide-in-from-bottom-3 mx-auto mt-4 max-w-xl font-inter text-lg text-muted-foreground duration-700 [animation-delay:100ms] [animation-fill-mode:backwards]">
           Jeuncy connecte les jeunes talents aux entreprises et CFA qui recrutent, sans
           detour.
         </p>
 
-        <div className="mx-auto mt-8 flex max-w-md flex-col gap-3 sm:flex-row">
+        <div className="animate-in fade-in slide-in-from-bottom-3 mx-auto mt-8 flex max-w-md flex-col gap-3 duration-700 [animation-delay:200ms] [animation-fill-mode:backwards] sm:flex-row">
           <Input
             placeholder="Quel métier recherches-tu ?"
             aria-label="Rechercher un métier"
@@ -75,7 +78,7 @@ export function Home() {
           </Button>
         </div>
 
-        <div className="mt-4 flex justify-center gap-3">
+        <div className="animate-in fade-in slide-in-from-bottom-3 mt-4 flex justify-center gap-3 duration-700 [animation-delay:300ms] [animation-fill-mode:backwards]">
           <Button variant="outline" onClick={() => navigate('/register')}>
             Je suis une entreprise
           </Button>
@@ -84,8 +87,12 @@ export function Home() {
 
       <section className="mx-auto max-w-6xl px-4 pb-20">
         <div className="grid gap-6 md:grid-cols-3">
-          {AUDIENCES.map((audience) => (
-            <Card key={audience.title}>
+          {AUDIENCES.map((audience, index) => (
+            <Card
+              key={audience.title}
+              className="animate-in fade-in slide-in-from-bottom-3 transition-all duration-300 [animation-fill-mode:backwards] hover:-translate-y-1 hover:shadow-lg"
+              style={{ animationDelay: `${index * 100}ms` }}
+            >
               <CardHeader>
                 <Badge variant="outline" className="w-fit">
                   {audience.tag}

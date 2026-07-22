@@ -57,13 +57,14 @@ export function NotificationBell() {
         <Bell className="h-5 w-5" />
         {unreadCount > 0 && (
           <span className="absolute right-1 top-1 flex h-4 w-4 items-center justify-center rounded-full bg-jeuncy-coral text-[10px] font-bold text-white">
-            {unreadCount > 9 ? '9+' : unreadCount}
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-jeuncy-coral opacity-75" />
+            <span className="relative">{unreadCount > 9 ? '9+' : unreadCount}</span>
           </span>
         )}
       </Button>
 
       {isOpen && (
-        <div className="absolute right-0 z-50 mt-2 w-80 rounded-md border border-border bg-popover shadow-lg">
+        <div className="animate-in slide-in-from-top-2 fade-in zoom-in-95 absolute right-0 z-50 mt-2 w-80 origin-top-right rounded-md border border-border bg-popover shadow-lg duration-150">
           <div className="flex items-center justify-between border-b border-border px-4 py-2">
             <p className="font-poppins text-sm font-medium">Notifications</p>
             {unreadCount > 0 && (
@@ -87,7 +88,7 @@ export function NotificationBell() {
                   key={notification.id}
                   type="button"
                   onClick={() => handleNotificationClick(notification)}
-                  className={`block w-full border-b border-border px-4 py-3 text-left font-inter text-sm last:border-b-0 hover:bg-accent ${
+                  className={`block w-full border-b border-border px-4 py-3 text-left font-inter text-sm transition-colors last:border-b-0 hover:bg-accent ${
                     notification.read
                       ? 'text-muted-foreground'
                       : 'font-medium text-foreground'
