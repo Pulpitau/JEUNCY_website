@@ -20,6 +20,8 @@ import { MyVideoRooms } from '@/pages/MyVideoRooms';
 import { DemoRoom } from '@/pages/DemoRoom';
 import { Admin } from '@/pages/Admin';
 import { MyPayments } from '@/pages/MyPayments';
+import { LegalNotice } from '@/pages/LegalNotice';
+import { PrivacyPolicy } from '@/pages/PrivacyPolicy';
 
 export default function App() {
   return (
@@ -93,6 +95,8 @@ export default function App() {
               </RequireAuth>
             }
           />
+          <Route path="/mentions-legales" element={<LegalNotice />} />
+          <Route path="/confidentialite" element={<PrivacyPolicy />} />
         </Routes>
       </div>
       <Footer />

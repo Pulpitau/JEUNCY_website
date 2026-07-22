@@ -55,17 +55,19 @@ export function Navbar() {
               <Link
                 key={link.href}
                 to={link.href}
-                className="font-inter text-sm font-medium text-foreground/80 transition-colors hover:text-foreground"
+                className="group relative font-inter text-sm font-medium text-foreground/80 transition-colors hover:text-foreground"
               >
                 {link.label}
+                <span className="absolute -bottom-1 left-0 h-0.5 w-0 rounded-full bg-jeuncy-gradient transition-all duration-300 group-hover:w-full" />
               </Link>
             ) : (
               <a
                 key={link.href}
                 href={link.href}
-                className="font-inter text-sm font-medium text-foreground/80 transition-colors hover:text-foreground"
+                className="group relative font-inter text-sm font-medium text-foreground/80 transition-colors hover:text-foreground"
               >
                 {link.label}
+                <span className="absolute -bottom-1 left-0 h-0.5 w-0 rounded-full bg-jeuncy-gradient transition-all duration-300 group-hover:w-full" />
               </a>
             ),
           )}
@@ -159,19 +161,23 @@ export function Navbar() {
 
           <button
             type="button"
-            className="inline-flex h-9 w-9 items-center justify-center rounded-md text-foreground md:hidden"
+            className="inline-flex h-9 w-9 items-center justify-center rounded-md text-foreground transition-transform active:scale-90 md:hidden"
             aria-label={isMobileMenuOpen ? 'Fermer le menu' : 'Ouvrir le menu'}
             aria-expanded={isMobileMenuOpen}
             onClick={() => setIsMobileMenuOpen((current) => !current)}
           >
-            {isMobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+            {isMobileMenuOpen ? (
+              <X className="h-6 w-6 animate-in zoom-in-50 duration-200" />
+            ) : (
+              <Menu className="h-6 w-6 animate-in zoom-in-50 duration-200" />
+            )}
           </button>
         </div>
       </div>
 
       {isMobileMenuOpen && (
         <nav
-          className="border-t border-border bg-background md:hidden"
+          className="animate-in slide-in-from-top-2 fade-in border-t border-border bg-background duration-200 md:hidden"
           aria-label="Navigation mobile"
         >
           <div className="flex flex-col gap-1 px-4 py-3">
@@ -181,7 +187,7 @@ export function Navbar() {
                   key={link.href}
                   to={link.href}
                   onClick={closeMobileMenu}
-                  className="rounded-md px-3 py-2 font-inter text-sm font-medium text-foreground/80 hover:bg-accent hover:text-foreground"
+                  className="rounded-md px-3 py-2 font-inter text-sm font-medium text-foreground/80 transition-colors hover:bg-accent hover:text-foreground"
                 >
                   {link.label}
                 </Link>
@@ -190,7 +196,7 @@ export function Navbar() {
                   key={link.href}
                   href={link.href}
                   onClick={closeMobileMenu}
-                  className="rounded-md px-3 py-2 font-inter text-sm font-medium text-foreground/80 hover:bg-accent hover:text-foreground"
+                  className="rounded-md px-3 py-2 font-inter text-sm font-medium text-foreground/80 transition-colors hover:bg-accent hover:text-foreground"
                 >
                   {link.label}
                 </a>
@@ -206,14 +212,14 @@ export function Navbar() {
                     <Link
                       to="/profile"
                       onClick={closeMobileMenu}
-                      className="rounded-md px-3 py-2 font-inter text-sm font-medium text-foreground/80 hover:bg-accent hover:text-foreground"
+                      className="rounded-md px-3 py-2 font-inter text-sm font-medium text-foreground/80 transition-colors hover:bg-accent hover:text-foreground"
                     >
                       Mon profil
                     </Link>
                     <Link
                       to="/mes-candidatures"
                       onClick={closeMobileMenu}
-                      className="rounded-md px-3 py-2 font-inter text-sm font-medium text-foreground/80 hover:bg-accent hover:text-foreground"
+                      className="rounded-md px-3 py-2 font-inter text-sm font-medium text-foreground/80 transition-colors hover:bg-accent hover:text-foreground"
                     >
                       Mes candidatures
                     </Link>
@@ -224,28 +230,28 @@ export function Navbar() {
                     <Link
                       to="/organization"
                       onClick={closeMobileMenu}
-                      className="rounded-md px-3 py-2 font-inter text-sm font-medium text-foreground/80 hover:bg-accent hover:text-foreground"
+                      className="rounded-md px-3 py-2 font-inter text-sm font-medium text-foreground/80 transition-colors hover:bg-accent hover:text-foreground"
                     >
                       {user.role === UserRole.COMPANY ? 'Mon entreprise' : 'Mon CFA'}
                     </Link>
                     <Link
                       to="/mes-offres"
                       onClick={closeMobileMenu}
-                      className="rounded-md px-3 py-2 font-inter text-sm font-medium text-foreground/80 hover:bg-accent hover:text-foreground"
+                      className="rounded-md px-3 py-2 font-inter text-sm font-medium text-foreground/80 transition-colors hover:bg-accent hover:text-foreground"
                     >
                       Mes offres
                     </Link>
                     <Link
                       to="/mes-visios"
                       onClick={closeMobileMenu}
-                      className="rounded-md px-3 py-2 font-inter text-sm font-medium text-foreground/80 hover:bg-accent hover:text-foreground"
+                      className="rounded-md px-3 py-2 font-inter text-sm font-medium text-foreground/80 transition-colors hover:bg-accent hover:text-foreground"
                     >
                       Visio démo
                     </Link>
                     <Link
                       to="/mes-paiements"
                       onClick={closeMobileMenu}
-                      className="rounded-md px-3 py-2 font-inter text-sm font-medium text-foreground/80 hover:bg-accent hover:text-foreground"
+                      className="rounded-md px-3 py-2 font-inter text-sm font-medium text-foreground/80 transition-colors hover:bg-accent hover:text-foreground"
                     >
                       Paiements
                     </Link>
@@ -255,7 +261,7 @@ export function Navbar() {
                   <Link
                     to="/admin"
                     onClick={closeMobileMenu}
-                    className="rounded-md px-3 py-2 font-inter text-sm font-medium text-foreground/80 hover:bg-accent hover:text-foreground"
+                    className="rounded-md px-3 py-2 font-inter text-sm font-medium text-foreground/80 transition-colors hover:bg-accent hover:text-foreground"
                   >
                     Administration
                   </Link>
@@ -277,7 +283,7 @@ export function Navbar() {
                 <Link
                   to="/login"
                   onClick={closeMobileMenu}
-                  className="rounded-md px-3 py-2 font-inter text-sm font-medium text-foreground/80 hover:bg-accent hover:text-foreground"
+                  className="rounded-md px-3 py-2 font-inter text-sm font-medium text-foreground/80 transition-colors hover:bg-accent hover:text-foreground"
                 >
                   Se connecter
                 </Link>
