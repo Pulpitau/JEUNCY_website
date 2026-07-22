@@ -121,6 +121,10 @@ export function JobOffers() {
 
       {offersQuery.isLoading ? (
         <p className="font-inter text-sm text-muted-foreground">Chargement…</p>
+      ) : offersQuery.isError ? (
+        <p role="alert" className="font-inter text-sm text-destructive">
+          Impossible de charger les offres pour le moment, réessaie plus tard.
+        </p>
       ) : offers.length === 0 ? (
         <p className="font-inter text-sm text-muted-foreground">
           Aucune offre ne correspond à ta recherche pour l'instant.

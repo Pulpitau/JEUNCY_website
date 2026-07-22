@@ -8,6 +8,7 @@ use App\Models\Education;
 use App\Models\Experience;
 use App\Models\Language;
 use App\Models\Skill;
+use App\Models\Software;
 use App\Models\User;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -17,7 +18,7 @@ class CandidateProfileService
 {
     public function getForUser(User $user): CandidateProfile
     {
-        return $this->requireProfile($user)->load(['experiences', 'educations', 'skills', 'languages']);
+        return $this->requireProfile($user)->load(['experiences', 'educations', 'skills', 'languages', 'software']);
     }
 
     public function createForUser(User $user, array $data): CandidateProfile
@@ -28,7 +29,7 @@ class CandidateProfileService
 
         $profile = $user->candidateProfile()->create($data);
 
-        return $profile->load(['experiences', 'educations', 'skills', 'languages']);
+        return $profile->load(['experiences', 'educations', 'skills', 'languages', 'software']);
     }
 
     public function updateForUser(User $user, array $data): CandidateProfile
@@ -36,7 +37,7 @@ class CandidateProfileService
         $profile = $this->requireProfile($user);
         $profile->update($data);
 
-        return $profile->load(['experiences', 'educations', 'skills', 'languages']);
+        return $profile->load(['experiences', 'educations', 'skills', 'languages', 'software']);
     }
 
     public function addExperience(User $user, array $data): Experience
@@ -103,6 +104,21 @@ class CandidateProfileService
         return $profile->load('skills');
     }
 
+    public function syncSoftware(User $user, array $names): CandidateProfile
+    {
+        $profile = $this->requireProfile($user);
+
+        $softwareIds = collect($names)
+            ->map(fn (string $name) => trim($name))
+            ->filter()
+            ->unique()
+            ->map(fn (string $name) => Software::firstOrCreate(['name' => $name])->id);
+
+        $profile->software()->sync($softwareIds);
+
+        return $profile->load('software');
+    }
+
     public function updatePhoto(User $user, UploadedFile $file): CandidateProfile
     {
         $profile = $this->requireProfile($user);
@@ -115,7 +131,7 @@ class CandidateProfileService
         $path = $file->storeAs('photos', $filename, 'public');
         $profile->update(['photo_url' => Storage::disk('public')->url($path)]);
 
-        return $profile->load(['experiences', 'educations', 'skills', 'languages']);
+        return $profile->load(['experiences', 'educations', 'skills', 'languages', 'software']);
     }
 
     public function removePhoto(User $user): CandidateProfile
@@ -127,7 +143,7 @@ class CandidateProfileService
             $profile->update(['photo_url' => null]);
         }
 
-        return $profile->load(['experiences', 'educations', 'skills', 'languages']);
+        return $profile->load(['experiences', 'educations', 'skills', 'languages', 'software']);
     }
 
     // Chemin absolu sur disque de la photo de profil, pour l'incorporer en base64

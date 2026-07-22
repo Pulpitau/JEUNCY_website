@@ -1,0 +1,12 @@
+<?php
+
+require __DIR__.'/api/auth.php';
+require __DIR__.'/api/candidate-profile.php';
+require __DIR__.'/api/company.php';
+require __DIR__.'/api/cfa-organization.php';
+require __DIR__.'/api/job-offers.php';
+require __DIR__.'/api/payments.php';
+require __DIR__.'/api/applications.php';
+require __DIR__.'/api/notifications.php';
+require __DIR__.'/api/video-rooms.php';
+require __DIR__.'/api/admin.php';

@@ -17,7 +17,7 @@ class CvService
     public function generate(User $user): GeneratedCv
     {
         $profile = $this->profileService->requireProfile($user)
-            ->load(['user', 'experiences', 'educations', 'skills', 'languages']);
+            ->load(['user', 'experiences', 'educations', 'skills', 'languages', 'software']);
 
         $pdf = Pdf::loadView('cv.template', [
             'profile' => $profile,
@@ -123,6 +123,7 @@ class CvService
             + ($profile->educations->count() * 1.5)
             + ($profile->skills->count() * 0.3)
             + ($profile->languages->count() * 0.3)
+            + ($profile->software->count() * 0.3)
             + ($profile->bio ? 1.5 : 0)
             + ($profile->hobbies ? 1 : 0);
 

@@ -59,6 +59,10 @@ export function AdminUsersPanel() {
 
       {usersQuery.isLoading ? (
         <p className="font-inter text-sm text-muted-foreground">Chargement…</p>
+      ) : usersQuery.isError ? (
+        <p role="alert" className="font-inter text-sm text-destructive">
+          Impossible de charger les utilisateurs pour le moment, réessaie plus tard.
+        </p>
       ) : users.length === 0 ? (
         <p className="font-inter text-sm text-muted-foreground">Aucun utilisateur.</p>
       ) : (

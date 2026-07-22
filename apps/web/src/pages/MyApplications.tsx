@@ -47,6 +47,10 @@ export function MyApplications() {
 
       {applicationsQuery.isLoading ? (
         <p className="font-inter text-sm text-muted-foreground">Chargement…</p>
+      ) : applicationsQuery.isError ? (
+        <p role="alert" className="font-inter text-sm text-destructive">
+          Impossible de charger tes candidatures pour le moment, réessaie plus tard.
+        </p>
       ) : applications.length === 0 ? (
         <p className="font-inter text-sm text-muted-foreground">
           Tu n'as pas encore postulé à une offre.{' '}

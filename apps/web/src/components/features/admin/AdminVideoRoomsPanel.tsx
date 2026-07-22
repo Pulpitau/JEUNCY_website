@@ -55,6 +55,10 @@ export function AdminVideoRoomsPanel() {
 
       {roomsQuery.isLoading ? (
         <p className="font-inter text-sm text-muted-foreground">Chargement…</p>
+      ) : roomsQuery.isError ? (
+        <p role="alert" className="font-inter text-sm text-destructive">
+          Impossible de charger les salles de visio pour le moment, réessaie plus tard.
+        </p>
       ) : rooms.length === 0 ? (
         <p className="font-inter text-sm text-muted-foreground">Aucune salle.</p>
       ) : (

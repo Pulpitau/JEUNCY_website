@@ -150,6 +150,28 @@ class CandidateProfileServiceTest extends TestCase
         $this->assertSame(['Vente'], $profile->skills->pluck('name')->all());
     }
 
+    public function test_sync_software_deduplicates_and_reuses_existing_software(): void
+    {
+        $user = $this->makeUser();
+        $this->service->createForUser($user, ['first_name' => 'Léa', 'last_name' => 'Girard']);
+
+        $profile = $this->service->syncSoftware($user->fresh(), ['WordPress', 'Excel', 'wordpress']);
+
+        $this->assertGreaterThanOrEqual(2, $profile->software->count());
+        $this->assertTrue($profile->software->pluck('name')->contains('Excel'));
+    }
+
+    public function test_sync_software_removes_software_not_in_new_list(): void
+    {
+        $user = $this->makeUser();
+        $this->service->createForUser($user, ['first_name' => 'Léa', 'last_name' => 'Girard']);
+        $this->service->syncSoftware($user->fresh(), ['WordPress', 'Excel']);
+
+        $profile = $this->service->syncSoftware($user->fresh(), ['Excel']);
+
+        $this->assertSame(['Excel'], $profile->software->pluck('name')->all());
+    }
+
     public function test_update_photo_stores_file_and_sets_photo_url(): void
     {
         Storage::fake('public');

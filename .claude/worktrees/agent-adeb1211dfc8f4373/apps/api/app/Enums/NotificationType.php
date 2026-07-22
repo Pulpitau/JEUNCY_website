@@ -1,0 +1,12 @@
+<?php
+
+namespace App\Enums;
+
+enum NotificationType: string
+{
+    case NEW_APPLICATION = 'NEW_APPLICATION';
+    case APPLICATION_STATUS_CHANGED = 'APPLICATION_STATUS_CHANGED';
+    case PAYMENT_SUCCEEDED = 'PAYMENT_SUCCEEDED';
+    case VIDEO_ROOM_INVITE = 'VIDEO_ROOM_INVITE';
+    case JOB_OFFER_EXPIRING = 'JOB_OFFER_EXPIRING';
+}

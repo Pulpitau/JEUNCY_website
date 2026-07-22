@@ -55,4 +55,9 @@ class CandidateProfile extends Model
     {
         return $this->belongsToMany(Skill::class, 'candidate_skills');
     }
+
+    public function software(): BelongsToMany
+    {
+        return $this->belongsToMany(Software::class, 'candidate_software');
+    }
 }

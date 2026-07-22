@@ -12,6 +12,7 @@ import { ExperienceSection } from '@/components/features/profile/ExperienceSecti
 import { EducationSection } from '@/components/features/profile/EducationSection';
 import { LanguagesSection } from '@/components/features/profile/LanguagesSection';
 import { SkillsSection } from '@/components/features/profile/SkillsSection';
+import { SoftwareSection } from '@/components/features/profile/SoftwareSection';
 import { CvSection } from '@/components/features/profile/CvSection';
 import { ImportCvSection } from '@/components/features/profile/ImportCvSection';
 import {
@@ -25,6 +26,7 @@ import {
   addLanguage,
   deleteLanguage,
   syncSkills,
+  syncSoftware,
   uploadProfilePhoto,
   removeProfilePhoto,
   generateCv,
@@ -101,6 +103,10 @@ export function Profile() {
   });
   const syncSkillsMutation = useMutation({
     mutationFn: syncSkills,
+    onSuccess: invalidateProfile,
+  });
+  const syncSoftwareMutation = useMutation({
+    mutationFn: syncSoftware,
     onSuccess: invalidateProfile,
   });
   const uploadPhotoMutation = useMutation({
@@ -234,6 +240,19 @@ export function Profile() {
                 skills={profile.skills}
                 isSubmitting={syncSkillsMutation.isPending}
                 onSync={(names) => syncSkillsMutation.mutateAsync(names)}
+              />
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Logiciels</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <SoftwareSection
+                software={profile.software}
+                isSubmitting={syncSoftwareMutation.isPending}
+                onSync={(names) => syncSoftwareMutation.mutateAsync(names)}
               />
             </CardContent>
           </Card>

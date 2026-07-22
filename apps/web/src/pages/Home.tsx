@@ -79,7 +79,6 @@ export function Home() {
           <Button variant="outline" onClick={() => navigate('/register')}>
             Je suis une entreprise
           </Button>
-          <Button variant="ghost">Voir la démo</Button>
         </div>
       </section>
 

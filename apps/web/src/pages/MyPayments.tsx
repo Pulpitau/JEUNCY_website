@@ -39,6 +39,10 @@ export function MyPayments() {
 
       {paymentsQuery.isLoading ? (
         <p className="font-inter text-sm text-muted-foreground">Chargement…</p>
+      ) : paymentsQuery.isError ? (
+        <p role="alert" className="font-inter text-sm text-destructive">
+          Impossible de charger tes paiements pour le moment, réessaie plus tard.
+        </p>
       ) : payments.length === 0 ? (
         <p className="font-inter text-sm text-muted-foreground">
           Aucun paiement pour l'instant.

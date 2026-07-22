@@ -162,4 +162,38 @@ class AuthServiceTest extends TestCase
 
         $this->assertTrue(Hash::check('nouveauMotDePasse', $user->fresh()->password_hash));
     }
+
+    public function test_reset_password_rejects_replay_of_already_used_token(): void
+    {
+        $user = User::create(['email' => 'lea@example.com', 'password_hash' => 'x', 'role' => UserRole::CANDIDATE]);
+        $token = $this->app->make(JwtService::class)->issuePasswordResetToken($user);
+
+        $this->authService->resetPassword($token, 'nouveauMotDePasse');
+
+        $this->expectException(ApiException::class);
+        $this->authService->resetPassword($token, 'unAutreMotDePasse');
+    }
+
+    public function test_reset_password_revokes_existing_sessions(): void
+    {
+        $user = User::create(['email' => 'lea@example.com', 'password_hash' => 'x', 'role' => UserRole::CANDIDATE]);
+        $tokens = $this->authService->issueTokens($user);
+        $resetToken = $this->app->make(JwtService::class)->issuePasswordResetToken($user);
+
+        $this->authService->resetPassword($resetToken, 'nouveauMotDePasse');
+
+        $this->expectException(ApiException::class);
+        $this->authService->refreshTokens($tokens['refreshToken']);
+    }
+
+    public function test_logout_revokes_existing_refresh_token(): void
+    {
+        $user = User::create(['email' => 'lea@example.com', 'password_hash' => 'x', 'role' => UserRole::CANDIDATE]);
+        $tokens = $this->authService->issueTokens($user);
+
+        $this->authService->logout($user);
+
+        $this->expectException(ApiException::class);
+        $this->authService->refreshTokens($tokens['refreshToken']);
+    }
 }

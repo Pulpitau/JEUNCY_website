@@ -85,6 +85,16 @@ class JobOfferServiceTest extends TestCase
         $this->service->updateForUser($intruder, $offer, ['title' => 'Hack']);
     }
 
+    public function test_update_rejects_already_published_offer(): void
+    {
+        $owner = $this->makeCompanyUser();
+        $offer = $this->service->createForUser($owner, $this->offerPayload());
+        $offer->update(['status' => JobOfferStatus::PUBLISHED]);
+
+        $this->expectException(ApiException::class);
+        $this->service->updateForUser($owner->fresh(), $offer, ['title' => 'Nouveau titre']);
+    }
+
     public function test_archive_sets_status_archived(): void
     {
         $owner = $this->makeCompanyUser();
