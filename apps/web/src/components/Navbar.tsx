@@ -10,8 +10,9 @@ import { cn } from '@/lib/utils';
 
 const NAV_LINKS = [
   { label: 'Offres', href: '/offres' },
-  { label: 'Entreprises', href: '#entreprises' },
-  { label: 'CFA', href: '#cfa' },
+  { label: 'Entreprises', href: '/a-propos#entreprises' },
+  { label: 'CFA', href: '/a-propos#cfa' },
+  { label: 'À propos', href: '/a-propos' },
 ];
 
 export function Navbar() {

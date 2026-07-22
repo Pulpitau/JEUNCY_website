@@ -16,12 +16,15 @@ class StoreCandidateProfileRequest extends FormRequest
         return [
             'first_name' => ['required', 'string', 'max:255'],
             'last_name' => ['required', 'string', 'max:255'],
+            'headline' => ['nullable', 'string', 'max:255'],
             'phone' => ['nullable', 'string', 'max:20'],
             'birth_date' => ['nullable', 'date'],
             'address' => ['nullable', 'string', 'max:255'],
             'city' => ['nullable', 'string', 'max:255'],
             'postal_code' => ['nullable', 'string', 'max:10'],
             'bio' => ['nullable', 'string', 'max:2000'],
+            'hobbies' => ['nullable', 'string', 'max:500'],
+            'driving_license' => ['nullable', 'string', 'max:100'],
         ];
     }
 }

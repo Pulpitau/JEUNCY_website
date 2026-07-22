@@ -21,6 +21,7 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withSchedule(function (Schedule $schedule): void {
         $schedule->command('job-offers:expire')->daily();
+        $schedule->command('cvs:archive-inactive')->daily();
     })
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->api(append: [

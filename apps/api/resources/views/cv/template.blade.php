@@ -2,206 +2,261 @@
 <html lang="fr">
 <head>
     <meta charset="utf-8">
+    @php
+        // Marges/tailles de base calibrees pour ne jamais deborder sur une 2e
+        // page avec un profil dense (voir CvService::contentScales). $scales
+        // fournit trois facteurs quand le profil est peu fourni : 'section'
+        // pour les grands espaces (padding de page, en-tete, entre sections),
+        // 'item' pour les petits espaces entre elements d'une meme liste (ne
+        // doivent pas devenir enormes, sinon ca a l'air casse), et 'font'
+        // pour les tailles de texte du corps — un profil dense garde les
+        // trois a 1.0 (mise en page compacte de reference).
+        $sec = fn (float $base) => round($base * $scales['section']);
+        $it = fn (float $base) => round($base * $scales['item']);
+        $fs = fn (float $base) => round($base * $scales['font'], 1);
+        // Accent propre au candidat, echantillonne dans le degrade signature
+        // Jeuncy (voir CvService::palette) — reste dans la charte graphique
+        // tout en variant d'un CV genere a l'autre.
+        $primary = $palette['primary'];
+        $accent = $palette['accent'];
+    @endphp
     <style>
         @page { margin: 0; }
-        body { font-family: 'DejaVu Sans', sans-serif; color: #1a1a1a; font-size: 10.5px; margin: 0; }
+        body { font-family: 'DejaVu Sans', sans-serif; color: #1a1a1a; font-size: 12px; margin: 0; }
 
-        /* Rectangle navy positionne derriere le contenu, en dehors du flux du
-           tableau : dompdf n'etire pas le fond d'une cellule de tableau au-dela de
-           son contenu (et "height" sur une table-cell casse carrement la pagination),
-           donc le bandeau plein-hauteur de la sidebar est peint separement, a la
-           taille exacte d'une page A4, puis le contenu (tableau) est superpose par-dessus. */
-        .sidebar-backdrop {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 34%;
-            height: 842pt;
-            background-color: #061D4F;
-            z-index: 0;
-        }
+        .page { padding: {{ $sec(38) }}px 52px {{ $sec(30) }}px; }
 
-        /* Un positioned descendant peint toujours au-dessus du flux normal, quel
-           que soit son ordre dans le DOM : le tableau de contenu doit donc etre
-           lui-meme positionne avec un z-index superieur pour rester visible
-           par-dessus le bandeau navy. */
-        .layout { position: relative; z-index: 1; display: table; width: 100%; table-layout: fixed; }
+        /* En-tete pleine largeur (photo + identite + contact), pas de bandeau
+           colore plein-hauteur ici : contrairement a l'ancienne version, le
+           gabarit n'a plus besoin du hack "sidebar-backdrop" positionne en
+           absolu puisqu'aucune zone ne doit plus s'etendre sur toute la
+           hauteur de la page. */
+        .header { display: table; width: 100%; table-layout: fixed; margin-bottom: {{ $sec(18) }}px; }
+        .header-photo { display: table-cell; width: 180px; vertical-align: top; }
+        .header-info { display: table-cell; vertical-align: top; padding-left: 22px; }
+        .header-logo { display: table-cell; width: 180px; vertical-align: top; text-align: right; }
+        /* Meme taille que la photo de profil (demande explicite). */
+        .header-logo-img { width: 170px; height: auto; }
 
-        .sidebar {
-            display: table-cell;
-            width: 34%;
-            color: #FFFFFF;
-            padding: 34px 22px;
-            vertical-align: top;
-        }
-        .main {
-            display: table-cell;
-            width: 66%;
-            background-color: #FFFFFF;
-            padding: 36px 34px;
-            vertical-align: top;
-        }
-
-        .avatar-wrap { text-align: center; margin-bottom: 16px; }
         .avatar-img {
-            width: 104px;
-            height: 104px;
+            width: 170px;
+            height: 170px;
             border-radius: 50%;
             object-fit: cover;
-            border: 3px solid #FF8A32;
+            border: 3px solid {{ $accent }};
         }
         .avatar-fallback {
             display: inline-block;
-            width: 104px;
-            height: 104px;
+            width: 170px;
+            height: 170px;
             border-radius: 50%;
-            background-color: #FF2D55;
+            background-color: {{ $accent }};
             color: #ffffff;
-            font-size: 32px;
+            font-size: 52px;
             font-weight: bold;
             text-align: center;
-            line-height: 104px;
+            line-height: 170px;
         }
 
-        .name { text-align: center; font-size: 17px; font-weight: bold; margin: 0; color: #ffffff; }
-        .name-divider { width: 38px; height: 2px; background-color: #FF8A32; margin: 10px auto 22px; }
+        .name { font-size: 23px; font-weight: bold; color: {{ $primary }}; margin: 0 0 3px; text-transform: uppercase; }
+        .headline { font-size: 14px; color: #444444; margin: 0 0 8px; }
+        .contact-row { font-size: 11px; color: #333333; margin: 0 0 4px; }
+        .contact-row span { margin-right: 4px; }
+        .meta-row { font-size: 10.5px; color: #777777; margin: 0; }
 
-        .sidebar-section { margin-bottom: 22px; }
-        .sidebar-heading {
-            font-size: 9.5px;
+        /* Permis : affiche en evidence pres des coordonnees (demande explicite
+           "tres important"), pas noye dans le meta-row discret age/adresse. */
+        .license-row { font-size: 11px; font-weight: bold; color: {{ $accent }}; margin: 0 0 4px; }
+
+        .header-divider { border-bottom: 2px solid {{ $primary }}; margin-bottom: {{ $sec(18) }}px; }
+
+        /* Table plutot que flex/grid (non fiables sous dompdf) pour la mise en
+           page a deux colonnes du corps du CV. */
+        .columns { display: table; width: 100%; table-layout: fixed; }
+        .col-side {
+            display: table-cell;
+            width: 30%;
+            vertical-align: top;
+            padding-right: 22px;
+            border-right: 1px solid #DADFEA;
+        }
+        .col-main { display: table-cell; width: 70%; vertical-align: top; padding-left: 26px; }
+
+        .section { margin-bottom: {{ $sec(16) }}px; }
+        .section-heading {
+            font-size: {{ $fs(12) }}px;
             font-weight: bold;
-            text-transform: uppercase;
-            letter-spacing: 1.2px;
-            color: #FF8A32;
-            margin: 0 0 9px;
-        }
-        .contact-item { font-size: 9.5px; margin-bottom: 6px; color: #E9ECF5; }
-
-        .skill-pill {
-            display: inline-block;
-            font-size: 8.5px;
-            background-color: #0D2A63;
-            border: 1px solid #3E5490;
-            color: #ffffff;
-            border-radius: 10px;
-            padding: 3px 9px;
-            margin: 0 5px 5px 0;
-        }
-
-        .edu-item { margin-bottom: 12px; }
-        .edu-degree { font-size: 10px; font-weight: bold; margin: 0; color: #ffffff; }
-        .edu-school { font-size: 9px; color: #C7CEE3; margin: 2px 0; }
-        .edu-dates { font-size: 8px; color: #8E9BC4; margin: 0; }
-
-        .main-heading {
-            font-size: 12px;
-            font-weight: bold;
-            color: #061D4F;
             text-transform: uppercase;
             letter-spacing: 0.8px;
-            margin: 0 0 12px;
-            padding-bottom: 6px;
-            border-bottom: 2px solid #FF2D55;
+            color: {{ $primary }};
+            margin: 0 0 {{ $it(10) }}px;
+            padding-bottom: 4px;
+            border-bottom: 2px solid {{ $accent }};
         }
-        .main-section { margin-bottom: 22px; }
-        .bio { font-size: 10.5px; line-height: 1.6; color: #333333; margin: 0; }
 
-        .exp-item { margin-bottom: 15px; padding-left: 14px; border-left: 3px solid #FF8A32; }
-        .exp-title { font-size: 11px; font-weight: bold; color: #061D4F; margin: 0; }
-        .exp-company { font-size: 9.5px; color: #FF2D55; font-weight: bold; margin: 2px 0; }
+        .bio { font-size: {{ $fs(11.5) }}px; line-height: 1.6; color: #333333; margin: 0; }
+
+        ul.bullet-list { margin: 0; padding-left: 16px; }
+        ul.bullet-list li { font-size: {{ $fs(11) }}px; line-height: 1.5; color: #333333; margin-bottom: {{ $it(6) }}px; }
+
+        .edu-item { margin-bottom: {{ $it(12) }}px; }
+        .edu-school { font-size: {{ $fs(11.5) }}px; font-weight: bold; color: {{ $primary }}; margin: 0; }
+        .edu-degree { font-size: {{ $fs(11) }}px; color: #333333; margin: 3px 0; }
+        .edu-dates { font-size: {{ $fs(9.5) }}px; color: #999999; margin: 0; }
+
+        .lang-item { margin-bottom: {{ $it(5) }}px; }
+        .lang-name { font-size: {{ $fs(11) }}px; font-weight: bold; color: {{ $primary }}; }
+        .lang-level { font-size: {{ $fs(10.5) }}px; color: #777777; }
+
+        .hobbies-text { font-size: {{ $fs(10.5) }}px; line-height: 1.55; color: #333333; margin: 0; }
+
+        .exp-item { margin-bottom: {{ $it(16) }}px; }
+        .exp-head { display: table; width: 100%; table-layout: fixed; margin-bottom: 2px; }
+        .exp-company { display: table-cell; font-size: {{ $fs(12.5) }}px; font-weight: bold; color: {{ $primary }}; }
         .exp-dates {
-            font-size: 8px;
+            display: table-cell;
+            width: 140px;
+            text-align: right;
+            font-size: {{ $fs(9.5) }}px;
             color: #999999;
             text-transform: uppercase;
             letter-spacing: 0.4px;
-            margin: 0 0 5px;
         }
-        .exp-description { font-size: 9.5px; line-height: 1.5; color: #444444; margin: 0; }
+        .exp-subhead { font-size: {{ $fs(11) }}px; color: {{ $accent }}; font-weight: bold; margin: 0 0 6px; }
 
-        .footer { margin-top: 14px; font-size: 7.5px; color: #bbbbbb; }
     </style>
 </head>
 <body>
-    <div class="sidebar-backdrop"></div>
-    <div class="layout">
-        <div class="sidebar">
-            <div class="avatar-wrap">
+    <div class="page">
+        <div class="header">
+            <div class="header-photo">
                 @if($photoDataUri)
                     <img src="{{ $photoDataUri }}" class="avatar-img">
                 @else
                     <div class="avatar-fallback">{{ strtoupper(mb_substr($profile->first_name, 0, 1).mb_substr($profile->last_name, 0, 1)) }}</div>
                 @endif
             </div>
-            <p class="name">{{ $profile->first_name }} {{ $profile->last_name }}</p>
-            <div class="name-divider"></div>
-
-            <div class="sidebar-section">
-                <p class="sidebar-heading">Contact</p>
-                @if($profile->phone)
-                    <div class="contact-item">{{ $profile->phone }}</div>
+            <div class="header-info">
+                <p class="name">{{ $profile->first_name }} {{ $profile->last_name }}</p>
+                @if($profile->headline)
+                    <p class="headline">{{ $profile->headline }}</p>
                 @endif
-                <div class="contact-item">{{ $profile->user->email }}</div>
-                @if($profile->city)
-                    <div class="contact-item">{{ $profile->city }}@if($profile->postal_code) ({{ $profile->postal_code }})@endif</div>
+                @if($profile->driving_license)
+                    <p class="license-row">Permis {{ $profile->driving_license }}</p>
+                @endif
+                <p class="contact-row">
+                    @if($profile->phone)<span>{{ $profile->phone }}</span> &middot; @endif
+                    <span>{{ $profile->user->email }}</span>
+                </p>
+                @php
+                    $locationParts = array_filter([
+                        $profile->address,
+                        trim(($profile->postal_code ?? '').' '.($profile->city ?? '')),
+                    ]);
+                @endphp
+                @if($age || $locationParts)
+                    <p class="meta-row">
+                        @if($age){{ $age }} ans @endif
+                        @if($age && $locationParts) &middot; @endif
+                        {{ implode(', ', $locationParts) }}
+                    </p>
                 @endif
             </div>
-
-            @if($profile->skills->isNotEmpty())
-                <div class="sidebar-section">
-                    <p class="sidebar-heading">Compétences</p>
-                    <div>
-                        @foreach($profile->skills as $skill)
-                            <span class="skill-pill">{{ $skill->name }}</span>
-                        @endforeach
-                    </div>
-                </div>
-            @endif
-
-            @if($profile->educations->isNotEmpty())
-                <div class="sidebar-section">
-                    <p class="sidebar-heading">Formations</p>
-                    @foreach($profile->educations->sortByDesc('start_date') as $education)
-                        <div class="edu-item">
-                            <p class="edu-degree">{{ $education->degree }}</p>
-                            <p class="edu-school">{{ $education->school }}</p>
-                            <p class="edu-dates">
-                                {{ $education->start_date->format('Y') }} —
-                                {{ $education->end_date?->format('Y') ?? 'en cours' }}
-                            </p>
-                        </div>
-                    @endforeach
+            @if($logoDataUri)
+                <div class="header-logo">
+                    <img src="{{ $logoDataUri }}" class="header-logo-img">
                 </div>
             @endif
         </div>
+        <div class="header-divider"></div>
 
-        <div class="main">
-            @if($profile->bio)
-                <div class="main-section">
-                    <p class="main-heading">Profil</p>
-                    <p class="bio">{{ $profile->bio }}</p>
-                </div>
-            @endif
+        <div class="columns">
+            <div class="col-side">
+                @if($profile->skills->isNotEmpty())
+                    <div class="section">
+                        <p class="section-heading">Compétences</p>
+                        <ul class="bullet-list">
+                            @foreach($profile->skills as $skill)
+                                <li>{{ $skill->name }}</li>
+                            @endforeach
+                        </ul>
+                    </div>
+                @endif
 
-            @if($profile->experiences->isNotEmpty())
-                <div class="main-section">
-                    <p class="main-heading">Expériences</p>
-                    @foreach($profile->experiences->sortByDesc('start_date') as $experience)
-                        <div class="exp-item">
-                            <p class="exp-title">{{ $experience->title }}</p>
-                            <p class="exp-company">{{ $experience->company }}@if($experience->location) &middot; {{ $experience->location }}@endif</p>
-                            <p class="exp-dates">
-                                {{ $experience->start_date->format('m/Y') }} —
-                                {{ $experience->end_date?->format('m/Y') ?? "aujourd'hui" }}
-                            </p>
-                            @if($experience->description)
-                                <p class="exp-description">{{ $experience->description }}</p>
-                            @endif
-                        </div>
-                    @endforeach
-                </div>
-            @endif
+                @if($profile->languages->isNotEmpty())
+                    <div class="section">
+                        <p class="section-heading">Langues</p>
+                        @foreach($profile->languages as $language)
+                            <div class="lang-item">
+                                <span class="lang-name">{{ $language->name }}</span>
+                                <span class="lang-level"> — {{ $language->level }}</span>
+                            </div>
+                        @endforeach
+                    </div>
+                @endif
 
-            <p class="footer">CV généré via Jeuncy — Ton alternance commence ici.</p>
+                @if($profile->educations->isNotEmpty())
+                    <div class="section">
+                        <p class="section-heading">Formations</p>
+                        @foreach($profile->educations->sortByDesc('start_date') as $education)
+                            <div class="edu-item">
+                                <p class="edu-school">{{ $education->school }}</p>
+                                <p class="edu-degree">{{ $education->degree }}</p>
+                                <p class="edu-dates">
+                                    {{ $education->start_date->format('Y') }} —
+                                    {{ $education->end_date?->format('Y') ?? 'en cours' }}
+                                </p>
+                            </div>
+                        @endforeach
+                    </div>
+                @endif
+
+                @if($profile->hobbies)
+                    <div class="section">
+                        <p class="section-heading">Loisirs</p>
+                        <p class="hobbies-text">{{ $profile->hobbies }}</p>
+                    </div>
+                @endif
+            </div>
+
+            <div class="col-main">
+                @if($profile->bio)
+                    <div class="section">
+                        <p class="section-heading">Profil</p>
+                        <p class="bio">{{ $profile->bio }}</p>
+                    </div>
+                @endif
+
+                @if($profile->experiences->isNotEmpty())
+                    <div class="section">
+                        <p class="section-heading">Parcours professionnel</p>
+                        @foreach($profile->experiences->sortByDesc('start_date') as $experience)
+                            <div class="exp-item">
+                                <div class="exp-head">
+                                    <div class="exp-company">{{ $experience->company }}</div>
+                                    <div class="exp-dates">
+                                        {{ $experience->start_date->format('m/Y') }} —
+                                        {{ $experience->end_date?->format('m/Y') ?? "aujourd'hui" }}
+                                    </div>
+                                </div>
+                                <p class="exp-subhead">{{ $experience->title }}@if($experience->location) &middot; {{ $experience->location }}@endif</p>
+                                @if($experience->description)
+                                    @php
+                                        $descriptionLines = collect(preg_split('/\r\n|\r|\n/', $experience->description))
+                                            ->map(fn ($line) => trim($line))
+                                            ->filter();
+                                    @endphp
+                                    <ul class="bullet-list">
+                                        @foreach($descriptionLines as $line)
+                                            <li>{{ $line }}</li>
+                                        @endforeach
+                                    </ul>
+                                @endif
+                            </div>
+                        @endforeach
+                    </div>
+                @endif
+            </div>
         </div>
     </div>
 </body>

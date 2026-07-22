@@ -24,6 +24,7 @@ class AuthService
         }
 
         $this->assertNotSuspended($user);
+        $user->update(['last_login_at' => now()]);
 
         return $user;
     }
@@ -38,6 +39,7 @@ class AuthService
             'email' => $email,
             'password_hash' => $password,
             'role' => $role,
+            'last_login_at' => now(),
         ]);
 
         return ['user' => $user, 'tokens' => $this->issueTokens($user)];
@@ -74,6 +76,7 @@ class AuthService
         $existingByGoogleId = User::where('google_id', $googleId)->first();
         if ($existingByGoogleId) {
             $this->assertNotSuspended($existingByGoogleId);
+            $existingByGoogleId->update(['last_login_at' => now()]);
 
             return $existingByGoogleId;
         }
@@ -82,7 +85,7 @@ class AuthService
         if ($existingByEmail) {
             $this->assertNotSuspended($existingByEmail);
             // Compte cree via email/mot de passe : on associe le compte Google.
-            $existingByEmail->update(['google_id' => $googleId]);
+            $existingByEmail->update(['google_id' => $googleId, 'last_login_at' => now()]);
 
             return $existingByEmail;
         }
@@ -94,6 +97,7 @@ class AuthService
             'password_hash' => null,
             'role' => UserRole::CANDIDATE,
             'google_id' => $googleId,
+            'last_login_at' => now(),
         ]);
     }
 

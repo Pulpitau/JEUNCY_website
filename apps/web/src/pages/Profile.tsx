@@ -10,8 +10,10 @@ import { ProfileInfoForm } from '@/components/features/profile/ProfileInfoForm';
 import { ProfilePhotoUpload } from '@/components/features/profile/ProfilePhotoUpload';
 import { ExperienceSection } from '@/components/features/profile/ExperienceSection';
 import { EducationSection } from '@/components/features/profile/EducationSection';
+import { LanguagesSection } from '@/components/features/profile/LanguagesSection';
 import { SkillsSection } from '@/components/features/profile/SkillsSection';
 import { CvSection } from '@/components/features/profile/CvSection';
+import { ImportCvSection } from '@/components/features/profile/ImportCvSection';
 import {
   getMyProfile,
   createProfile,
@@ -20,11 +22,14 @@ import {
   deleteExperience,
   addEducation,
   deleteEducation,
+  addLanguage,
+  deleteLanguage,
   syncSkills,
   uploadProfilePhoto,
   removeProfilePhoto,
   generateCv,
   listGeneratedCvs,
+  importCv,
 } from '@/lib/api/candidate-profile';
 import { ApiError } from '@/lib/api/client';
 
@@ -84,6 +89,14 @@ export function Profile() {
   });
   const deleteEducationMutation = useMutation({
     mutationFn: deleteEducation,
+    onSuccess: invalidateProfile,
+  });
+  const addLanguageMutation = useMutation({
+    mutationFn: addLanguage,
+    onSuccess: invalidateProfile,
+  });
+  const deleteLanguageMutation = useMutation({
+    mutationFn: deleteLanguage,
     onSuccess: invalidateProfile,
   });
   const syncSkillsMutation = useMutation({
@@ -159,6 +172,15 @@ export function Profile() {
         </CardContent>
       </Card>
 
+      <Card>
+        <CardHeader>
+          <CardTitle>Importer un CV existant</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ImportCvSection onImport={(file) => importCv(file)} />
+        </CardContent>
+      </Card>
+
       {profile && (
         <>
           <Card>
@@ -185,6 +207,20 @@ export function Profile() {
                 isSubmitting={addEducationMutation.isPending}
                 onAdd={(values) => addEducationMutation.mutateAsync(values)}
                 onDelete={(id) => deleteEducationMutation.mutateAsync(id)}
+              />
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Langues</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <LanguagesSection
+                languages={profile.languages}
+                isSubmitting={addLanguageMutation.isPending}
+                onAdd={(values) => addLanguageMutation.mutateAsync(values)}
+                onDelete={(id) => deleteLanguageMutation.mutateAsync(id)}
               />
             </CardContent>
           </Card>

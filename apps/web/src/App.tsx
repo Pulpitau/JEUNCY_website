@@ -4,6 +4,7 @@ import { Navbar } from '@/components/Navbar';
 import { Footer } from '@/components/Footer';
 import { RequireAuth } from '@/components/RequireAuth';
 import { Home } from '@/pages/Home';
+import { About } from '@/pages/About';
 import { Login } from '@/pages/Login';
 import { Register } from '@/pages/Register';
 import { ForgotPassword } from '@/pages/ForgotPassword';
@@ -27,6 +28,7 @@ export default function App() {
       <div className="flex-1">
         <Routes>
           <Route path="/" element={<Home />} />
+          <Route path="/a-propos" element={<About />} />
           <Route path="/offres" element={<JobOffers />} />
           <Route path="/offres/:id" element={<JobOfferDetail />} />
           <Route path="/login" element={<Login />} />

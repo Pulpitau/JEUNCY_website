@@ -2,9 +2,11 @@
 
 use App\Http\Controllers\CandidateProfileController;
 use App\Http\Controllers\CandidateSkillController;
+use App\Http\Controllers\CvImportController;
 use App\Http\Controllers\EducationController;
 use App\Http\Controllers\ExperienceController;
 use App\Http\Controllers\GeneratedCvController;
+use App\Http\Controllers\LanguageController;
 use App\Http\Controllers\ProfilePhotoController;
 use Illuminate\Support\Facades\Route;
 
@@ -23,9 +25,13 @@ Route::prefix('candidate-profile')->middleware(['auth:api', 'role:CANDIDATE'])->
 
     Route::put('skills', [CandidateSkillController::class, 'sync']);
 
+    Route::post('languages', [LanguageController::class, 'store']);
+    Route::delete('languages/{language}', [LanguageController::class, 'destroy']);
+
     Route::post('photo', [ProfilePhotoController::class, 'store']);
     Route::delete('photo', [ProfilePhotoController::class, 'destroy']);
 
     Route::post('cv', [GeneratedCvController::class, 'store']);
     Route::get('cv', [GeneratedCvController::class, 'index']);
+    Route::post('cv/import', [CvImportController::class, 'store']);
 });
