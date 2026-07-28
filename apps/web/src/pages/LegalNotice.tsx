@@ -27,7 +27,10 @@ export function LegalNotice() {
               <span className="text-foreground">[ville]</span> sous le numéro SIREN{' '}
               <span className="text-foreground">[numéro SIREN]</span> (SIRET :{' '}
               <span className="text-foreground">[numéro SIRET]</span>), dont le siège
-              social est situé <span className="text-foreground">[adresse complète]</span>
+              social est situé{' '}
+              <span className="text-foreground">
+                46 boulevard Clémenceau, 66000 Perpignan
+              </span>
               .
             </p>
             <p className="mt-3">

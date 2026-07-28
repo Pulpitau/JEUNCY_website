@@ -1,5 +1,6 @@
 import type { ContractType, JobOfferStatus, PaymentStatus } from '@jeuncy/shared';
 import { apiRequest } from './client';
+import type { Skill } from './candidate-profile';
 
 export interface JobOffer {
   id: number;
@@ -12,6 +13,12 @@ export interface JobOffer {
   payment_status: PaymentStatus;
   location: string | null;
   city: string | null;
+  compensation: string | null;
+  experience_level: string | null;
+  benefits: string | null;
+  diploma_level: string | null;
+  training_rhythm: string | null;
+  skills: Skill[];
   published_at: string | null;
   expires_at: string | null;
   created_at: string;
@@ -46,6 +53,12 @@ export interface JobOfferInput {
   contract_type: ContractType;
   location?: string | null;
   city?: string | null;
+  compensation?: string | null;
+  experience_level?: string | null;
+  benefits?: string | null;
+  diploma_level?: string | null;
+  training_rhythm?: string | null;
+  skills?: string[];
 }
 
 export interface JobOfferSearchFilters {
@@ -53,6 +66,19 @@ export interface JobOfferSearchFilters {
   contract_type?: ContractType;
   city?: string;
   page?: number;
+}
+
+// Tarifs de publication, differents entreprise/CFA (voir
+// JobOfferService::priceLabelFor cote backend, source de verite pour le
+// montant reellement facture) — amenes a evoluer, decision produit du
+// 2026-07-28.
+export const COMPANY_OFFER_PRICE_LABEL = '9,99 €';
+export const CFA_OFFER_PRICE_LABEL = '4,99 €';
+
+export function offerPriceLabel(offer: Pick<JobOffer, 'cfa_organization_id'>): string {
+  return offer.cfa_organization_id !== null
+    ? CFA_OFFER_PRICE_LABEL
+    : COMPANY_OFFER_PRICE_LABEL;
 }
 
 export function listMyOffers() {
@@ -75,6 +101,10 @@ export function createCheckoutSession(id: number) {
   return apiRequest<{ checkout_url: string }>(`/job-offers/${id}/checkout`, {
     method: 'POST',
   });
+}
+
+export function publishOfferViaTrial(id: number) {
+  return apiRequest<JobOffer>(`/job-offers/${id}/publish-trial`, { method: 'POST' });
 }
 
 export function searchPublicOffers(filters: JobOfferSearchFilters) {

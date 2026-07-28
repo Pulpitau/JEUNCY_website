@@ -72,7 +72,9 @@ export function AdminPaymentsPanel() {
               className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-border p-4"
             >
               <div>
-                <p className="font-poppins font-medium">{payment.job_offer.title}</p>
+                <p className="font-poppins font-medium">
+                  {payment.job_offer?.title ?? 'Offre supprimée'}
+                </p>
                 <p className="text-xs text-muted-foreground">
                   {payment.user.email} —{' '}
                   {new Date(payment.created_at).toLocaleDateString('fr-FR')}

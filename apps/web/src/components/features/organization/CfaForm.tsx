@@ -19,10 +19,16 @@ type CfaFormValues = z.infer<typeof cfaSchema>;
 interface CfaFormProps {
   cfaOrganization: CfaOrganization | null;
   onSubmit: (values: CfaOrganizationInput) => Promise<unknown>;
+  onCancel?: () => void;
   isSubmitting: boolean;
 }
 
-export function CfaForm({ cfaOrganization, onSubmit, isSubmitting }: CfaFormProps) {
+export function CfaForm({
+  cfaOrganization,
+  onSubmit,
+  onCancel,
+  isSubmitting,
+}: CfaFormProps) {
   const {
     register,
     handleSubmit,
@@ -87,18 +93,25 @@ export function CfaForm({ cfaOrganization, onSubmit, isSubmitting }: CfaFormProp
         <Textarea id="cfa-description" rows={4} {...register('description')} />
       </div>
 
-      <Button
-        type="submit"
-        variant="gradient"
-        disabled={isSubmitting}
-        className="self-start"
-      >
-        {isSubmitting
-          ? 'Enregistrement…'
-          : cfaOrganization
-            ? 'Mettre à jour'
-            : 'Créer le CFA'}
-      </Button>
+      <div className="flex gap-2">
+        <Button
+          type="submit"
+          variant="gradient"
+          disabled={isSubmitting}
+          className="self-start"
+        >
+          {isSubmitting
+            ? 'Enregistrement…'
+            : cfaOrganization
+              ? 'Mettre à jour'
+              : 'Créer le CFA'}
+        </Button>
+        {onCancel && (
+          <Button type="button" variant="outline" onClick={onCancel}>
+            Annuler
+          </Button>
+        )}
+      </div>
     </form>
   );
 }

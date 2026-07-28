@@ -14,11 +14,19 @@ const profileSchema = z.object({
   first_name: z.string().min(1, 'Le prénom est requis.'),
   last_name: z.string().min(1, 'Le nom est requis.'),
   headline: z.string().optional().or(z.literal('')),
-  phone: z.string().optional().or(z.literal('')),
+  phone: z
+    .string()
+    .regex(/^[0-9 .+-]*$/, 'Le téléphone ne doit contenir que des chiffres.')
+    .optional()
+    .or(z.literal('')),
   birth_date: z.string().optional().or(z.literal('')),
   address: z.string().optional().or(z.literal('')),
   city: z.string().optional().or(z.literal('')),
-  postal_code: z.string().optional().or(z.literal('')),
+  postal_code: z
+    .string()
+    .regex(/^[0-9]*$/, 'Le code postal ne doit contenir que des chiffres.')
+    .optional()
+    .or(z.literal('')),
   bio: z.string().optional().or(z.literal('')),
   hobbies: z.string().optional().or(z.literal('')),
   driving_license: z.string().optional().or(z.literal('')),
@@ -29,12 +37,14 @@ type ProfileFormValues = z.infer<typeof profileSchema>;
 interface ProfileInfoFormProps {
   profile: CandidateProfile | null;
   onSubmit: (values: CandidateProfileInput) => Promise<unknown>;
+  onCancel?: () => void;
   isSubmitting: boolean;
 }
 
 export function ProfileInfoForm({
   profile,
   onSubmit,
+  onCancel,
   isSubmitting,
 }: ProfileInfoFormProps) {
   const {
@@ -117,7 +127,18 @@ export function ProfileInfoForm({
         </div>
         <div className="flex flex-col gap-2">
           <Label htmlFor="phone">Téléphone</Label>
-          <Input id="phone" autoComplete="tel" {...register('phone')} />
+          <Input
+            id="phone"
+            autoComplete="tel"
+            inputMode="tel"
+            aria-invalid={!!errors.phone}
+            {...register('phone')}
+          />
+          {errors.phone && (
+            <p role="alert" className="text-sm text-destructive">
+              {errors.phone.message}
+            </p>
+          )}
         </div>
         <div className="flex flex-col gap-2">
           <Label htmlFor="birth_date">Date de naissance</Label>
@@ -141,8 +162,15 @@ export function ProfileInfoForm({
           <Input
             id="postal_code"
             autoComplete="postal-code"
+            inputMode="numeric"
+            aria-invalid={!!errors.postal_code}
             {...register('postal_code')}
           />
+          {errors.postal_code && (
+            <p role="alert" className="text-sm text-destructive">
+              {errors.postal_code.message}
+            </p>
+          )}
         </div>
         <div className="flex flex-col gap-2">
           <Label htmlFor="driving_license">Permis de conduire</Label>
@@ -169,18 +197,25 @@ export function ProfileInfoForm({
         />
       </div>
 
-      <Button
-        type="submit"
-        variant="gradient"
-        disabled={isSubmitting}
-        className="self-start"
-      >
-        {isSubmitting
-          ? 'Enregistrement…'
-          : profile
-            ? 'Mettre à jour'
-            : 'Créer mon profil'}
-      </Button>
+      <div className="flex gap-2">
+        <Button
+          type="submit"
+          variant="gradient"
+          disabled={isSubmitting}
+          className="self-start"
+        >
+          {isSubmitting
+            ? 'Enregistrement…'
+            : profile
+              ? 'Mettre à jour'
+              : 'Créer mon profil'}
+        </Button>
+        {onCancel && (
+          <Button type="button" variant="outline" onClick={onCancel}>
+            Annuler
+          </Button>
+        )}
+      </div>
     </form>
   );
 }

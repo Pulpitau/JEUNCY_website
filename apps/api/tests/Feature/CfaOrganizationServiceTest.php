@@ -48,4 +48,28 @@ class CfaOrganizationServiceTest extends TestCase
         $this->expectException(ApiException::class);
         $this->service->createForUser($user->fresh(), ['name' => 'CFA bis']);
     }
+
+    public function test_search_public_lists_all_cfa_organizations(): void
+    {
+        $this->service->createForUser($this->makeUser(), ['name' => 'CFA Sup Alternance', 'city' => 'Rennes']);
+
+        $result = $this->service->searchPublic();
+
+        $this->assertSame(1, $result->total());
+    }
+
+    public function test_find_public_throws_when_cfa_organization_not_found(): void
+    {
+        $this->expectException(ApiException::class);
+        $this->service->findPublic(999);
+    }
+
+    public function test_find_public_returns_cfa_organization(): void
+    {
+        $cfa = $this->service->createForUser($this->makeUser(), ['name' => 'CFA Sup Alternance']);
+
+        $found = $this->service->findPublic($cfa->id);
+
+        $this->assertSame('CFA Sup Alternance', $found->name);
+    }
 }

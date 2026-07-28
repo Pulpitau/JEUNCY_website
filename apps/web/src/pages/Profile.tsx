@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Card,
@@ -7,6 +8,7 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { ProfileInfoForm } from '@/components/features/profile/ProfileInfoForm';
+import { ProfileInfoSummary } from '@/components/features/profile/ProfileInfoSummary';
 import { ProfilePhotoUpload } from '@/components/features/profile/ProfilePhotoUpload';
 import { ExperienceSection } from '@/components/features/profile/ExperienceSection';
 import { EducationSection } from '@/components/features/profile/EducationSection';
@@ -40,6 +42,7 @@ const CVS_QUERY_KEY = ['candidate-profile', 'cv'];
 
 export function Profile() {
   const queryClient = useQueryClient();
+  const [isEditingInfo, setIsEditingInfo] = useState(false);
 
   const profileQuery = useQuery({
     queryKey: PROFILE_QUERY_KEY,
@@ -71,11 +74,17 @@ export function Profile() {
 
   const createMutation = useMutation({
     mutationFn: createProfile,
-    onSuccess: invalidateProfile,
+    onSuccess: () => {
+      invalidateProfile();
+      setIsEditingInfo(false);
+    },
   });
   const updateMutation = useMutation({
     mutationFn: updateProfile,
-    onSuccess: invalidateProfile,
+    onSuccess: () => {
+      invalidateProfile();
+      setIsEditingInfo(false);
+    },
   });
   const addExperienceMutation = useMutation({
     mutationFn: addExperience,
@@ -121,6 +130,12 @@ export function Profile() {
     mutationFn: generateCv,
     onSuccess: () => queryClient.invalidateQueries({ queryKey: CVS_QUERY_KEY }),
   });
+  const generateCvError =
+    generateCvMutation.error instanceof ApiError
+      ? generateCvMutation.error.message
+      : generateCvMutation.isError
+        ? 'Impossible de générer le CV pour le moment.'
+        : null;
 
   if (profileQuery.isLoading) {
     return (
@@ -166,15 +181,20 @@ export function Profile() {
               onRemove={() => removePhotoMutation.mutateAsync()}
             />
           )}
-          <ProfileInfoForm
-            profile={profile}
-            isSubmitting={createMutation.isPending || updateMutation.isPending}
-            onSubmit={(values) =>
-              profile
-                ? updateMutation.mutateAsync(values)
-                : createMutation.mutateAsync(values)
-            }
-          />
+          {profile && !isEditingInfo ? (
+            <ProfileInfoSummary profile={profile} onEdit={() => setIsEditingInfo(true)} />
+          ) : (
+            <ProfileInfoForm
+              profile={profile}
+              isSubmitting={createMutation.isPending || updateMutation.isPending}
+              onCancel={profile ? () => setIsEditingInfo(false) : undefined}
+              onSubmit={(values) =>
+                profile
+                  ? updateMutation.mutateAsync(values)
+                  : createMutation.mutateAsync(values)
+              }
+            />
+          )}
         </CardContent>
       </Card>
 
@@ -265,6 +285,7 @@ export function Profile() {
               <CvSection
                 cvs={cvsQuery.data ?? []}
                 isGenerating={generateCvMutation.isPending}
+                error={generateCvError}
                 onGenerate={() => generateCvMutation.mutateAsync()}
               />
             </CardContent>

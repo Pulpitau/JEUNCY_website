@@ -61,6 +61,10 @@ export function JobOfferDetail() {
 
   const offer = offerQuery.data!;
   const publisher = offer.company ?? offer.cfa_organization;
+  const isCfaOffer = offer.cfa_organization_id !== null;
+  const skillsLabel = isCfaOffer
+    ? 'Compétences et expériences acquises'
+    : 'Compétences recherchées';
 
   return (
     <main className="mx-auto max-w-3xl px-4 py-12">
@@ -80,9 +84,64 @@ export function JobOfferDetail() {
           </CardDescription>
         </CardHeader>
         <CardContent>
+          <dl className="mb-4 flex flex-col gap-1 font-inter text-sm font-medium text-foreground">
+            {offer.compensation && (
+              <div>
+                <dt className="inline text-muted-foreground">Rémunération : </dt>
+                <dd className="inline">{offer.compensation}</dd>
+              </div>
+            )}
+            {!isCfaOffer && offer.experience_level && (
+              <div>
+                <dt className="inline text-muted-foreground">Expérience requise : </dt>
+                <dd className="inline">{offer.experience_level}</dd>
+              </div>
+            )}
+            {isCfaOffer && offer.diploma_level && (
+              <div>
+                <dt className="inline text-muted-foreground">Niveau visé : </dt>
+                <dd className="inline">{offer.diploma_level}</dd>
+              </div>
+            )}
+            {isCfaOffer && offer.training_rhythm && (
+              <div>
+                <dt className="inline text-muted-foreground">
+                  Rythme de l'alternance :{' '}
+                </dt>
+                <dd className="inline">{offer.training_rhythm}</dd>
+              </div>
+            )}
+          </dl>
+
           <p className="whitespace-pre-line font-inter text-sm leading-relaxed text-foreground">
             {offer.description}
           </p>
+
+          {offer.skills.length > 0 && (
+            <div className="mt-4">
+              <p className="mb-2 font-poppins text-sm font-medium text-foreground">
+                {skillsLabel}
+              </p>
+              <div className="flex flex-wrap gap-1">
+                {offer.skills.map((skill) => (
+                  <Badge key={skill.id} variant="secondary">
+                    {skill.name}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {!isCfaOffer && offer.benefits && (
+            <div className="mt-4">
+              <p className="mb-1 font-poppins text-sm font-medium text-foreground">
+                Avantages
+              </p>
+              <p className="whitespace-pre-line font-inter text-sm text-muted-foreground">
+                {offer.benefits}
+              </p>
+            </div>
+          )}
 
           <ApplyToOfferSection jobOfferId={offer.id} />
         </CardContent>

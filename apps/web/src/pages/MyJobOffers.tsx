@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { UserRole } from '@jeuncy/shared';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { JobOfferForm } from '@/components/features/job-offers/JobOfferForm';
@@ -11,19 +12,65 @@ import {
   updateOffer,
   archiveOffer,
   createCheckoutSession,
+  publishOfferViaTrial,
 } from '@/lib/api/job-offers';
+import { getMyCompany } from '@/lib/api/company';
+import { getMyCfaOrganization } from '@/lib/api/cfa-organization';
+import { COMPANY_OFFER_PRICE_LABEL, CFA_OFFER_PRICE_LABEL } from '@/lib/api/job-offers';
 import { ApiError } from '@/lib/api/client';
+import { useAuthStore } from '@/store/auth-store';
 
 const OFFERS_QUERY_KEY = ['job-offers', 'mine'];
+const COMPANY_QUERY_KEY = ['company'];
+const CFA_QUERY_KEY = ['cfa-organization'];
+const TRIAL_DURATION_DAYS = 15;
+const TRIAL_MAX_OFFERS = 1;
 
 export function MyJobOffers() {
   const queryClient = useQueryClient();
   const [searchParams] = useSearchParams();
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
+  const [trialError, setTrialError] = useState<string | null>(null);
+  const [createError, setCreateError] = useState<string | null>(null);
+  const [createErrorCode, setCreateErrorCode] = useState<string | null>(null);
   const checkoutStatus = searchParams.get('checkout');
+  const user = useAuthStore((state) => state.user);
+  const isCompany = user?.role === UserRole.COMPANY;
+  const isCfa = user?.role === UserRole.CFA;
+  const canUseTrial = isCompany || isCfa;
 
   const offersQuery = useQuery({ queryKey: OFFERS_QUERY_KEY, queryFn: listMyOffers });
+  const companyQuery = useQuery({
+    queryKey: COMPANY_QUERY_KEY,
+    queryFn: getMyCompany,
+    retry: false,
+    enabled: isCompany,
+  });
+  const cfaQuery = useQuery({
+    queryKey: CFA_QUERY_KEY,
+    queryFn: getMyCfaOrganization,
+    retry: false,
+    enabled: isCfa,
+  });
+
+  // Company et CfaOrganization portent les memes champs trial_started_at /
+  // trial_offers_count (voir JobOfferService::trialHolder cote backend) : seul
+  // l'un des deux est charge selon le role, jamais les deux.
+  const organization = isCompany ? companyQuery.data : isCfa ? cfaQuery.data : undefined;
+  const trialStartedAt = organization?.trial_started_at
+    ? new Date(organization.trial_started_at)
+    : null;
+  const trialEndsAt = trialStartedAt
+    ? new Date(trialStartedAt.getTime() + TRIAL_DURATION_DAYS * 24 * 60 * 60 * 1000)
+    : null;
+  const trialOffersUsed = organization?.trial_offers_count ?? 0;
+  const trialOffersRemaining = Math.max(0, TRIAL_MAX_OFFERS - trialOffersUsed);
+  const trialAvailable =
+    canUseTrial &&
+    !!organization &&
+    trialOffersRemaining > 0 &&
+    (!trialEndsAt || trialEndsAt.getTime() > Date.now());
 
   function invalidateOffers() {
     return queryClient.invalidateQueries({ queryKey: OFFERS_QUERY_KEY });
@@ -57,6 +104,22 @@ export function MyJobOffers() {
         error instanceof ApiError
           ? error.message
           : 'Impossible de démarrer le paiement pour le moment.',
+      );
+    },
+  });
+  const trialMutation = useMutation({
+    mutationFn: publishOfferViaTrial,
+    onSuccess: () => {
+      invalidateOffers();
+      queryClient.invalidateQueries({
+        queryKey: isCompany ? COMPANY_QUERY_KEY : CFA_QUERY_KEY,
+      });
+    },
+    onError: (error) => {
+      setTrialError(
+        error instanceof ApiError
+          ? error.message
+          : "Impossible de publier l'offre gratuitement pour le moment.",
       );
     },
   });
@@ -94,6 +157,34 @@ export function MyJobOffers() {
           {checkoutError}
         </p>
       )}
+      {trialError && (
+        <p role="alert" className="font-inter text-sm text-destructive">
+          {trialError}
+        </p>
+      )}
+
+      {canUseTrial && organization && (
+        <p className="rounded-md border border-jeuncy-orange bg-jeuncy-orange/10 px-4 py-3 font-inter text-sm text-foreground">
+          {!trialStartedAt ? (
+            <>
+              Essai gratuit disponible : publie 1 offre gratuitement pendant{' '}
+              {TRIAL_DURATION_DAYS} jours.
+            </>
+          ) : trialAvailable ? (
+            <>
+              Essai gratuit en cours : encore {trialOffersRemaining} offre
+              {trialOffersRemaining > 1 ? 's' : ''} gratuite
+              {trialOffersRemaining > 1 ? 's' : ''}, jusqu'au{' '}
+              {trialEndsAt?.toLocaleDateString('fr-FR')}.
+            </>
+          ) : (
+            <>
+              Ta période d'essai gratuite est terminée. Publier une nouvelle offre coûte{' '}
+              {isCfa ? CFA_OFFER_PRICE_LABEL : COMPANY_OFFER_PRICE_LABEL}.
+            </>
+          )}
+        </p>
+      )}
 
       {showCreateForm && (
         <Card>
@@ -102,14 +193,38 @@ export function MyJobOffers() {
           </CardHeader>
           <CardContent>
             <JobOfferForm
+              variant={isCfa ? 'CFA' : 'COMPANY'}
               isSubmitting={createMutation.isPending}
+              submitError={createError}
               onCancel={() => setShowCreateForm(false)}
               onSubmit={async (values) => {
-                await createMutation.mutateAsync(values);
-                setShowCreateForm(false);
+                setCreateError(null);
+                setCreateErrorCode(null);
+                try {
+                  await createMutation.mutateAsync(values);
+                  setShowCreateForm(false);
+                } catch (error) {
+                  setCreateError(
+                    error instanceof ApiError
+                      ? error.message
+                      : "Impossible de créer l'offre pour le moment.",
+                  );
+                  setCreateErrorCode(error instanceof ApiError ? error.code : null);
+                }
               }}
             />
           </CardContent>
+          {(createErrorCode === 'COMPANY_NOT_FOUND' ||
+            createErrorCode === 'CFA_ORGANIZATION_NOT_FOUND') && (
+            <CardContent className="pt-0">
+              <p className="font-inter text-sm text-muted-foreground">
+                <Link to="/organization" className="text-primary hover:underline">
+                  Complète d'abord ton profil entreprise
+                </Link>{' '}
+                avant de pouvoir créer une offre.
+              </p>
+            </CardContent>
+          )}
         </Card>
       )}
 
@@ -136,6 +251,14 @@ export function MyJobOffers() {
               onPublish={(id) => {
                 setCheckoutError(null);
                 return checkoutMutation.mutateAsync(id);
+              }}
+              canUseTrial={canUseTrial}
+              trialAvailable={trialAvailable}
+              trialOffersRemaining={trialOffersRemaining}
+              isPublishingTrial={trialMutation.isPending}
+              onPublishTrial={(id) => {
+                setTrialError(null);
+                return trialMutation.mutateAsync(id);
               }}
             />
           ))}

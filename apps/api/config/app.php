@@ -56,6 +56,11 @@ return [
 
     'frontend_url' => env('FRONTEND_URL', 'http://localhost:5173'),
 
+    // Secret partage pour les routes /deploy/{token}/* (voir DeployController) :
+    // vide par defaut, donc ces routes sont inertes tant qu'il n'est pas
+    // volontairement defini en production.
+    'deploy_token' => env('DEPLOY_TOKEN'),
+
     /*
     |--------------------------------------------------------------------------
     | Application Timezone

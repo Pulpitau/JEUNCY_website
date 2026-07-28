@@ -32,8 +32,12 @@ return [
     'stripe' => [
         'secret' => env('STRIPE_SECRET_KEY'),
         'webhook_secret' => env('STRIPE_WEBHOOK_SECRET'),
-        // Prix fixe (en centimes) de publication d'une offre d'emploi.
-        'job_offer_price_cents' => (int) env('STRIPE_JOB_OFFER_PRICE_CENTS', 4900),
+        // Prix fixe (en centimes) de publication d'une offre, different selon
+        // qu'elle est publiee par une entreprise ou par un CFA (voir
+        // JobOfferService::priceCentsFor) — tarifs amenes a evoluer, decision
+        // produit du 2026-07-28.
+        'company_offer_price_cents' => (int) env('STRIPE_COMPANY_OFFER_PRICE_CENTS', 999),
+        'cfa_offer_price_cents' => (int) env('STRIPE_CFA_OFFER_PRICE_CENTS', 499),
     ],
 
     'ses' => [

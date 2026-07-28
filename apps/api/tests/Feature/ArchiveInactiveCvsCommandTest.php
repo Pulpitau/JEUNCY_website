@@ -28,7 +28,7 @@ class ArchiveInactiveCvsCommandTest extends TestCase
             'last_name' => 'User',
         ]);
 
-        $path = "cvs/{$profile->id}/test.pdf";
+        $path = "generated-cvs/{$profile->id}/test.pdf";
         Storage::disk('public')->put($path, 'contenu-pdf-factice');
 
         return $profile->generatedCvs()->create([
@@ -50,7 +50,7 @@ class ArchiveInactiveCvsCommandTest extends TestCase
     {
         Storage::fake('public');
         $cv = $this->makeCandidateWithCv(now()->subDays(20));
-        $relativePath = "cvs/{$cv->candidate_profile_id}/test.pdf";
+        $relativePath = "generated-cvs/{$cv->candidate_profile_id}/test.pdf";
         $this->assertTrue(Storage::disk('public')->exists($relativePath));
 
         $this->artisan('cvs:archive-inactive');

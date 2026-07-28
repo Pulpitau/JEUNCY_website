@@ -11,6 +11,8 @@ export interface Company {
   address: string | null;
   city: string | null;
   postal_code: string | null;
+  trial_started_at: string | null;
+  trial_offers_count: number;
 }
 
 export interface CompanyInput {

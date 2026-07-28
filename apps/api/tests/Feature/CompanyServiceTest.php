@@ -58,4 +58,46 @@ class CompanyServiceTest extends TestCase
 
         $this->assertSame('Nantes', $updated->city);
     }
+
+    public function test_search_public_lists_all_companies(): void
+    {
+        $this->service->createForUser($this->makeUser(), ['name' => 'NexaTech', 'city' => 'Rennes']);
+        $this->service->createForUser(
+            User::create(['email' => 'contact@cafedeslices.example.com', 'password_hash' => 'x', 'role' => UserRole::COMPANY]),
+            ['name' => 'Café des Lices', 'city' => 'Rennes'],
+        );
+
+        $result = $this->service->searchPublic();
+
+        $this->assertSame(2, $result->total());
+    }
+
+    public function test_search_public_filters_by_city(): void
+    {
+        $this->service->createForUser($this->makeUser(), ['name' => 'NexaTech', 'city' => 'Rennes']);
+        $this->service->createForUser(
+            User::create(['email' => 'contact@paris.example.com', 'password_hash' => 'x', 'role' => UserRole::COMPANY]),
+            ['name' => 'ParisCo', 'city' => 'Paris'],
+        );
+
+        $result = $this->service->searchPublic('Rennes');
+
+        $this->assertSame(1, $result->total());
+        $this->assertSame('NexaTech', $result->items()[0]->name);
+    }
+
+    public function test_find_public_throws_when_company_not_found(): void
+    {
+        $this->expectException(ApiException::class);
+        $this->service->findPublic(999);
+    }
+
+    public function test_find_public_returns_company(): void
+    {
+        $company = $this->service->createForUser($this->makeUser(), ['name' => 'NexaTech']);
+
+        $found = $this->service->findPublic($company->id);
+
+        $this->assertSame('NexaTech', $found->name);
+    }
 }

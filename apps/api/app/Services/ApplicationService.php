@@ -7,9 +7,14 @@ use App\Enums\JobOfferStatus;
 use App\Enums\NotificationType;
 use App\Exceptions\ApiException;
 use App\Models\Application;
+use App\Models\CandidateProfile;
+use App\Models\GeneratedCv;
 use App\Models\JobOffer;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class ApplicationService
 {
@@ -18,8 +23,14 @@ class ApplicationService
         private readonly JobOfferService $jobOfferService,
     ) {}
 
-    public function applyForUser(User $user, JobOffer $jobOffer, ?string $coverLetter): Application
-    {
+    public function applyForUser(
+        User $user,
+        JobOffer $jobOffer,
+        ?string $coverLetter,
+        ?string $contactPhone = null,
+        ?int $generatedCvId = null,
+        ?UploadedFile $cvFile = null,
+    ): Application {
         $profile = $this->candidateProfileService->requireProfile($user);
 
         if ($jobOffer->status !== JobOfferStatus::PUBLISHED) {
@@ -33,11 +44,23 @@ class ApplicationService
             throw new ApiException('APPLICATION_ALREADY_EXISTS', 'Tu as déjà postulé à cette offre.', 409);
         }
 
+        // Un fichier importe prime sur un CV genere si les deux sont fournis (ne
+        // devrait pas arriver via le frontend, qui n'envoie que l'un des deux) :
+        // generated_cv_id et cv_file_url restent mutuellement exclusifs en base.
+        // Aucun des deux n'est requis ici (params optionnels) : les tests appellent
+        // parfois ce service directement sans ces champs.
+        $generatedCvId = $cvFile !== null ? null : $generatedCvId;
+        $generatedCv = $generatedCvId !== null ? $this->requireOwnedCv($profile, $generatedCvId) : null;
+        $cvFileUrl = $cvFile !== null ? $this->storeUploadedCv($profile, $cvFile) : null;
+
         $application = Application::create([
             'candidate_profile_id' => $profile->id,
             'job_offer_id' => $jobOffer->id,
             'status' => ApplicationStatus::SENT,
             'cover_letter' => $coverLetter,
+            'contact_phone' => $contactPhone,
+            'generated_cv_id' => $generatedCv?->id,
+            'cv_file_url' => $cvFileUrl,
         ]);
 
         $owner = $this->jobOfferService->ownerUser($jobOffer);
@@ -54,14 +77,42 @@ class ApplicationService
     {
         $profile = $this->candidateProfileService->requireProfile($user);
 
-        return $profile->applications()->with('jobOffer')->latest()->get();
+        return $profile->applications()->with(['jobOffer', 'generatedCv'])->latest()->get();
     }
 
+    // candidateProfile.user restreint a id/email : l'employeur n'a besoin que
+    // d'un moyen de contact, pas du reste du compte (role, is_suspended...).
     public function listForOffer(User $user, JobOffer $jobOffer): Collection
     {
         $this->jobOfferService->requireOwnedOffer($user, $jobOffer);
 
-        return $jobOffer->applications()->with('candidateProfile')->latest()->get();
+        return $jobOffer->applications()
+            ->with(['candidateProfile.user:id,email', 'generatedCv'])
+            ->latest()
+            ->get();
+    }
+
+    // Rejette un CV appartenant a un autre candidat (IDOR) ou deja archive
+    // (fichier supprime du disque par CvService::archive, le lien serait mort
+    // pour l'employeur).
+    private function requireOwnedCv(CandidateProfile $profile, int $generatedCvId): GeneratedCv
+    {
+        $cv = GeneratedCv::whereNull('archived_at')->find($generatedCvId);
+        if (! $cv || $cv->candidate_profile_id !== $profile->id) {
+            throw new ApiException('CV_NOT_FOUND', "Ce CV n'existe pas ou n'est plus disponible.", 404);
+        }
+
+        return $cv;
+    }
+
+    // Fichier propre a cette candidature (pas rattache au profil comme les CV
+    // generes) : meme convention de nommage que CandidateProfileService::uploadPhoto.
+    private function storeUploadedCv(CandidateProfile $profile, UploadedFile $file): string
+    {
+        $filename = $profile->id.'-'.Str::uuid().'.pdf';
+        $path = $file->storeAs('application-cvs', $filename, 'public');
+
+        return Storage::disk('public')->url($path);
     }
 
     public function updateStatus(User $user, Application $application, ApplicationStatus $status): Application

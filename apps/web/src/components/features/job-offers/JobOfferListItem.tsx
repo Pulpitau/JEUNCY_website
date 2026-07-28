@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { JobOfferStatus, ContractType } from '@jeuncy/shared';
+import { JobOfferStatus, ContractType, PaymentStatus } from '@jeuncy/shared';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { JobOfferForm } from '@/components/features/job-offers/JobOfferForm';
 import { ApplicationsForOfferSection } from '@/components/features/job-offers/ApplicationsForOfferSection';
-import type { JobOffer, JobOfferInput } from '@/lib/api/job-offers';
+import { ApiError } from '@/lib/api/client';
+import { offerPriceLabel, type JobOffer, type JobOfferInput } from '@/lib/api/job-offers';
 
 const STATUS_LABELS: Record<string, string> = {
   [JobOfferStatus.DRAFT]: 'Brouillon',
@@ -26,6 +27,11 @@ interface JobOfferListItemProps {
   onPublish: (id: number) => Promise<unknown>;
   isSubmitting: boolean;
   isPublishing: boolean;
+  canUseTrial: boolean;
+  trialAvailable: boolean;
+  trialOffersRemaining: number;
+  onPublishTrial: (id: number) => Promise<unknown>;
+  isPublishingTrial: boolean;
 }
 
 export function JobOfferListItem({
@@ -35,19 +41,36 @@ export function JobOfferListItem({
   onPublish,
   isSubmitting,
   isPublishing,
+  canUseTrial,
+  trialAvailable,
+  trialOffersRemaining,
+  onPublishTrial,
+  isPublishingTrial,
 }: JobOfferListItemProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [showApplications, setShowApplications] = useState(false);
+  const [updateError, setUpdateError] = useState<string | null>(null);
 
   if (isEditing) {
     return (
       <JobOfferForm
+        variant={offer.cfa_organization_id ? 'CFA' : 'COMPANY'}
         offer={offer}
         isSubmitting={isSubmitting}
+        submitError={updateError}
         onCancel={() => setIsEditing(false)}
         onSubmit={async (values) => {
-          await onUpdate(offer.id, values);
-          setIsEditing(false);
+          setUpdateError(null);
+          try {
+            await onUpdate(offer.id, values);
+            setIsEditing(false);
+          } catch (error) {
+            setUpdateError(
+              error instanceof ApiError
+                ? error.message
+                : "Impossible de mettre à jour l'offre pour le moment.",
+            );
+          }
         }}
       />
     );
@@ -61,37 +84,69 @@ export function JobOfferListItem({
           <p className="text-sm text-muted-foreground">
             {CONTRACT_TYPE_LABELS[offer.contract_type]}
             {offer.city ? ` · ${offer.city}` : ''}
+            {offer.compensation ? ` · ${offer.compensation}` : ''}
           </p>
         </div>
-        <Badge
-          variant={
-            offer.status === JobOfferStatus.PUBLISHED
-              ? 'default'
-              : offer.status === JobOfferStatus.ARCHIVED
-                ? 'destructive'
-                : 'secondary'
-          }
-        >
-          {STATUS_LABELS[offer.status]}
-        </Badge>
+        <div className="flex flex-col items-end gap-1">
+          <Badge
+            variant={
+              offer.status === JobOfferStatus.PUBLISHED
+                ? 'default'
+                : offer.status === JobOfferStatus.ARCHIVED
+                  ? 'destructive'
+                  : 'secondary'
+            }
+          >
+            {STATUS_LABELS[offer.status]}
+          </Badge>
+          {offer.payment_status === PaymentStatus.TRIAL && (
+            <Badge variant="outline">Essai gratuit</Badge>
+          )}
+        </div>
       </div>
 
       <p className="line-clamp-2 font-inter text-sm text-muted-foreground">
         {offer.description}
       </p>
 
+      {offer.skills.length > 0 && (
+        <div className="flex flex-wrap gap-1">
+          {offer.skills.map((skill) => (
+            <Badge key={skill.id} variant="secondary">
+              {skill.name}
+            </Badge>
+          ))}
+        </div>
+      )}
+
       <div className="flex flex-wrap gap-2">
         {offer.status === JobOfferStatus.DRAFT && (
           <>
-            <Button
-              type="button"
-              variant="gradient"
-              size="sm"
-              onClick={() => void onPublish(offer.id)}
-              disabled={isPublishing}
-            >
-              {isPublishing ? 'Redirection…' : 'Publier (paiement)'}
-            </Button>
+            {canUseTrial && trialAvailable ? (
+              <Button
+                type="button"
+                variant="gradient"
+                size="sm"
+                onClick={() => void onPublishTrial(offer.id)}
+                disabled={isPublishingTrial}
+              >
+                {isPublishingTrial
+                  ? 'Publication…'
+                  : `Publier gratuitement (essai — ${trialOffersRemaining} restante${trialOffersRemaining > 1 ? 's' : ''})`}
+              </Button>
+            ) : (
+              <Button
+                type="button"
+                variant="gradient"
+                size="sm"
+                onClick={() => void onPublish(offer.id)}
+                disabled={isPublishing}
+              >
+                {isPublishing
+                  ? 'Redirection…'
+                  : `Publier (paiement — ${offerPriceLabel(offer)})`}
+              </Button>
+            )}
             <Button
               type="button"
               variant="outline"
@@ -102,6 +157,20 @@ export function JobOfferListItem({
             </Button>
           </>
         )}
+        {offer.status === JobOfferStatus.ARCHIVED &&
+          offer.payment_status === PaymentStatus.TRIAL && (
+            <Button
+              type="button"
+              variant="gradient"
+              size="sm"
+              onClick={() => void onPublish(offer.id)}
+              disabled={isPublishing}
+            >
+              {isPublishing
+                ? 'Redirection…'
+                : `Payer pour republier (${offerPriceLabel(offer)})`}
+            </Button>
+          )}
         {offer.status !== JobOfferStatus.ARCHIVED && (
           <Button
             type="button"

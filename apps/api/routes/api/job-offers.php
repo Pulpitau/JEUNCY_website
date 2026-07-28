@@ -15,4 +15,6 @@ Route::prefix('job-offers')->middleware(['auth:api', 'role:COMPANY,CFA'])->group
     Route::post('/', [JobOfferController::class, 'store']);
     Route::patch('{jobOffer}', [JobOfferController::class, 'update']);
     Route::post('{jobOffer}/archive', [JobOfferController::class, 'archive']);
+    // Essai gratuit, ouvert aux entreprises et aux CFA (voir JobOfferService::publishViaTrialForUser).
+    Route::post('{jobOffer}/publish-trial', [JobOfferController::class, 'publishTrial']);
 });

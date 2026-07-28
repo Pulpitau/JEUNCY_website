@@ -177,6 +177,13 @@ export function MyVideoRooms() {
         </p>
       </div>
 
+      <p className="rounded-md border border-jeuncy-orange bg-jeuncy-orange/10 px-4 py-3 font-inter text-sm text-foreground">
+        <strong>À savoir avant de rejoindre :</strong> en tant qu'hôte, la première
+        personne à entrer dans la salle doit se connecter avec un compte Google, GitHub ou
+        Facebook (exigé par l'instance de visioconférence utilisée). Le candidat ou le
+        prospect que tu invites, lui, peut rejoindre librement sans aucun compte.
+      </p>
+
       <Card>
         <CardHeader>
           <CardTitle>Nouvelle salle de démo</CardTitle>

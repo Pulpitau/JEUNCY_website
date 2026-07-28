@@ -39,8 +39,21 @@ return [
         ],
 
         'public' => [
+            // Ecrit directement dans public/storage (dossier reel, pas un
+            // symlink) : l'hebergement mutualise OVH ne fournit qu'un acces
+            // FTP, donc `php artisan storage:link` n'est jamais executable
+            // en production. En local, public/storage reste le symlink cree
+            // par storage:link, donc ce chemin fonctionne aussi bien.
+            //
+            // PUBLIC_STORAGE_PATH : necessaire quand le dossier public/ est
+            // deploye separement de l'app (staging/prod OVH, voir dossier
+            // <site>-app a cote de <site> a la racine FTP) - public_path()
+            // pointerait alors vers un dossier public/ inexistant a l'interieur
+            // de l'app privee. Chemin absolu vers le dossier public reel dans
+            // ce cas ; sinon repli sur public_path('storage') (local, ou tout
+            // deploiement classique ou public/ reste dans l'app).
             'driver' => 'local',
-            'root' => storage_path('app/public'),
+            'root' => env('PUBLIC_STORAGE_PATH') ?: public_path('storage'),
             'url' => rtrim(env('APP_URL', 'http://localhost'), '/').'/storage',
             'visibility' => 'public',
             'throw' => false,

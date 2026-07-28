@@ -12,8 +12,8 @@ import { cn } from '@/lib/utils';
 
 const NAV_LINKS = [
   { label: 'Offres', href: '/offres' },
-  { label: 'Entreprises', href: '/a-propos#entreprises' },
-  { label: 'CFA', href: '/a-propos#cfa' },
+  { label: 'Entreprises', href: '/entreprises' },
+  { label: 'CFA', href: '/cfa' },
   { label: 'À propos', href: '/a-propos' },
 ];
 
@@ -50,27 +50,16 @@ export function Navbar() {
           className="hidden items-center gap-6 md:flex"
           aria-label="Navigation principale"
         >
-          {NAV_LINKS.map((link) =>
-            link.href.startsWith('/') ? (
-              <Link
-                key={link.href}
-                to={link.href}
-                className="group relative font-inter text-sm font-medium text-foreground/80 transition-colors hover:text-foreground"
-              >
-                {link.label}
-                <span className="absolute -bottom-1 left-0 h-0.5 w-0 rounded-full bg-jeuncy-gradient transition-all duration-300 group-hover:w-full" />
-              </Link>
-            ) : (
-              <a
-                key={link.href}
-                href={link.href}
-                className="group relative font-inter text-sm font-medium text-foreground/80 transition-colors hover:text-foreground"
-              >
-                {link.label}
-                <span className="absolute -bottom-1 left-0 h-0.5 w-0 rounded-full bg-jeuncy-gradient transition-all duration-300 group-hover:w-full" />
-              </a>
-            ),
-          )}
+          {NAV_LINKS.map((link) => (
+            <Link
+              key={link.href}
+              to={link.href}
+              className="group relative font-inter text-sm font-medium text-foreground/80 transition-colors hover:text-foreground"
+            >
+              {link.label}
+              <span className="absolute -bottom-1 left-0 h-0.5 w-0 rounded-full bg-jeuncy-gradient transition-all duration-300 group-hover:w-full" />
+            </Link>
+          ))}
         </nav>
 
         <div className="flex items-center gap-2">
@@ -181,27 +170,16 @@ export function Navbar() {
           aria-label="Navigation mobile"
         >
           <div className="flex flex-col gap-1 px-4 py-3">
-            {NAV_LINKS.map((link) =>
-              link.href.startsWith('/') ? (
-                <Link
-                  key={link.href}
-                  to={link.href}
-                  onClick={closeMobileMenu}
-                  className="rounded-md px-3 py-2 font-inter text-sm font-medium text-foreground/80 transition-colors hover:bg-accent hover:text-foreground"
-                >
-                  {link.label}
-                </Link>
-              ) : (
-                <a
-                  key={link.href}
-                  href={link.href}
-                  onClick={closeMobileMenu}
-                  className="rounded-md px-3 py-2 font-inter text-sm font-medium text-foreground/80 transition-colors hover:bg-accent hover:text-foreground"
-                >
-                  {link.label}
-                </a>
-              ),
-            )}
+            {NAV_LINKS.map((link) => (
+              <Link
+                key={link.href}
+                to={link.href}
+                onClick={closeMobileMenu}
+                className="rounded-md px-3 py-2 font-inter text-sm font-medium text-foreground/80 transition-colors hover:bg-accent hover:text-foreground"
+              >
+                {link.label}
+              </Link>
+            ))}
 
             <div className="my-2 border-t border-border" />
 

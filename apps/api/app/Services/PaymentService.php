@@ -30,8 +30,9 @@ class PaymentService
 
     public function createCheckoutSessionForOffer(User $user, JobOffer $jobOffer): string
     {
-        $jobOffer = $this->jobOfferService->requireOwnedDraftOffer($user, $jobOffer);
+        $jobOffer = $this->jobOfferService->requirePayableOffer($user, $jobOffer);
         $frontendUrl = rtrim(config('app.frontend_url'), '/');
+        $priceCents = $this->jobOfferService->priceCentsFor($jobOffer);
 
         $session = $this->stripe()->checkout->sessions->create([
             'mode' => 'payment',
@@ -41,7 +42,7 @@ class PaymentService
                 'quantity' => 1,
                 'price_data' => [
                     'currency' => 'eur',
-                    'unit_amount' => config('services.stripe.job_offer_price_cents'),
+                    'unit_amount' => $priceCents,
                     'product_data' => [
                         'name' => "Publication de l'offre \u{2014} {$jobOffer->title}",
                     ],
@@ -58,7 +59,7 @@ class PaymentService
         Payment::create([
             'user_id' => $user->id,
             'job_offer_id' => $jobOffer->id,
-            'amount_cents' => config('services.stripe.job_offer_price_cents'),
+            'amount_cents' => $priceCents,
             'currency' => 'EUR',
             'status' => PaymentStatus::PENDING,
             'stripe_session_id' => $session->id,

@@ -22,6 +22,10 @@ import { Admin } from '@/pages/Admin';
 import { MyPayments } from '@/pages/MyPayments';
 import { LegalNotice } from '@/pages/LegalNotice';
 import { PrivacyPolicy } from '@/pages/PrivacyPolicy';
+import { Companies } from '@/pages/Companies';
+import { CompanyProfile } from '@/pages/CompanyProfile';
+import { CfaOrganizations } from '@/pages/CfaOrganizations';
+import { CfaOrganizationProfile } from '@/pages/CfaOrganizationProfile';
 
 export default function App() {
   return (
@@ -33,6 +37,10 @@ export default function App() {
           <Route path="/a-propos" element={<About />} />
           <Route path="/offres" element={<JobOffers />} />
           <Route path="/offres/:id" element={<JobOfferDetail />} />
+          <Route path="/entreprises" element={<Companies />} />
+          <Route path="/entreprises/:id" element={<CompanyProfile />} />
+          <Route path="/cfa" element={<CfaOrganizations />} />
+          <Route path="/cfa/:id" element={<CfaOrganizationProfile />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />

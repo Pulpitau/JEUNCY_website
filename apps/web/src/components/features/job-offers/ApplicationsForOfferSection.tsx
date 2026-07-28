@@ -80,6 +80,30 @@ export function ApplicationsForOfferSection({
             <Badge variant="outline">{STATUS_LABELS[application.status]}</Badge>
           </div>
 
+          <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 font-inter text-sm text-foreground">
+            {application.contact_phone && (
+              <a href={`tel:${application.contact_phone}`} className="hover:underline">
+                {application.contact_phone}
+              </a>
+            )}
+            <a
+              href={`mailto:${application.candidate_profile.user.email}`}
+              className="hover:underline"
+            >
+              {application.candidate_profile.user.email}
+            </a>
+            {(application.generated_cv?.file_url ?? application.cv_file_url) && (
+              <a
+                href={application.generated_cv?.file_url ?? application.cv_file_url!}
+                target="_blank"
+                rel="noreferrer"
+                className="text-primary hover:underline"
+              >
+                Voir le CV
+              </a>
+            )}
+          </div>
+
           {application.cover_letter && (
             <p className="mt-2 font-inter text-sm text-muted-foreground">
               {application.cover_letter}

@@ -81,11 +81,27 @@ export function MyApplications() {
                   </Badge>
                 </div>
               </CardHeader>
-              {application.cover_letter && (
-                <CardContent>
-                  <p className="font-inter text-sm text-muted-foreground">
-                    {application.cover_letter}
-                  </p>
+              {(application.cover_letter ||
+                application.generated_cv ||
+                application.cv_file_url) && (
+                <CardContent className="flex flex-col gap-2">
+                  {application.cover_letter && (
+                    <p className="font-inter text-sm text-muted-foreground">
+                      {application.cover_letter}
+                    </p>
+                  )}
+                  {(application.generated_cv?.file_url ?? application.cv_file_url) && (
+                    <a
+                      href={
+                        application.generated_cv?.file_url ?? application.cv_file_url!
+                      }
+                      target="_blank"
+                      rel="noreferrer"
+                      className="font-inter text-sm text-primary hover:underline"
+                    >
+                      Voir le CV envoyé
+                    </a>
+                  )}
                 </CardContent>
               )}
             </Card>

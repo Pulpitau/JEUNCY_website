@@ -20,6 +20,9 @@ class ApplicationController extends Controller
             $request->user(),
             $jobOffer,
             $validated['cover_letter'] ?? null,
+            $validated['contact_phone'],
+            $validated['generated_cv_id'] ?? null,
+            $request->file('cv_file'),
         );
 
         return response()->json($application, 201);

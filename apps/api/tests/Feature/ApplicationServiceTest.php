@@ -8,6 +8,8 @@ use App\Enums\JobOfferStatus;
 use App\Enums\NotificationType;
 use App\Enums\UserRole;
 use App\Exceptions\ApiException;
+use App\Models\CandidateProfile;
+use App\Models\GeneratedCv;
 use App\Models\JobOffer;
 use App\Models\User;
 use App\Services\ApplicationService;
@@ -15,6 +17,8 @@ use App\Services\CandidateProfileService;
 use App\Services\CompanyService;
 use App\Services\JobOfferService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class ApplicationServiceTest extends TestCase
@@ -47,6 +51,14 @@ class ApplicationServiceTest extends TestCase
         return $user->fresh();
     }
 
+    private function makeCv(CandidateProfile $profile, $archivedAt = null): GeneratedCv
+    {
+        return $profile->generatedCvs()->create([
+            'file_url' => 'https://example.test/cv.pdf',
+            'archived_at' => $archivedAt,
+        ]);
+    }
+
     private function makePublishedOffer(string $companyEmail = 'rh@nexatech.example.com'): JobOffer
     {
         $owner = User::create(['email' => $companyEmail, 'password_hash' => 'x', 'role' => UserRole::COMPANY]);
@@ -71,6 +83,81 @@ class ApplicationServiceTest extends TestCase
         $this->assertSame(ApplicationStatus::SENT, $application->status);
         $owner = $offer->company->user;
         $this->assertSame(1, $owner->notifications()->where('type', NotificationType::NEW_APPLICATION)->count());
+    }
+
+    public function test_apply_stores_contact_phone_and_generated_cv(): void
+    {
+        $offer = $this->makePublishedOffer();
+        $candidate = $this->makeCandidate();
+        $cv = $this->makeCv($candidate->candidateProfile);
+
+        $application = $this->service->applyForUser($candidate, $offer, null, '0612345678', $cv->id);
+
+        $this->assertSame('0612345678', $application->contact_phone);
+        $this->assertSame($cv->id, $application->generated_cv_id);
+    }
+
+    public function test_apply_stores_uploaded_cv_file(): void
+    {
+        Storage::fake('public');
+        $offer = $this->makePublishedOffer();
+        $candidate = $this->makeCandidate();
+        $file = UploadedFile::fake()->create('cv.pdf', 100, 'application/pdf');
+
+        $application = $this->service->applyForUser($candidate, $offer, null, '0612345678', null, $file);
+
+        $this->assertNull($application->generated_cv_id);
+        $this->assertNotNull($application->cv_file_url);
+        Storage::disk('public')->assertExists('application-cvs/'.basename($application->cv_file_url));
+    }
+
+    public function test_apply_prefers_uploaded_file_over_generated_cv_id(): void
+    {
+        Storage::fake('public');
+        $offer = $this->makePublishedOffer();
+        $candidate = $this->makeCandidate();
+        $cv = $this->makeCv($candidate->candidateProfile);
+        $file = UploadedFile::fake()->create('cv.pdf', 100, 'application/pdf');
+
+        $application = $this->service->applyForUser($candidate, $offer, null, '0612345678', $cv->id, $file);
+
+        $this->assertNull($application->generated_cv_id);
+        $this->assertNotNull($application->cv_file_url);
+    }
+
+    public function test_apply_rejects_cv_owned_by_another_candidate(): void
+    {
+        $offer = $this->makePublishedOffer();
+        $candidate = $this->makeCandidate('lea@example.com');
+        $otherCandidate = $this->makeCandidate('malik@example.com');
+        $otherCv = $this->makeCv($otherCandidate->candidateProfile);
+
+        $this->expectException(ApiException::class);
+        $this->service->applyForUser($candidate, $offer, null, '0612345678', $otherCv->id);
+    }
+
+    public function test_apply_rejects_archived_cv(): void
+    {
+        $offer = $this->makePublishedOffer();
+        $candidate = $this->makeCandidate();
+        $archivedCv = $this->makeCv($candidate->candidateProfile, now());
+
+        $this->expectException(ApiException::class);
+        $this->service->applyForUser($candidate, $offer, null, '0612345678', $archivedCv->id);
+    }
+
+    public function test_list_for_offer_exposes_candidate_email_and_cv(): void
+    {
+        $offer = $this->makePublishedOffer();
+        $candidate = $this->makeCandidate('lea@example.com');
+        $cv = $this->makeCv($candidate->candidateProfile);
+        $this->service->applyForUser($candidate, $offer, null, '0612345678', $cv->id);
+
+        $owner = $offer->company->user;
+        $applications = $this->service->listForOffer($owner->fresh(), $offer->fresh());
+
+        $this->assertSame('lea@example.com', $applications->first()->candidateProfile->user->email);
+        $this->assertSame($cv->id, $applications->first()->generatedCv->id);
     }
 
     public function test_apply_rejects_unpublished_offer(): void

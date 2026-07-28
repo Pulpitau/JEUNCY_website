@@ -24,10 +24,16 @@ type CompanyFormValues = z.infer<typeof companySchema>;
 interface CompanyFormProps {
   company: Company | null;
   onSubmit: (values: CompanyInput) => Promise<unknown>;
+  onCancel?: () => void;
   isSubmitting: boolean;
 }
 
-export function CompanyForm({ company, onSubmit, isSubmitting }: CompanyFormProps) {
+export function CompanyForm({
+  company,
+  onSubmit,
+  onCancel,
+  isSubmitting,
+}: CompanyFormProps) {
   const {
     register,
     handleSubmit,
@@ -107,18 +113,25 @@ export function CompanyForm({ company, onSubmit, isSubmitting }: CompanyFormProp
         <Textarea id="company-description" rows={4} {...register('description')} />
       </div>
 
-      <Button
-        type="submit"
-        variant="gradient"
-        disabled={isSubmitting}
-        className="self-start"
-      >
-        {isSubmitting
-          ? 'Enregistrement…'
-          : company
-            ? 'Mettre à jour'
-            : "Créer l'entreprise"}
-      </Button>
+      <div className="flex gap-2">
+        <Button
+          type="submit"
+          variant="gradient"
+          disabled={isSubmitting}
+          className="self-start"
+        >
+          {isSubmitting
+            ? 'Enregistrement…'
+            : company
+              ? 'Mettre à jour'
+              : "Créer l'entreprise"}
+        </Button>
+        {onCancel && (
+          <Button type="button" variant="outline" onClick={onCancel}>
+            Annuler
+          </Button>
+        )}
+      </div>
     </form>
   );
 }

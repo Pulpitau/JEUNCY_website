@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { UserRole } from '@jeuncy/shared';
 import {
@@ -9,6 +10,7 @@ import {
 } from '@/components/ui/card';
 import { CompanyForm } from '@/components/features/organization/CompanyForm';
 import { CfaForm } from '@/components/features/organization/CfaForm';
+import { OrganizationSummary } from '@/components/features/organization/OrganizationSummary';
 import { getMyCompany, createCompany, updateCompany } from '@/lib/api/company';
 import {
   getMyCfaOrganization,
@@ -25,6 +27,7 @@ export function OrganizationProfile() {
   const user = useAuthStore((state) => state.user);
   const queryClient = useQueryClient();
   const isCompany = user?.role === UserRole.COMPANY;
+  const [isEditing, setIsEditing] = useState(false);
 
   const companyQuery = useQuery({
     queryKey: COMPANY_QUERY_KEY,
@@ -54,19 +57,31 @@ export function OrganizationProfile() {
 
   const createCompanyMutation = useMutation({
     mutationFn: createCompany,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: COMPANY_QUERY_KEY }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: COMPANY_QUERY_KEY });
+      setIsEditing(false);
+    },
   });
   const updateCompanyMutation = useMutation({
     mutationFn: updateCompany,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: COMPANY_QUERY_KEY }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: COMPANY_QUERY_KEY });
+      setIsEditing(false);
+    },
   });
   const createCfaMutation = useMutation({
     mutationFn: createCfaOrganization,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: CFA_QUERY_KEY }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: CFA_QUERY_KEY });
+      setIsEditing(false);
+    },
   });
   const updateCfaMutation = useMutation({
     mutationFn: updateCfaOrganization,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: CFA_QUERY_KEY }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: CFA_QUERY_KEY });
+      setIsEditing(false);
+    },
   });
 
   if (isLoading) {
@@ -107,21 +122,42 @@ export function OrganizationProfile() {
         </CardHeader>
         <CardContent>
           {isCompany ? (
-            <CompanyForm
-              company={companyQuery.data ?? null}
-              isSubmitting={
-                createCompanyMutation.isPending || updateCompanyMutation.isPending
-              }
-              onSubmit={(values) =>
-                companyQuery.data
-                  ? updateCompanyMutation.mutateAsync(values)
-                  : createCompanyMutation.mutateAsync(values)
-              }
+            companyQuery.data && !isEditing ? (
+              <OrganizationSummary
+                name={companyQuery.data.name}
+                siret={companyQuery.data.siret}
+                city={companyQuery.data.city}
+                website={companyQuery.data.website}
+                description={companyQuery.data.description}
+                onEdit={() => setIsEditing(true)}
+              />
+            ) : (
+              <CompanyForm
+                company={companyQuery.data ?? null}
+                isSubmitting={
+                  createCompanyMutation.isPending || updateCompanyMutation.isPending
+                }
+                onCancel={companyQuery.data ? () => setIsEditing(false) : undefined}
+                onSubmit={(values) =>
+                  companyQuery.data
+                    ? updateCompanyMutation.mutateAsync(values)
+                    : createCompanyMutation.mutateAsync(values)
+                }
+              />
+            )
+          ) : cfaQuery.data && !isEditing ? (
+            <OrganizationSummary
+              name={cfaQuery.data.name}
+              city={cfaQuery.data.city}
+              website={cfaQuery.data.website}
+              description={cfaQuery.data.description}
+              onEdit={() => setIsEditing(true)}
             />
           ) : (
             <CfaForm
               cfaOrganization={cfaQuery.data ?? null}
               isSubmitting={createCfaMutation.isPending || updateCfaMutation.isPending}
+              onCancel={cfaQuery.data ? () => setIsEditing(false) : undefined}
               onSubmit={(values) =>
                 cfaQuery.data
                   ? updateCfaMutation.mutateAsync(values)

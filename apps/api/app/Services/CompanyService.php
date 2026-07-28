@@ -2,12 +2,36 @@
 
 namespace App\Services;
 
+use App\Enums\JobOfferStatus;
 use App\Exceptions\ApiException;
 use App\Models\Company;
 use App\Models\User;
+use Illuminate\Pagination\LengthAwarePaginator;
 
 class CompanyService
 {
+    // Annuaire public : n'importe quel visiteur peut parcourir les entreprises
+    // inscrites, aucune authentification requise (voir routes/api/companies.php).
+    public function searchPublic(?string $city = null): LengthAwarePaginator
+    {
+        return Company::query()
+            ->when($city, fn ($query) => $query->where('city', 'like', '%'.$city.'%'))
+            ->orderBy('name')
+            ->paginate(12);
+    }
+
+    public function findPublic(int $id): Company
+    {
+        $company = Company::query()
+            ->with(['jobOffers' => fn ($query) => $query->where('status', JobOfferStatus::PUBLISHED)])
+            ->find($id);
+        if (! $company) {
+            throw new ApiException('COMPANY_NOT_FOUND', "Cette entreprise n'existe pas.", 404);
+        }
+
+        return $company;
+    }
+
     public function getForUser(User $user): Company
     {
         return $this->requireCompany($user);
