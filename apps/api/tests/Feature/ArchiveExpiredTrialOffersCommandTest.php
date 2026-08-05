@@ -82,7 +82,7 @@ class ArchiveExpiredTrialOffersCommandTest extends TestCase
 
         $this->mailServiceMock->shouldReceive('sendTrialEndedEmail')
             ->once()
-            ->with('rh@nexatech.example.com', [$offer->title], '9,99 €');
+            ->with('rh@nexatech.example.com', [$offer->title], '8,00 €');
 
         $this->artisan('job-offers:archive-expired-trials')->assertSuccessful();
 
@@ -102,7 +102,7 @@ class ArchiveExpiredTrialOffersCommandTest extends TestCase
 
         $this->mailServiceMock->shouldReceive('sendTrialEndedEmail')
             ->once()
-            ->with('contact@cfa-sup-alternance.example.com', [$offer->title], '4,99 €');
+            ->with('contact@cfa-sup-alternance.example.com', [$offer->title], '10,00 €');
 
         $this->artisan('job-offers:archive-expired-trials')->assertSuccessful();
 
@@ -129,7 +129,7 @@ class ArchiveExpiredTrialOffersCommandTest extends TestCase
 
         $this->mailServiceMock->shouldReceive('sendTrialEndedEmail')
             ->once()
-            ->with('rh@nexatech.example.com', [$first->title, $second->title], '9,99 €');
+            ->with('rh@nexatech.example.com', [$first->title, $second->title], '8,00 €');
 
         $this->artisan('job-offers:archive-expired-trials')->assertSuccessful();
 

@@ -12,4 +12,6 @@ Route::prefix('cfa-organization')->middleware(['auth:api', 'role:CFA'])->group(f
     Route::get('/', [CfaOrganizationController::class, 'show']);
     Route::post('/', [CfaOrganizationController::class, 'store']);
     Route::patch('/', [CfaOrganizationController::class, 'update']);
+    Route::post('logo', [CfaOrganizationController::class, 'uploadLogo']);
+    Route::delete('logo', [CfaOrganizationController::class, 'removeLogo']);
 });

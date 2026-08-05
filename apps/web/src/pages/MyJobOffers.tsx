@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { UserRole } from '@jeuncy/shared';
+import { UserRole, SubscriptionStatus } from '@jeuncy/shared';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { JobOfferForm } from '@/components/features/job-offers/JobOfferForm';
@@ -13,16 +13,29 @@ import {
   archiveOffer,
   createCheckoutSession,
   publishOfferViaTrial,
+  publishOfferViaSubscription,
 } from '@/lib/api/job-offers';
 import { getMyCompany } from '@/lib/api/company';
 import { getMyCfaOrganization } from '@/lib/api/cfa-organization';
-import { COMPANY_OFFER_PRICE_LABEL, CFA_OFFER_PRICE_LABEL } from '@/lib/api/job-offers';
+import {
+  COMPANY_OFFER_PRICE_LABEL,
+  CFA_OFFER_PRICE_LABEL,
+  APPLICATIONS_UNLOCK_PRICE_LABEL,
+} from '@/lib/api/job-offers';
+import {
+  getMySubscription,
+  createSubscriptionCheckoutSession,
+  cancelSubscription,
+  COMPANY_SUBSCRIPTION_PRICE_LABEL,
+  CFA_SUBSCRIPTION_PRICE_LABEL,
+} from '@/lib/api/subscriptions';
 import { ApiError } from '@/lib/api/client';
 import { useAuthStore } from '@/store/auth-store';
 
 const OFFERS_QUERY_KEY = ['job-offers', 'mine'];
 const COMPANY_QUERY_KEY = ['company'];
 const CFA_QUERY_KEY = ['cfa-organization'];
+const SUBSCRIPTION_QUERY_KEY = ['subscription', 'mine'];
 const TRIAL_DURATION_DAYS = 15;
 const TRIAL_MAX_OFFERS = 1;
 
@@ -32,9 +45,14 @@ export function MyJobOffers() {
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
   const [trialError, setTrialError] = useState<string | null>(null);
+  const [subscriptionPublishError, setSubscriptionPublishError] = useState<string | null>(
+    null,
+  );
   const [createError, setCreateError] = useState<string | null>(null);
   const [createErrorCode, setCreateErrorCode] = useState<string | null>(null);
+  const [subscriptionError, setSubscriptionError] = useState<string | null>(null);
   const checkoutStatus = searchParams.get('checkout');
+  const subscriptionStatus = searchParams.get('subscription');
   const user = useAuthStore((state) => state.user);
   const isCompany = user?.role === UserRole.COMPANY;
   const isCfa = user?.role === UserRole.CFA;
@@ -52,6 +70,38 @@ export function MyJobOffers() {
     queryFn: getMyCfaOrganization,
     retry: false,
     enabled: isCfa,
+  });
+  const subscriptionQuery = useQuery({
+    queryKey: SUBSCRIPTION_QUERY_KEY,
+    queryFn: getMySubscription,
+    enabled: canUseTrial,
+  });
+  const subscription = subscriptionQuery.data ?? null;
+  const hasActiveSubscription = subscription?.status === SubscriptionStatus.ACTIVE;
+
+  const subscriptionCheckoutMutation = useMutation({
+    mutationFn: createSubscriptionCheckoutSession,
+    onSuccess: ({ checkout_url }) => {
+      window.location.href = checkout_url;
+    },
+    onError: (error) => {
+      setSubscriptionError(
+        error instanceof ApiError
+          ? error.message
+          : "Impossible de démarrer l'abonnement pour le moment.",
+      );
+    },
+  });
+  const cancelSubscriptionMutation = useMutation({
+    mutationFn: cancelSubscription,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: SUBSCRIPTION_QUERY_KEY }),
+    onError: (error) => {
+      setSubscriptionError(
+        error instanceof ApiError
+          ? error.message
+          : "Impossible d'annuler l'abonnement pour le moment.",
+      );
+    },
   });
 
   // Company et CfaOrganization portent les memes champs trial_started_at /
@@ -124,6 +174,18 @@ export function MyJobOffers() {
     },
   });
 
+  const subscriptionPublishMutation = useMutation({
+    mutationFn: publishOfferViaSubscription,
+    onSuccess: invalidateOffers,
+    onError: (error) => {
+      setSubscriptionPublishError(
+        error instanceof ApiError
+          ? error.message
+          : "Impossible de publier l'offre via l'abonnement pour le moment.",
+      );
+    },
+  });
+
   const offers = offersQuery.data ?? [];
 
   return (
@@ -152,6 +214,27 @@ export function MyJobOffers() {
           Paiement annulé, ton offre reste en brouillon.
         </p>
       )}
+      {checkoutStatus === 'applications_success' && (
+        <p className="rounded-md border border-jeuncy-orange bg-jeuncy-orange/10 px-4 py-3 font-inter text-sm text-foreground">
+          Paiement en cours de validation — l'accès aux candidatures de cette offre sera
+          débloqué dans quelques instants.
+        </p>
+      )}
+      {checkoutStatus === 'applications_cancelled' && (
+        <p className="rounded-md border border-border px-4 py-3 font-inter text-sm text-muted-foreground">
+          Paiement annulé, les candidatures restent verrouillées.
+        </p>
+      )}
+      {subscriptionStatus === 'success' && (
+        <p className="rounded-md border border-jeuncy-orange bg-jeuncy-orange/10 px-4 py-3 font-inter text-sm text-foreground">
+          Abonnement en cours de validation — il sera actif dans quelques instants.
+        </p>
+      )}
+      {subscriptionStatus === 'cancelled' && (
+        <p className="rounded-md border border-border px-4 py-3 font-inter text-sm text-muted-foreground">
+          Souscription annulée.
+        </p>
+      )}
       {checkoutError && (
         <p role="alert" className="font-inter text-sm text-destructive">
           {checkoutError}
@@ -162,13 +245,23 @@ export function MyJobOffers() {
           {trialError}
         </p>
       )}
+      {subscriptionError && (
+        <p role="alert" className="font-inter text-sm text-destructive">
+          {subscriptionError}
+        </p>
+      )}
+      {subscriptionPublishError && (
+        <p role="alert" className="font-inter text-sm text-destructive">
+          {subscriptionPublishError}
+        </p>
+      )}
 
-      {canUseTrial && organization && (
+      {canUseTrial && organization && !hasActiveSubscription && (
         <p className="rounded-md border border-jeuncy-orange bg-jeuncy-orange/10 px-4 py-3 font-inter text-sm text-foreground">
           {!trialStartedAt ? (
             <>
               Essai gratuit disponible : publie 1 offre gratuitement pendant{' '}
-              {TRIAL_DURATION_DAYS} jours.
+              {TRIAL_DURATION_DAYS} jours, avec accès aux candidatures inclus.
             </>
           ) : trialAvailable ? (
             <>
@@ -180,10 +273,78 @@ export function MyJobOffers() {
           ) : (
             <>
               Ta période d'essai gratuite est terminée. Publier une nouvelle offre coûte{' '}
-              {isCfa ? CFA_OFFER_PRICE_LABEL : COMPANY_OFFER_PRICE_LABEL}.
+              {isCfa ? CFA_OFFER_PRICE_LABEL : COMPANY_OFFER_PRICE_LABEL}, et l'accès aux
+              candidatures de cette offre {APPLICATIONS_UNLOCK_PRICE_LABEL} en plus — ou
+              passe à l'abonnement mensuel pour tout inclure.
             </>
           )}
         </p>
+      )}
+
+      {canUseTrial && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Abonnement mensuel</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {hasActiveSubscription ? (
+              <div className="flex flex-col gap-2">
+                <p className="font-inter text-sm text-foreground">
+                  Abonnement actif — publication illimitée et accès aux candidatures de
+                  toutes tes offres.
+                  {subscription?.canceled_at && (
+                    <>
+                      {' '}
+                      Résiliation prévue
+                      {subscription.current_period_end
+                        ? ` le ${new Date(subscription.current_period_end).toLocaleDateString('fr-FR')}`
+                        : ''}
+                      .
+                    </>
+                  )}
+                </p>
+                {!subscription?.canceled_at && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="w-fit"
+                    onClick={() => cancelSubscriptionMutation.mutate()}
+                    disabled={cancelSubscriptionMutation.isPending}
+                  >
+                    {cancelSubscriptionMutation.isPending
+                      ? 'Annulation…'
+                      : "Résilier l'abonnement"}
+                  </Button>
+                )}
+              </div>
+            ) : (
+              <div className="flex flex-col gap-2">
+                <p className="font-inter text-sm text-muted-foreground">
+                  Publication illimitée + accès aux candidatures de toutes tes offres,
+                  pour{' '}
+                  {isCfa
+                    ? CFA_SUBSCRIPTION_PRICE_LABEL
+                    : COMPANY_SUBSCRIPTION_PRICE_LABEL}
+                  /mois. Résiliable à tout moment.
+                </p>
+                <Button
+                  type="button"
+                  variant="gradient"
+                  size="sm"
+                  className="w-fit"
+                  onClick={() => {
+                    setSubscriptionError(null);
+                    subscriptionCheckoutMutation.mutate();
+                  }}
+                  disabled={subscriptionCheckoutMutation.isPending}
+                >
+                  {subscriptionCheckoutMutation.isPending ? 'Redirection…' : "S'abonner"}
+                </Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
       )}
 
       {showCreateForm && (
@@ -259,6 +420,12 @@ export function MyJobOffers() {
               onPublishTrial={(id) => {
                 setTrialError(null);
                 return trialMutation.mutateAsync(id);
+              }}
+              hasActiveSubscription={hasActiveSubscription}
+              isPublishingViaSubscription={subscriptionPublishMutation.isPending}
+              onPublishViaSubscription={(id) => {
+                setSubscriptionPublishError(null);
+                return subscriptionPublishMutation.mutateAsync(id);
               }}
             />
           ))}

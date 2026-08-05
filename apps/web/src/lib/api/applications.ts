@@ -28,6 +28,9 @@ export interface ApplicantSummary {
   last_name: string;
   city: string | null;
   photo_url: string | null;
+  video_url: string | null;
+  portfolio_url: string | null;
+  linkedin_url: string | null;
   user: { id: number; email: string };
 }
 

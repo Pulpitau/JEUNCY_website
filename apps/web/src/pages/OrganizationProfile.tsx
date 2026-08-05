@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { GraduationCap } from 'lucide-react';
 import { UserRole } from '@jeuncy/shared';
 import {
   Card,
@@ -11,11 +12,22 @@ import {
 import { CompanyForm } from '@/components/features/organization/CompanyForm';
 import { CfaForm } from '@/components/features/organization/CfaForm';
 import { OrganizationSummary } from '@/components/features/organization/OrganizationSummary';
-import { getMyCompany, createCompany, updateCompany } from '@/lib/api/company';
+import { LogoUpload } from '@/components/features/organization/LogoUpload';
+import {
+  getMyCompany,
+  createCompany,
+  updateCompany,
+  uploadCompanyLogo,
+  removeCompanyLogo,
+  type Company,
+} from '@/lib/api/company';
 import {
   getMyCfaOrganization,
   createCfaOrganization,
   updateCfaOrganization,
+  uploadCfaOrganizationLogo,
+  removeCfaOrganizationLogo,
+  type CfaOrganization,
 } from '@/lib/api/cfa-organization';
 import { useAuthStore } from '@/store/auth-store';
 import { ApiError } from '@/lib/api/client';
@@ -84,6 +96,24 @@ export function OrganizationProfile() {
     },
   });
 
+  const uploadLogoMutation = useMutation<Company | CfaOrganization, ApiError, File>({
+    mutationFn: (file: File) =>
+      isCompany ? uploadCompanyLogo(file) : uploadCfaOrganizationLogo(file),
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: isCompany ? COMPANY_QUERY_KEY : CFA_QUERY_KEY,
+      });
+    },
+  });
+  const removeLogoMutation = useMutation<Company | CfaOrganization, ApiError, void>({
+    mutationFn: () => (isCompany ? removeCompanyLogo() : removeCfaOrganizationLogo()),
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: isCompany ? COMPANY_QUERY_KEY : CFA_QUERY_KEY,
+      });
+    },
+  });
+
   if (isLoading) {
     return (
       <main className="mx-auto max-w-3xl px-4 py-12">
@@ -111,6 +141,27 @@ export function OrganizationProfile() {
         </p>
       )}
 
+      {(isCompany ? companyQuery.data : cfaQuery.data) && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Logo</CardTitle>
+            <CardDescription>
+              Affiché sur tes offres publiées pour rassurer les candidats.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <LogoUpload
+              logoUrl={(isCompany ? companyQuery.data : cfaQuery.data)?.logo_url ?? null}
+              fallbackIcon={isCompany ? undefined : GraduationCap}
+              onUpload={(file) => uploadLogoMutation.mutateAsync(file)}
+              onRemove={() => removeLogoMutation.mutateAsync()}
+              isUploading={uploadLogoMutation.isPending}
+              isRemoving={removeLogoMutation.isPending}
+            />
+          </CardContent>
+        </Card>
+      )}
+
       <Card>
         <CardHeader>
           <CardTitle>Informations</CardTitle>
@@ -125,10 +176,12 @@ export function OrganizationProfile() {
             companyQuery.data && !isEditing ? (
               <OrganizationSummary
                 name={companyQuery.data.name}
+                logoUrl={companyQuery.data.logo_url}
                 siret={companyQuery.data.siret}
                 city={companyQuery.data.city}
                 website={companyQuery.data.website}
                 description={companyQuery.data.description}
+                workMode={companyQuery.data.work_mode}
                 onEdit={() => setIsEditing(true)}
               />
             ) : (
@@ -148,9 +201,16 @@ export function OrganizationProfile() {
           ) : cfaQuery.data && !isEditing ? (
             <OrganizationSummary
               name={cfaQuery.data.name}
+              logoUrl={cfaQuery.data.logo_url}
+              siret={cfaQuery.data.siret}
+              ndaNumber={cfaQuery.data.nda_number}
+              qualiopiNumber={cfaQuery.data.qualiopi_number}
               city={cfaQuery.data.city}
               website={cfaQuery.data.website}
               description={cfaQuery.data.description}
+              diplomasOffered={cfaQuery.data.diplomas_offered}
+              diplomaLevel={cfaQuery.data.diploma_level}
+              workMode={cfaQuery.data.training_mode}
               onEdit={() => setIsEditing(true)}
             />
           ) : (

@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Company;
 
+use App\Enums\WorkMode;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -22,6 +23,7 @@ class UpdateCompanyRequest extends FormRequest
             'address' => ['sometimes', 'nullable', 'string', 'max:255'],
             'city' => ['sometimes', 'nullable', 'string', 'max:255'],
             'postal_code' => ['sometimes', 'nullable', 'string', 'max:10'],
+            'work_mode' => ['sometimes', 'nullable', Rule::enum(WorkMode::class)],
         ];
     }
 }

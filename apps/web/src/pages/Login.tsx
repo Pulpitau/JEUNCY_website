@@ -3,7 +3,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Link, useNavigate } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { PasswordInput } from '@/components/ui/password-input';
 import { Label } from '@/components/ui/label';
@@ -15,8 +15,9 @@ import {
   CardDescription,
 } from '@/components/ui/card';
 import { login as loginRequest } from '@/lib/api/auth';
-import { ApiError } from '@/lib/api/client';
+import { ApiError, API_URL } from '@/lib/api/client';
 import { useAuthStore } from '@/store/auth-store';
+import { cn } from '@/lib/utils';
 
 const loginSchema = z.object({
   email: z.string().email('Adresse email invalide.'),
@@ -118,6 +119,19 @@ export function Login() {
               {isSubmitting ? 'Connexion…' : 'Se connecter'}
             </Button>
           </form>
+
+          <div className="mt-6 flex items-center gap-3">
+            <div className="h-px flex-1 bg-border" />
+            <span className="font-inter text-xs text-muted-foreground">ou</span>
+            <div className="h-px flex-1 bg-border" />
+          </div>
+
+          <a
+            href={`${API_URL}/auth/google`}
+            className={cn(buttonVariants({ variant: 'outline' }), 'mt-4 w-full')}
+          >
+            Continuer avec Google
+          </a>
 
           <p className="mt-6 text-center text-sm font-inter text-muted-foreground">
             Pas encore de compte ?{' '}

@@ -1,3 +1,4 @@
+import type { WorkMode } from '@jeuncy/shared';
 import { apiRequest } from './client';
 
 export interface Company {
@@ -11,6 +12,7 @@ export interface Company {
   address: string | null;
   city: string | null;
   postal_code: string | null;
+  work_mode: WorkMode | null;
   trial_started_at: string | null;
   trial_offers_count: number;
 }
@@ -23,6 +25,7 @@ export interface CompanyInput {
   address?: string | null;
   city?: string | null;
   postal_code?: string | null;
+  work_mode?: WorkMode | null;
 }
 
 export function getMyCompany() {
@@ -35,4 +38,15 @@ export function createCompany(input: CompanyInput) {
 
 export function updateCompany(input: Partial<CompanyInput>) {
   return apiRequest<Company>('/company', { method: 'PATCH', body: input });
+}
+
+export function uploadCompanyLogo(file: File) {
+  const formData = new FormData();
+  formData.append('logo', file);
+
+  return apiRequest<Company>('/company/logo', { method: 'POST', body: formData });
+}
+
+export function removeCompanyLogo() {
+  return apiRequest<Company>('/company/logo', { method: 'DELETE' });
 }

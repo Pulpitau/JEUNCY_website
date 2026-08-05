@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import { JobOfferStatus, ContractType, PaymentStatus } from '@jeuncy/shared';
+import { Lock } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { JobOfferForm } from '@/components/features/job-offers/JobOfferForm';
 import { ApplicationsForOfferSection } from '@/components/features/job-offers/ApplicationsForOfferSection';
 import { ApiError } from '@/lib/api/client';
+import { WORK_MODE_LABELS } from '@/lib/work-mode-labels';
 import { offerPriceLabel, type JobOffer, type JobOfferInput } from '@/lib/api/job-offers';
 
 const STATUS_LABELS: Record<string, string> = {
@@ -18,6 +20,8 @@ const CONTRACT_TYPE_LABELS: Record<string, string> = {
   [ContractType.ALTERNANCE]: 'Alternance',
   [ContractType.SAISONNIER]: 'Saisonnier',
   [ContractType.BENEVOLAT]: 'Bénévolat',
+  [ContractType.JOB_ETUDIANT]: 'Job étudiant',
+  [ContractType.STAGE]: 'Stage',
 };
 
 interface JobOfferListItemProps {
@@ -32,6 +36,9 @@ interface JobOfferListItemProps {
   trialOffersRemaining: number;
   onPublishTrial: (id: number) => Promise<unknown>;
   isPublishingTrial: boolean;
+  hasActiveSubscription: boolean;
+  onPublishViaSubscription: (id: number) => Promise<unknown>;
+  isPublishingViaSubscription: boolean;
 }
 
 export function JobOfferListItem({
@@ -46,6 +53,9 @@ export function JobOfferListItem({
   trialOffersRemaining,
   onPublishTrial,
   isPublishingTrial,
+  hasActiveSubscription,
+  onPublishViaSubscription,
+  isPublishingViaSubscription,
 }: JobOfferListItemProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [showApplications, setShowApplications] = useState(false);
@@ -84,6 +94,7 @@ export function JobOfferListItem({
           <p className="text-sm text-muted-foreground">
             {CONTRACT_TYPE_LABELS[offer.contract_type]}
             {offer.city ? ` · ${offer.city}` : ''}
+            {offer.work_mode ? ` · ${WORK_MODE_LABELS[offer.work_mode]}` : ''}
             {offer.compensation ? ` · ${offer.compensation}` : ''}
           </p>
         </div>
@@ -102,6 +113,14 @@ export function JobOfferListItem({
           {offer.payment_status === PaymentStatus.TRIAL && (
             <Badge variant="outline">Essai gratuit</Badge>
           )}
+          {offer.status === JobOfferStatus.PUBLISHED &&
+            !offer.applications_unlocked_at &&
+            !hasActiveSubscription && (
+              <Badge variant="outline" className="gap-1">
+                <Lock className="h-3 w-3" aria-hidden="true" />
+                Candidatures verrouillées
+              </Badge>
+            )}
         </div>
       </div>
 
@@ -122,7 +141,19 @@ export function JobOfferListItem({
       <div className="flex flex-wrap gap-2">
         {offer.status === JobOfferStatus.DRAFT && (
           <>
-            {canUseTrial && trialAvailable ? (
+            {hasActiveSubscription ? (
+              <Button
+                type="button"
+                variant="gradient"
+                size="sm"
+                onClick={() => void onPublishViaSubscription(offer.id)}
+                disabled={isPublishingViaSubscription}
+              >
+                {isPublishingViaSubscription
+                  ? 'Publication…'
+                  : 'Publier (inclus dans l’abonnement)'}
+              </Button>
+            ) : canUseTrial && trialAvailable ? (
               <Button
                 type="button"
                 variant="gradient"
@@ -158,7 +189,20 @@ export function JobOfferListItem({
           </>
         )}
         {offer.status === JobOfferStatus.ARCHIVED &&
-          offer.payment_status === PaymentStatus.TRIAL && (
+          offer.payment_status === PaymentStatus.TRIAL &&
+          (hasActiveSubscription ? (
+            <Button
+              type="button"
+              variant="gradient"
+              size="sm"
+              onClick={() => void onPublishViaSubscription(offer.id)}
+              disabled={isPublishingViaSubscription}
+            >
+              {isPublishingViaSubscription
+                ? 'Publication…'
+                : 'Republier (inclus dans l’abonnement)'}
+            </Button>
+          ) : (
             <Button
               type="button"
               variant="gradient"
@@ -170,7 +214,7 @@ export function JobOfferListItem({
                 ? 'Redirection…'
                 : `Payer pour republier (${offerPriceLabel(offer)})`}
             </Button>
-          )}
+          ))}
         {offer.status !== JobOfferStatus.ARCHIVED && (
           <Button
             type="button"

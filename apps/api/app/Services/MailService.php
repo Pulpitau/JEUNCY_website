@@ -2,6 +2,8 @@
 
 namespace App\Services;
 
+use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -18,18 +20,13 @@ class MailService
             return;
         }
 
-        Http::withToken($apiKey)
-            ->post('https://api.resend.com/emails', [
-                'from' => config('services.resend.from'),
-                'to' => $to,
-                'subject' => 'Réinitialise ton mot de passe Jeuncy',
-                'html' => <<<HTML
-                    <p>Tu as demandé la réinitialisation de ton mot de passe Jeuncy.</p>
-                    <p><a href="{$resetUrl}">Clique ici pour choisir un nouveau mot de passe</a></p>
-                    <p>Ce lien expire dans 1 heure. Si tu n'es pas à l'origine de cette demande, ignore cet email.</p>
-                    HTML,
-            ])
-            ->throw();
+        $body = <<<HTML
+            <p>Tu as demandé la réinitialisation de ton mot de passe Jeuncy.</p>
+            {$this->ctaButton('Choisir un nouveau mot de passe', $resetUrl)}
+            <p style="color:#6b7280;font-size:13px;">Ce lien expire dans 1 heure. Si tu n'es pas à l'origine de cette demande, ignore cet email.</p>
+            HTML;
+
+        $this->send($apiKey, $to, 'Réinitialise ton mot de passe Jeuncy', $this->wrapEmailHtml('Réinitialise ton mot de passe', $body));
     }
 
     // Declenche par JobOfferService::publishViaTrialForUser au tout premier
@@ -49,19 +46,14 @@ class MailService
         $frontendUrl = rtrim(config('app.frontend_url'), '/');
         $safeName = e($organizationName);
 
-        Http::withToken($apiKey)
-            ->post('https://api.resend.com/emails', [
-                'from' => config('services.resend.from'),
-                'to' => $to,
-                'subject' => 'Ta période d\'essai gratuite Jeuncy a démarré',
-                'html' => <<<HTML
-                    <p>Bonjour,</p>
-                    <p>La période d'essai gratuite de {$safeName} vient de démarrer sur Jeuncy.</p>
-                    <p>Pendant 15 jours, publie gratuitement 1 offre. Passé ce délai, l'offre publiée via l'essai sera archivée et il faudra payer {$priceLabel} pour la republier.</p>
-                    <p><a href="{$frontendUrl}/mes-offres">Gérer mes offres</a></p>
-                    HTML,
-            ])
-            ->throw();
+        $body = <<<HTML
+            <p>Bonjour,</p>
+            <p>La période d'essai gratuite de {$safeName} vient de démarrer sur Jeuncy.</p>
+            <p>Pendant 15 jours, publie gratuitement 1 offre. Passé ce délai, l'offre publiée via l'essai sera archivée et il faudra payer {$priceLabel} pour la republier.</p>
+            {$this->ctaButton('Gérer mes offres', $frontendUrl.'/mes-offres')}
+            HTML;
+
+        $this->send($apiKey, $to, 'Ta période d\'essai gratuite Jeuncy a démarré', $this->wrapEmailHtml('Ton essai gratuit a démarré', $body));
     }
 
     // Declenche par ArchiveExpiredTrialOffers, une fois par entreprise/CFA
@@ -83,19 +75,80 @@ class MailService
             ->map(fn (string $title) => '<li>'.e($title).'</li>')
             ->implode('');
 
-        Http::withToken($apiKey)
-            ->post('https://api.resend.com/emails', [
-                'from' => config('services.resend.from'),
-                'to' => $to,
-                'subject' => 'Ta période d\'essai gratuite Jeuncy est terminée',
-                'html' => <<<HTML
-                    <p>Bonjour,</p>
-                    <p>Ta période d'essai gratuite de 15 jours sur Jeuncy est terminée. Les offres suivantes ont été archivées et ne sont plus visibles publiquement :</p>
-                    <ul>{$list}</ul>
-                    <p>Rends-toi sur ton espace "Mes offres" pour payer {$priceLabel} et republier chacune d'elles.</p>
-                    <p><a href="{$frontendUrl}/mes-offres">Gérer mes offres</a></p>
-                    HTML,
-            ])
-            ->throw();
+        $body = <<<HTML
+            <p>Bonjour,</p>
+            <p>Ta période d'essai gratuite de 15 jours sur Jeuncy est terminée. Les offres suivantes ont été archivées et ne sont plus visibles publiquement :</p>
+            <ul style="padding-left:20px;color:#374151;">{$list}</ul>
+            <p>Rends-toi sur ton espace "Mes offres" pour payer {$priceLabel} et republier chacune d'elles.</p>
+            {$this->ctaButton('Gérer mes offres', $frontendUrl.'/mes-offres')}
+            HTML;
+
+        $this->send($apiKey, $to, 'Ta période d\'essai gratuite Jeuncy est terminée', $this->wrapEmailHtml('Ton essai gratuit est terminé', $body));
+    }
+
+    // Envoi centralise : un echec Resend (recipient invalide, quota, panne
+    // ponctuelle...) ne doit jamais faire echouer l'action metier qui a
+    // declenche l'email (publication d'offre, reinitialisation de mot de
+    // passe...) - decouvert le 2026-08-05 en testant l'essai gratuit avec un
+    // destinataire invalide : l'offre etait bien publiee en base mais la
+    // requete HTTP entiere remontait en 500 a cause du ->throw() ici, rendant
+    // une action reussie visible comme une erreur cote entreprise. On logge
+    // l'echec au lieu de le laisser remonter.
+    private function send(string $apiKey, string $to, string $subject, string $html): void
+    {
+        try {
+            Http::withToken($apiKey)
+                ->post('https://api.resend.com/emails', [
+                    'from' => config('services.resend.from'),
+                    'to' => $to,
+                    'subject' => $subject,
+                    'html' => $html,
+                ])
+                ->throw();
+        } catch (RequestException|ConnectionException $e) {
+            Log::error("Echec d'envoi Resend a {$to} (\"{$subject}\") : {$e->getMessage()}");
+        }
+    }
+
+    // Bouton CTA style inline (les clients mail ignorent trop souvent les
+    // classes/feuilles de style externes, tout est en attributs style="").
+    private function ctaButton(string $label, string $url): string
+    {
+        $safeUrl = e($url);
+
+        return <<<HTML
+            <p style="margin:24px 0;">
+                <a href="{$safeUrl}" style="background:#FF2D55;color:#ffffff;text-decoration:none;font-family:Arial,sans-serif;font-weight:bold;font-size:14px;padding:12px 24px;border-radius:6px;display:inline-block;">{$label}</a>
+            </p>
+            HTML;
+    }
+
+    // Habillage commun aux emails transactionnels : bandeau degrade en tete,
+    // titre, contenu, puis logo Jeuncy en pied de page. Le logo est charge
+    // depuis une vraie URL (route web.php /branding/logo.png) et non depuis
+    // un data: URI base64 : Gmail (et d'autres clients mail) ignore/bloque
+    // les images data: URI inline dans le HTML d'un email, contrairement au
+    // PDF/dompdf ou ce procede fonctionne (constate via un envoi reel, image
+    // absente a la reception malgre un HTML techniquement valide).
+    private function wrapEmailHtml(string $heading, string $bodyHtml): string
+    {
+        $logoUrl = e(rtrim(config('app.url'), '/').'/branding/logo.png');
+        $logoHtml = "<img src=\"{$logoUrl}\" alt=\"Jeuncy\" width=\"40\" height=\"40\" style=\"display:block;margin:0 auto 8px;border-radius:50%;\" />";
+
+        return <<<HTML
+            <div style="background:#FAFAF8;padding:32px 16px;font-family:Arial,sans-serif;">
+                <div style="max-width:480px;margin:0 auto;background:#ffffff;border-radius:12px;overflow:hidden;border:1px solid #eeeeee;">
+                    <div style="height:6px;background:linear-gradient(90deg,#FF2D55,#FF8A32);"></div>
+                    <div style="padding:32px;">
+                        <h1 style="color:#061D4F;font-size:20px;margin:0 0 16px;">{$heading}</h1>
+                        <div style="color:#374151;font-size:14px;line-height:1.6;">{$bodyHtml}</div>
+                    </div>
+                    <div style="padding:20px 32px;border-top:1px solid #eeeeee;text-align:center;">
+                        {$logoHtml}
+                        <p style="color:#9ca3af;font-size:12px;margin:0;">Jeuncy — Ton alternance commence ici.</p>
+                    </div>
+                </div>
+            </div>
+            HTML;
     }
 }

@@ -59,6 +59,11 @@ class User extends Authenticatable
         return $this->hasMany(Payment::class);
     }
 
+    public function subscriptions(): HasMany
+    {
+        return $this->hasMany(Subscription::class);
+    }
+
     public function hostedVideoRooms(): HasMany
     {
         return $this->hasMany(VideoRoom::class, 'host_id');

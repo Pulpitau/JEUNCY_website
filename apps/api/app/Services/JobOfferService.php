@@ -30,6 +30,7 @@ class JobOfferService
         private readonly CompanyService $companyService,
         private readonly CfaOrganizationService $cfaOrganizationService,
         private readonly MailService $mailService,
+        private readonly SubscriptionService $subscriptionService,
     ) {}
 
     public function listOwn(User $user): Collection
@@ -151,15 +152,48 @@ class JobOfferService
         $organization->trial_offers_count++;
         $organization->save();
 
+        // L'essai gratuit inclut l'acces aux candidatures (contrairement au
+        // paiement a l'offre desormais, voir PaymentService) : c'est tout
+        // l'interet de l'essai. applications_unlocked_at n'est jamais remis a
+        // null ensuite, meme apres l'archivage de l'offre a expiration de
+        // l'essai (voir ArchiveExpiredTrialOffers) — les candidatures deja
+        // recues restent consultables.
         $jobOffer->update([
             'status' => JobOfferStatus::PUBLISHED,
             'payment_status' => PaymentStatus::TRIAL,
             'published_at' => now(),
+            'applications_unlocked_at' => now(),
         ]);
 
         if ($isFirstTrialOffer) {
             $this->mailService->sendTrialStartedEmail($user->email, $organization->name, $this->priceLabelFor($jobOffer));
         }
+
+        return $jobOffer;
+    }
+
+    // Ouvert aux entreprises et aux CFA avec un abonnement actif (voir
+    // SubscriptionService::hasActiveSubscription) : publie (ou republie, meme
+    // regle que requirePayableOffer) une offre sans paiement a l'offre,
+    // benefice central de l'abonnement ("publication illimitee", voir
+    // Pricing.tsx). Contrairement a l'essai gratuit, applications_unlocked_at
+    // n'est PAS fixe ici : l'acces aux candidatures d'un abonne reste verifie
+    // dynamiquement (voir ApplicationService::listForOffer) et donc revocable
+    // si l'abonnement est resilie/expire, alors que l'essai gratuit accorde un
+    // acces definitif a cette offre precise.
+    public function publishViaSubscriptionForUser(User $user, JobOffer $jobOffer): JobOffer
+    {
+        $jobOffer = $this->requirePayableOffer($user, $jobOffer);
+
+        if (! $this->subscriptionService->hasActiveSubscription($user)) {
+            throw new ApiException('SUBSCRIPTION_NOT_ACTIVE', "Aucun abonnement actif sur ce compte.", 409);
+        }
+
+        $jobOffer->update([
+            'status' => JobOfferStatus::PUBLISHED,
+            'payment_status' => PaymentStatus::SUBSCRIPTION,
+            'published_at' => now(),
+        ]);
 
         return $jobOffer;
     }
@@ -260,6 +294,9 @@ class JobOfferService
         }
         if (! empty($filters['city'])) {
             $query->where('city', 'like', '%'.$filters['city'].'%');
+        }
+        if (! empty($filters['work_mode'])) {
+            $query->where('work_mode', $filters['work_mode']);
         }
         if (! empty($filters['q'])) {
             $query->where(function (Builder $q) use ($filters) {

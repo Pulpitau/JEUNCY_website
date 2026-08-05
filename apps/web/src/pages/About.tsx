@@ -39,6 +39,14 @@ const AGENCIES = [
     city: 'Perpignan',
     address: '46 boulevard Clémenceau, 66000 Perpignan',
     region: 'Sud de la France',
+    // Coordonnees geocodees via Nominatim (OpenStreetMap) pour l'adresse
+    // exacte. Embed OSM plutot que Google Maps : pas de cle API a gerer, et
+    // pas de cookie tiers a declarer dans la politique de confidentialite
+    // (voir PrivacyPolicy.tsx section 5).
+    mapEmbedUrl:
+      'https://www.openstreetmap.org/export/embed.html?bbox=2.8847354%2C42.6965984%2C2.8927354%2C42.7025984&layer=mapnik&marker=42.6995984%2C2.8887354',
+    mapLargeUrl:
+      'https://www.openstreetmap.org/?mlat=42.6995984&mlon=2.8887354#map=17/42.6995984/2.8887354',
   },
 ];
 
@@ -200,22 +208,43 @@ export function About() {
               Une équipe présente sur le terrain, proche des candidats et des entreprises.
             </p>
           </div>
-          <div className="mt-10 flex flex-wrap justify-center gap-6">
+          <div className="mt-10 flex flex-wrap items-stretch justify-center gap-6">
             {AGENCIES.map((agency) => (
-              <Card key={agency.city} className="w-full max-w-xs">
-                <CardHeader>
-                  <MapPin className="h-6 w-6 text-primary" aria-hidden="true" />
-                  <CardTitle>{agency.city}</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="font-inter text-sm text-muted-foreground">
-                    {agency.address}
-                  </p>
-                  <p className="mt-1 font-inter text-xs text-muted-foreground">
-                    {agency.region}
-                  </p>
-                </CardContent>
-              </Card>
+              <div key={agency.city} className="flex flex-col gap-4 sm:flex-row">
+                <Card className="w-full sm:w-64">
+                  <CardHeader>
+                    <MapPin className="h-6 w-6 text-primary" aria-hidden="true" />
+                    <CardTitle>{agency.city}</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="font-inter text-sm text-muted-foreground">
+                      {agency.address}
+                    </p>
+                    <p className="mt-1 font-inter text-xs text-muted-foreground">
+                      {agency.region}
+                    </p>
+                  </CardContent>
+                </Card>
+                <div className="flex w-full flex-col gap-1 sm:w-80">
+                  <div className="overflow-hidden rounded-lg border border-border">
+                    <iframe
+                      title={`Localisation de l'agence Jeuncy à ${agency.city}`}
+                      src={agency.mapEmbedUrl}
+                      className="h-48 w-full sm:h-full"
+                      loading="lazy"
+                      referrerPolicy="no-referrer-when-downgrade"
+                    />
+                  </div>
+                  <a
+                    href={agency.mapLargeUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="self-end font-inter text-xs text-muted-foreground hover:text-primary hover:underline"
+                  >
+                    Voir en plus grand
+                  </a>
+                </div>
+              </div>
             ))}
           </div>
         </div>

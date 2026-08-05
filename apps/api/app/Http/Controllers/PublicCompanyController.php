@@ -2,17 +2,17 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\Company\SearchCompaniesRequest;
 use App\Services\CompanyService;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
 
 class PublicCompanyController extends Controller
 {
     public function __construct(private readonly CompanyService $service) {}
 
-    public function index(Request $request): JsonResponse
+    public function index(SearchCompaniesRequest $request): JsonResponse
     {
-        return response()->json($this->service->searchPublic($request->query('city')));
+        return response()->json($this->service->searchPublic($request->validated()));
     }
 
     public function show(int $company): JsonResponse

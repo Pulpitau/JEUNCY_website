@@ -2,13 +2,14 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { ContractType } from '@jeuncy/shared';
+import { ContractType, WorkMode } from '@jeuncy/shared';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
+import { WORK_MODE_LABELS } from '@/lib/work-mode-labels';
 import type { JobOffer, JobOfferInput } from '@/lib/api/job-offers';
 
 export type JobOfferFormVariant = 'COMPANY' | 'CFA';
@@ -17,6 +18,8 @@ const CONTRACT_TYPE_LABELS: Record<string, string> = {
   [ContractType.ALTERNANCE]: 'Alternance',
   [ContractType.SAISONNIER]: 'Saisonnier',
   [ContractType.BENEVOLAT]: 'Bénévolat',
+  [ContractType.JOB_ETUDIANT]: 'Job étudiant',
+  [ContractType.STAGE]: 'Stage',
 };
 
 const EXPERIENCE_LEVEL_OPTIONS = [
@@ -41,8 +44,11 @@ const jobOfferSchema = z.object({
     ContractType.ALTERNANCE,
     ContractType.SAISONNIER,
     ContractType.BENEVOLAT,
+    ContractType.JOB_ETUDIANT,
+    ContractType.STAGE,
   ]),
   city: z.string().optional().or(z.literal('')),
+  work_mode: z.union([z.nativeEnum(WorkMode), z.literal('')]).optional(),
   compensation: z.string().optional().or(z.literal('')),
   experience_level: z.string().optional().or(z.literal('')),
   benefits: z.string().optional().or(z.literal('')),
@@ -89,6 +95,7 @@ export function JobOfferForm({
       description: offer?.description ?? '',
       contract_type: offer?.contract_type ?? ContractType.ALTERNANCE,
       city: offer?.city ?? '',
+      work_mode: offer?.work_mode ?? '',
       compensation: offer?.compensation ?? '',
       experience_level: offer?.experience_level ?? '',
       benefits: offer?.benefits ?? '',
@@ -117,6 +124,7 @@ export function JobOfferForm({
       description: values.description,
       contract_type: values.contract_type,
       city: values.city || null,
+      work_mode: values.work_mode || null,
       compensation: values.compensation || null,
       experience_level: variant === 'COMPANY' ? values.experience_level || null : null,
       benefits: variant === 'COMPANY' ? values.benefits || null : null,
@@ -173,6 +181,23 @@ export function JobOfferForm({
         <div className="flex flex-col gap-2">
           <Label htmlFor="offer-city">Ville</Label>
           <Input id="offer-city" {...register('city')} />
+        </div>
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="offer-work-mode">
+            Type d'offre (présentiel, hybride, distanciel)
+          </Label>
+          <select
+            id="offer-work-mode"
+            className={selectClassName}
+            {...register('work_mode')}
+          >
+            <option value="">Non précisé</option>
+            {Object.entries(WORK_MODE_LABELS).map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </select>
         </div>
         <div className="flex flex-col gap-2">
           <Label htmlFor="offer-compensation">Rémunération</Label>

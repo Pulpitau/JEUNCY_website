@@ -25,6 +25,9 @@ class UpdateCandidateProfileRequest extends FormRequest
             'bio' => ['sometimes', 'nullable', 'string', 'max:2000'],
             'hobbies' => ['sometimes', 'nullable', 'string', 'max:500'],
             'driving_license' => ['sometimes', 'nullable', 'string', 'max:100'],
+            'video_url' => ['sometimes', 'nullable', 'url', 'max:255'],
+            'portfolio_url' => ['sometimes', 'nullable', 'url', 'max:255'],
+            'linkedin_url' => ['sometimes', 'nullable', 'url', 'max:255'],
         ];
     }
 }

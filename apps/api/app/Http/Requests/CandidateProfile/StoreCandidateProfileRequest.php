@@ -25,6 +25,9 @@ class StoreCandidateProfileRequest extends FormRequest
             'bio' => ['nullable', 'string', 'max:2000'],
             'hobbies' => ['nullable', 'string', 'max:500'],
             'driving_license' => ['nullable', 'string', 'max:100'],
+            'video_url' => ['nullable', 'url', 'max:255'],
+            'portfolio_url' => ['nullable', 'url', 'max:255'],
+            'linkedin_url' => ['nullable', 'url', 'max:255'],
         ];
     }
 }

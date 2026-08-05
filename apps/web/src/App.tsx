@@ -5,6 +5,7 @@ import { Footer } from '@/components/Footer';
 import { RequireAuth } from '@/components/RequireAuth';
 import { Home } from '@/pages/Home';
 import { About } from '@/pages/About';
+import { Pricing } from '@/pages/Pricing';
 import { Login } from '@/pages/Login';
 import { Register } from '@/pages/Register';
 import { ForgotPassword } from '@/pages/ForgotPassword';
@@ -26,6 +27,7 @@ import { Companies } from '@/pages/Companies';
 import { CompanyProfile } from '@/pages/CompanyProfile';
 import { CfaOrganizations } from '@/pages/CfaOrganizations';
 import { CfaOrganizationProfile } from '@/pages/CfaOrganizationProfile';
+import { AccountPrivacy } from '@/pages/AccountPrivacy';
 
 export default function App() {
   return (
@@ -35,6 +37,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/a-propos" element={<About />} />
+          <Route path="/tarifs" element={<Pricing />} />
           <Route path="/offres" element={<JobOffers />} />
           <Route path="/offres/:id" element={<JobOfferDetail />} />
           <Route path="/entreprises" element={<Companies />} />
@@ -100,6 +103,14 @@ export default function App() {
             element={
               <RequireAuth role={[UserRole.COMPANY, UserRole.CFA]}>
                 <MyPayments />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/mon-compte/confidentialite"
+            element={
+              <RequireAuth>
+                <AccountPrivacy />
               </RequireAuth>
             }
           />

@@ -1,5 +1,6 @@
 import { Link, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
+import { Building2 } from 'lucide-react';
 import { ContractType } from '@jeuncy/shared';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -11,12 +12,15 @@ import {
 } from '@/components/ui/card';
 import { getPublicOffer } from '@/lib/api/job-offers';
 import { ApiError } from '@/lib/api/client';
+import { WORK_MODE_LABELS } from '@/lib/work-mode-labels';
 import { ApplyToOfferSection } from '@/components/features/job-offers/ApplyToOfferSection';
 
 const CONTRACT_TYPE_LABELS: Record<string, string> = {
   [ContractType.ALTERNANCE]: 'Alternance',
   [ContractType.SAISONNIER]: 'Saisonnier',
   [ContractType.BENEVOLAT]: 'Bénévolat',
+  [ContractType.JOB_ETUDIANT]: 'Job étudiant',
+  [ContractType.STAGE]: 'Stage',
 };
 
 export function JobOfferDetail() {
@@ -78,13 +82,32 @@ export function JobOfferDetail() {
             {CONTRACT_TYPE_LABELS[offer.contract_type]}
           </Badge>
           <CardTitle className="text-2xl">{offer.title}</CardTitle>
-          <CardDescription>
-            {publisher?.name}
-            {offer.city ? ` · ${offer.city}` : ''}
-          </CardDescription>
+          <div className="flex items-center gap-2">
+            {publisher?.logo_url ? (
+              <img
+                src={publisher.logo_url}
+                alt=""
+                className="h-8 w-8 shrink-0 rounded border border-border object-contain"
+              />
+            ) : (
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded border border-border bg-muted">
+                <Building2 className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+              </div>
+            )}
+            <CardDescription>
+              {publisher?.name}
+              {offer.city ? ` · ${offer.city}` : ''}
+            </CardDescription>
+          </div>
         </CardHeader>
         <CardContent>
           <dl className="mb-4 flex flex-col gap-1 font-inter text-sm font-medium text-foreground">
+            {offer.work_mode && (
+              <div>
+                <dt className="inline text-muted-foreground">Type d'offre : </dt>
+                <dd className="inline">{WORK_MODE_LABELS[offer.work_mode]}</dd>
+              </div>
+            )}
             {offer.compensation && (
               <div>
                 <dt className="inline text-muted-foreground">Rémunération : </dt>

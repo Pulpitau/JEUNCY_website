@@ -1,11 +1,18 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { ApplicationStatus } from '@jeuncy/shared';
+import { Video, Briefcase, Linkedin, Lock } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import {
   listApplicationsForOffer,
   updateApplicationStatus,
 } from '@/lib/api/applications';
+import {
+  createApplicationsUnlockCheckoutSession,
+  APPLICATIONS_UNLOCK_PRICE_LABEL,
+} from '@/lib/api/job-offers';
+import { ApiError } from '@/lib/api/client';
 
 const STATUS_LABELS: Record<string, string> = {
   [ApplicationStatus.SENT]: 'Envoyée',
@@ -35,12 +42,24 @@ export function ApplicationsForOfferSection({
   const applicationsQuery = useQuery({
     queryKey,
     queryFn: () => listApplicationsForOffer(jobOfferId),
+    // Un 402 (candidatures verrouillees) n'est pas une erreur transitoire a
+    // reessayer automatiquement — evite 3 tentatives inutiles avant
+    // d'afficher le paywall.
+    retry: (failureCount, error) =>
+      !(error instanceof ApiError && error.status === 402) && failureCount < 3,
   });
 
   const updateStatusMutation = useMutation({
     mutationFn: ({ id, status }: { id: number; status: ApplicationStatus }) =>
       updateApplicationStatus(id, status),
     onSuccess: () => queryClient.invalidateQueries({ queryKey }),
+  });
+
+  const unlockMutation = useMutation({
+    mutationFn: () => createApplicationsUnlockCheckoutSession(jobOfferId),
+    onSuccess: ({ checkout_url }) => {
+      window.location.href = checkout_url;
+    },
   });
 
   const applications = applicationsQuery.data ?? [];
@@ -50,6 +69,42 @@ export function ApplicationsForOfferSection({
       <p className="font-inter text-sm text-muted-foreground">
         Chargement des candidatures…
       </p>
+    );
+  }
+
+  if (
+    applicationsQuery.isError &&
+    applicationsQuery.error instanceof ApiError &&
+    applicationsQuery.error.status === 402
+  ) {
+    return (
+      <div className="flex flex-col items-start gap-2 rounded-md border border-jeuncy-orange/30 bg-jeuncy-orange/10 p-4">
+        <div className="flex items-center gap-2 font-poppins text-sm font-medium text-foreground">
+          <Lock className="h-4 w-4 text-jeuncy-orange" aria-hidden="true" />
+          Candidatures verrouillées
+        </div>
+        <p className="font-inter text-sm text-muted-foreground">
+          Débloque l'accès aux candidatures de cette offre (
+          {APPLICATIONS_UNLOCK_PRICE_LABEL}
+          ), ou passe à l'abonnement mensuel pour un accès illimité à toutes tes offres.
+        </p>
+        {unlockMutation.isError && (
+          <p role="alert" className="font-inter text-sm text-destructive">
+            Impossible de démarrer le paiement pour le moment.
+          </p>
+        )}
+        <Button
+          type="button"
+          variant="gradient"
+          size="sm"
+          onClick={() => unlockMutation.mutate()}
+          disabled={unlockMutation.isPending}
+        >
+          {unlockMutation.isPending
+            ? 'Redirection…'
+            : `Débloquer cette offre (${APPLICATIONS_UNLOCK_PRICE_LABEL})`}
+        </Button>
+      </div>
     );
   }
 
@@ -100,6 +155,39 @@ export function ApplicationsForOfferSection({
                 className="text-primary hover:underline"
               >
                 Voir le CV
+              </a>
+            )}
+            {application.candidate_profile.video_url && (
+              <a
+                href={application.candidate_profile.video_url}
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center gap-1 text-primary hover:underline"
+              >
+                <Video className="h-3.5 w-3.5" aria-hidden="true" />
+                Vidéo de présentation
+              </a>
+            )}
+            {application.candidate_profile.portfolio_url && (
+              <a
+                href={application.candidate_profile.portfolio_url}
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center gap-1 text-primary hover:underline"
+              >
+                <Briefcase className="h-3.5 w-3.5" aria-hidden="true" />
+                Portfolio
+              </a>
+            )}
+            {application.candidate_profile.linkedin_url && (
+              <a
+                href={application.candidate_profile.linkedin_url}
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center gap-1 text-primary hover:underline"
+              >
+                <Linkedin className="h-3.5 w-3.5" aria-hidden="true" />
+                LinkedIn
               </a>
             )}
           </div>

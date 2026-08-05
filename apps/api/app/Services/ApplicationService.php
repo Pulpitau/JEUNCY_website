@@ -21,6 +21,7 @@ class ApplicationService
     public function __construct(
         private readonly CandidateProfileService $candidateProfileService,
         private readonly JobOfferService $jobOfferService,
+        private readonly SubscriptionService $subscriptionService,
     ) {}
 
     public function applyForUser(
@@ -82,9 +83,26 @@ class ApplicationService
 
     // candidateProfile.user restreint a id/email : l'employeur n'a besoin que
     // d'un moyen de contact, pas du reste du compte (role, is_suspended...).
+    // Acces payant depuis le 2026-08-05 : soit cette offre precise a ete
+    // debloquee (essai gratuit ou paiement a l'offre, voir
+    // applications_unlocked_at), soit l'utilisateur a un abonnement actif qui
+    // couvre toutes ses offres. 402 (Payment Required) plutot que 403 : le
+    // frontend distingue "pas le droit" de "il faut payer" pour afficher le
+    // bon message.
     public function listForOffer(User $user, JobOffer $jobOffer): Collection
     {
         $this->jobOfferService->requireOwnedOffer($user, $jobOffer);
+
+        $hasAccess = $jobOffer->applications_unlocked_at !== null
+            || $this->subscriptionService->hasActiveSubscription($user);
+
+        if (! $hasAccess) {
+            throw new ApiException(
+                'APPLICATIONS_ACCESS_REQUIRED',
+                "L'accès aux candidatures de cette offre nécessite un déblocage ou un abonnement actif.",
+                402,
+            );
+        }
 
         return $jobOffer->applications()
             ->with(['candidateProfile.user:id,email', 'generatedCv'])

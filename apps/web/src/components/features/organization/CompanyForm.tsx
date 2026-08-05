@@ -1,10 +1,13 @@
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { WorkMode } from '@jeuncy/shared';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { cn } from '@/lib/utils';
+import { WORK_MODE_LABELS } from '@/lib/work-mode-labels';
 import type { Company, CompanyInput } from '@/lib/api/company';
 
 const companySchema = z.object({
@@ -17,6 +20,7 @@ const companySchema = z.object({
   city: z.string().optional().or(z.literal('')),
   website: z.string().url('URL invalide.').optional().or(z.literal('')),
   description: z.string().optional().or(z.literal('')),
+  work_mode: z.union([z.nativeEnum(WorkMode), z.literal('')]).optional(),
 });
 
 type CompanyFormValues = z.infer<typeof companySchema>;
@@ -46,6 +50,7 @@ export function CompanyForm({
       city: company?.city ?? '',
       website: company?.website ?? '',
       description: company?.description ?? '',
+      work_mode: company?.work_mode ?? '',
     },
   });
 
@@ -56,6 +61,7 @@ export function CompanyForm({
       city: values.city || null,
       website: values.website || null,
       description: values.description || null,
+      work_mode: values.work_mode || null,
     });
   }
 
@@ -105,6 +111,23 @@ export function CompanyForm({
               {errors.website.message}
             </p>
           )}
+        </div>
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="company-work-mode">Mode de travail</Label>
+          <select
+            id="company-work-mode"
+            className={cn(
+              'flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm font-inter focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+            )}
+            {...register('work_mode')}
+          >
+            <option value="">Non précisé</option>
+            {Object.entries(WORK_MODE_LABELS).map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </select>
         </div>
       </div>
 

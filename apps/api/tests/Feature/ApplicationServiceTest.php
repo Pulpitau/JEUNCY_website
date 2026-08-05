@@ -149,6 +149,7 @@ class ApplicationServiceTest extends TestCase
     public function test_list_for_offer_exposes_candidate_email_and_cv(): void
     {
         $offer = $this->makePublishedOffer();
+        $offer->update(['applications_unlocked_at' => now()]);
         $candidate = $this->makeCandidate('lea@example.com');
         $cv = $this->makeCv($candidate->candidateProfile);
         $this->service->applyForUser($candidate, $offer, null, '0612345678', $cv->id);
@@ -158,6 +159,42 @@ class ApplicationServiceTest extends TestCase
 
         $this->assertSame('lea@example.com', $applications->first()->candidateProfile->user->email);
         $this->assertSame($cv->id, $applications->first()->generatedCv->id);
+    }
+
+    // Nouveau modele economique du 2026-08-05 : sans deblocage a l'offre ni
+    // abonnement actif, la liste des candidatures est desormais payante (402).
+    public function test_list_for_offer_requires_applications_access(): void
+    {
+        $offer = $this->makePublishedOffer();
+        $candidate = $this->makeCandidate('lea@example.com');
+        $cv = $this->makeCv($candidate->candidateProfile);
+        $this->service->applyForUser($candidate, $offer, null, '0612345678', $cv->id);
+
+        $owner = $offer->company->user;
+
+        $this->expectException(ApiException::class);
+        $this->service->listForOffer($owner->fresh(), $offer->fresh());
+    }
+
+    public function test_list_for_offer_allowed_with_active_subscription(): void
+    {
+        $offer = $this->makePublishedOffer();
+        $candidate = $this->makeCandidate('lea@example.com');
+        $cv = $this->makeCv($candidate->candidateProfile);
+        $this->service->applyForUser($candidate, $offer, null, '0612345678', $cv->id);
+
+        $owner = $offer->company->user;
+        \App\Models\Subscription::create([
+            'user_id' => $owner->id,
+            'status' => \App\Enums\SubscriptionStatus::ACTIVE,
+            'amount_cents' => 7900,
+            'stripe_subscription_id' => 'sub_test_'.$owner->id,
+            'stripe_customer_id' => 'cus_test_'.$owner->id,
+        ]);
+
+        $applications = $this->service->listForOffer($owner->fresh(), $offer->fresh());
+
+        $this->assertCount(1, $applications);
     }
 
     public function test_apply_rejects_unpublished_offer(): void

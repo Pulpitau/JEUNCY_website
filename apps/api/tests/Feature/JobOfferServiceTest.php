@@ -7,6 +7,8 @@ use App\Enums\JobOfferStatus;
 use App\Enums\PaymentStatus;
 use App\Enums\UserRole;
 use App\Exceptions\ApiException;
+use App\Enums\SubscriptionStatus;
+use App\Models\Subscription;
 use App\Models\User;
 use App\Services\CfaOrganizationService;
 use App\Services\CompanyService;
@@ -181,7 +183,7 @@ class JobOfferServiceTest extends TestCase
         $offer = $this->service->createForUser($owner, $this->offerPayload());
         $this->mailServiceMock->shouldReceive('sendTrialStartedEmail')
             ->once()
-            ->with('rh@nexatech.example.com', 'NexaTech', '9,99 €');
+            ->with('rh@nexatech.example.com', 'NexaTech', '8,00 €');
 
         $published = $this->service->publishViaTrialForUser($owner->fresh(), $offer);
 
@@ -217,7 +219,7 @@ class JobOfferServiceTest extends TestCase
         $offer = $this->service->createForUser($owner, $this->offerPayload());
         $this->mailServiceMock->shouldReceive('sendTrialStartedEmail')
             ->once()
-            ->with('contact@cfa-sup-alternance.example.com', 'CFA Sup Alternance', '4,99 €');
+            ->with('contact@cfa-sup-alternance.example.com', 'CFA Sup Alternance', '10,00 €');
 
         $published = $this->service->publishViaTrialForUser($owner->fresh(), $offer);
 
@@ -234,10 +236,10 @@ class JobOfferServiceTest extends TestCase
         $companyOffer = $this->service->createForUser($this->makeCompanyUser(), $this->offerPayload());
         $cfaOffer = $this->service->createForUser($this->makeCfaUser(), $this->offerPayload());
 
-        $this->assertSame(999, $this->service->priceCentsFor($companyOffer));
-        $this->assertSame(499, $this->service->priceCentsFor($cfaOffer));
-        $this->assertSame('9,99 €', $this->service->priceLabelFor($companyOffer));
-        $this->assertSame('4,99 €', $this->service->priceLabelFor($cfaOffer));
+        $this->assertSame(800, $this->service->priceCentsFor($companyOffer));
+        $this->assertSame(1000, $this->service->priceCentsFor($cfaOffer));
+        $this->assertSame('8,00 €', $this->service->priceLabelFor($companyOffer));
+        $this->assertSame('10,00 €', $this->service->priceLabelFor($cfaOffer));
     }
 
     public function test_publish_via_trial_rejects_when_offer_quota_exhausted(): void
@@ -302,5 +304,57 @@ class JobOfferServiceTest extends TestCase
 
         $this->expectException(ApiException::class);
         $this->service->requirePayableOffer($owner->fresh(), $offer->fresh());
+    }
+
+    public function test_publish_via_subscription_publishes_draft_offer_for_free(): void
+    {
+        $owner = $this->makeCompanyUser();
+        $offer = $this->service->createForUser($owner, $this->offerPayload());
+        Subscription::create([
+            'user_id' => $owner->id,
+            'status' => SubscriptionStatus::ACTIVE,
+            'amount_cents' => 7900,
+            'stripe_subscription_id' => 'sub_test_publish',
+            'stripe_customer_id' => 'cus_test_publish',
+        ]);
+
+        $published = $this->service->publishViaSubscriptionForUser($owner->fresh(), $offer);
+
+        $this->assertSame(JobOfferStatus::PUBLISHED, $published->status);
+        $this->assertSame(PaymentStatus::SUBSCRIPTION, $published->payment_status);
+        $this->assertNotNull($published->published_at);
+        // Contrairement a l'essai gratuit, l'acces aux candidatures n'est pas
+        // fige ici : il reste conditionne dynamiquement a l'abonnement actif
+        // (voir ApplicationService::listForOffer), donc revocable.
+        $this->assertNull($published->applications_unlocked_at);
+    }
+
+    public function test_publish_via_subscription_rejects_without_active_subscription(): void
+    {
+        $owner = $this->makeCompanyUser();
+        $offer = $this->service->createForUser($owner, $this->offerPayload());
+
+        $this->expectException(ApiException::class);
+        $this->service->publishViaSubscriptionForUser($owner->fresh(), $offer);
+    }
+
+    public function test_publish_via_subscription_allows_republishing_archived_trial_offer(): void
+    {
+        $owner = $this->makeCompanyUser();
+        $offer = $this->service->createForUser($owner, $this->offerPayload());
+        $this->mailServiceMock->shouldReceive('sendTrialStartedEmail')->once();
+        $this->service->publishViaTrialForUser($owner->fresh(), $offer);
+        $offer->update(['status' => JobOfferStatus::ARCHIVED]);
+        Subscription::create([
+            'user_id' => $owner->id,
+            'status' => SubscriptionStatus::ACTIVE,
+            'amount_cents' => 7900,
+            'stripe_subscription_id' => 'sub_test_republish',
+            'stripe_customer_id' => 'cus_test_republish',
+        ]);
+
+        $published = $this->service->publishViaSubscriptionForUser($owner->fresh(), $offer->fresh());
+
+        $this->assertSame(JobOfferStatus::PUBLISHED, $published->status);
     }
 }

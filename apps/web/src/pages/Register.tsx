@@ -2,8 +2,8 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Link, useNavigate } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { Button, buttonVariants } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { PasswordInput } from '@/components/ui/password-input';
 import { Label } from '@/components/ui/label';
@@ -15,8 +15,9 @@ import {
   CardDescription,
 } from '@/components/ui/card';
 import { register as registerRequest } from '@/lib/api/auth';
-import { ApiError } from '@/lib/api/client';
+import { ApiError, API_URL } from '@/lib/api/client';
 import { useAuthStore } from '@/store/auth-store';
+import { cn } from '@/lib/utils';
 
 const ROLE_OPTIONS = [
   { value: 'CANDIDATE', label: 'Candidat' },
@@ -34,10 +35,18 @@ const registerSchema = z.object({
 
 type RegisterFormValues = z.infer<typeof registerSchema>;
 
+const VALID_ROLES = ROLE_OPTIONS.map((option) => option.value);
+
 export function Register() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const setSession = useAuthStore((state) => state.setSession);
   const [serverError, setServerError] = useState<string | null>(null);
+
+  const roleParam = searchParams.get('role');
+  const defaultRole = (VALID_ROLES as readonly string[]).includes(roleParam ?? '')
+    ? (roleParam as RegisterFormValues['role'])
+    : 'CANDIDATE';
 
   const {
     register: registerField,
@@ -45,7 +54,7 @@ export function Register() {
     formState: { errors, isSubmitting },
   } = useForm<RegisterFormValues>({
     resolver: zodResolver(registerSchema),
-    defaultValues: { role: 'CANDIDATE' },
+    defaultValues: { role: defaultRole },
   });
 
   async function onSubmit(values: RegisterFormValues) {
@@ -147,6 +156,23 @@ export function Register() {
               {isSubmitting ? 'Création…' : 'Créer mon compte'}
             </Button>
           </form>
+
+          <div className="mt-6 flex items-center gap-3">
+            <div className="h-px flex-1 bg-border" />
+            <span className="font-inter text-xs text-muted-foreground">ou</span>
+            <div className="h-px flex-1 bg-border" />
+          </div>
+
+          <a
+            href={`${API_URL}/auth/google`}
+            className={cn(buttonVariants({ variant: 'outline' }), 'mt-4 w-full')}
+          >
+            Continuer avec Google
+          </a>
+          <p className="mt-2 text-center font-inter text-xs text-muted-foreground">
+            Réservé aux candidats pour l'instant — les comptes entreprise et CFA doivent
+            passer par le formulaire ci-dessus.
+          </p>
 
           <p className="mt-6 text-center text-sm font-inter text-muted-foreground">
             Déjà un compte ?{' '}

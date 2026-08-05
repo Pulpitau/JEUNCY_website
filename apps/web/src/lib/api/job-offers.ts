@@ -1,4 +1,9 @@
-import type { ContractType, JobOfferStatus, PaymentStatus } from '@jeuncy/shared';
+import type {
+  ContractType,
+  JobOfferStatus,
+  PaymentStatus,
+  WorkMode,
+} from '@jeuncy/shared';
 import { apiRequest } from './client';
 import type { Skill } from './candidate-profile';
 
@@ -13,6 +18,7 @@ export interface JobOffer {
   payment_status: PaymentStatus;
   location: string | null;
   city: string | null;
+  work_mode: WorkMode | null;
   compensation: string | null;
   experience_level: string | null;
   benefits: string | null;
@@ -21,6 +27,12 @@ export interface JobOffer {
   skills: Skill[];
   published_at: string | null;
   expires_at: string | null;
+  // Non-null des que l'acces aux candidatures de cette offre precise a ete
+  // debloque (essai gratuit, paiement dedie, ou abonnement actif au moment de
+  // la publication) — voir ApplicationService::listForOffer cote backend
+  // pour la garde qui s'appuie dessus (ou sur un abonnement actif au moment
+  // de la consultation, pas seulement de la publication).
+  applications_unlocked_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -53,6 +65,7 @@ export interface JobOfferInput {
   contract_type: ContractType;
   location?: string | null;
   city?: string | null;
+  work_mode?: WorkMode | null;
   compensation?: string | null;
   experience_level?: string | null;
   benefits?: string | null;
@@ -65,15 +78,21 @@ export interface JobOfferSearchFilters {
   q?: string;
   contract_type?: ContractType;
   city?: string;
+  work_mode?: WorkMode;
   page?: number;
 }
 
-// Tarifs de publication, differents entreprise/CFA (voir
-// JobOfferService::priceLabelFor cote backend, source de verite pour le
-// montant reellement facture) — amenes a evoluer, decision produit du
-// 2026-07-28.
-export const COMPANY_OFFER_PRICE_LABEL = '9,99 €';
-export const CFA_OFFER_PRICE_LABEL = '4,99 €';
+// Tarifs de publication d'une offre SEULE (sans acces aux candidatures),
+// differents entreprise/CFA (voir JobOfferService::priceLabelFor cote
+// backend, source de verite pour le montant reellement facture) — nouveau
+// modele economique du 2026-08-05, voir aussi lib/api/subscriptions.ts pour
+// l'abonnement mensuel et APPLICATIONS_UNLOCK_PRICE_LABEL ci-dessous.
+export const COMPANY_OFFER_PRICE_LABEL = '8 €';
+export const CFA_OFFER_PRICE_LABEL = '10 €';
+
+// Deblocage ponctuel de l'acces aux candidatures d'UNE offre precise, meme
+// tarif entreprise/CFA.
+export const APPLICATIONS_UNLOCK_PRICE_LABEL = '50 €';
 
 export function offerPriceLabel(offer: Pick<JobOffer, 'cfa_organization_id'>): string {
   return offer.cfa_organization_id !== null
@@ -103,8 +122,20 @@ export function createCheckoutSession(id: number) {
   });
 }
 
+export function createApplicationsUnlockCheckoutSession(id: number) {
+  return apiRequest<{ checkout_url: string }>(`/job-offers/${id}/checkout-applications`, {
+    method: 'POST',
+  });
+}
+
 export function publishOfferViaTrial(id: number) {
   return apiRequest<JobOffer>(`/job-offers/${id}/publish-trial`, { method: 'POST' });
+}
+
+export function publishOfferViaSubscription(id: number) {
+  return apiRequest<JobOffer>(`/job-offers/${id}/publish-subscription`, {
+    method: 'POST',
+  });
 }
 
 export function searchPublicOffers(filters: JobOfferSearchFilters) {
@@ -112,6 +143,7 @@ export function searchPublicOffers(filters: JobOfferSearchFilters) {
   if (filters.q) params.set('q', filters.q);
   if (filters.contract_type) params.set('contract_type', filters.contract_type);
   if (filters.city) params.set('city', filters.city);
+  if (filters.work_mode) params.set('work_mode', filters.work_mode);
   if (filters.page) params.set('page', String(filters.page));
 
   const query = params.toString();

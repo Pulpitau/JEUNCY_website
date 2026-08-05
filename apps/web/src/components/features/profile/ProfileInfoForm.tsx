@@ -1,6 +1,7 @@
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { Video, Briefcase, Linkedin } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -30,6 +31,9 @@ const profileSchema = z.object({
   bio: z.string().optional().or(z.literal('')),
   hobbies: z.string().optional().or(z.literal('')),
   driving_license: z.string().optional().or(z.literal('')),
+  video_url: z.string().url('URL invalide.').optional().or(z.literal('')),
+  portfolio_url: z.string().url('URL invalide.').optional().or(z.literal('')),
+  linkedin_url: z.string().url('URL invalide.').optional().or(z.literal('')),
 });
 
 type ProfileFormValues = z.infer<typeof profileSchema>;
@@ -65,6 +69,9 @@ export function ProfileInfoForm({
       bio: profile?.bio ?? '',
       hobbies: profile?.hobbies ?? '',
       driving_license: profile?.driving_license ?? '',
+      video_url: profile?.video_url ?? '',
+      portfolio_url: profile?.portfolio_url ?? '',
+      linkedin_url: profile?.linkedin_url ?? '',
     },
   });
 
@@ -81,6 +88,9 @@ export function ProfileInfoForm({
       bio: values.bio || null,
       hobbies: values.hobbies || null,
       driving_license: values.driving_license || null,
+      video_url: values.video_url || null,
+      portfolio_url: values.portfolio_url || null,
+      linkedin_url: values.linkedin_url || null,
     });
   }
 
@@ -195,6 +205,60 @@ export function ProfileInfoForm({
           placeholder="Ex : Photographie, football, lecture"
           {...register('hobbies')}
         />
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="video_url" className="flex items-center gap-1.5">
+            <Video className="h-3.5 w-3.5" aria-hidden="true" />
+            Vidéo de présentation
+          </Label>
+          <Input
+            id="video_url"
+            placeholder="Lien YouTube, Vimeo…"
+            aria-invalid={!!errors.video_url}
+            {...register('video_url')}
+          />
+          {errors.video_url && (
+            <p role="alert" className="text-sm text-destructive">
+              {errors.video_url.message}
+            </p>
+          )}
+        </div>
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="portfolio_url" className="flex items-center gap-1.5">
+            <Briefcase className="h-3.5 w-3.5" aria-hidden="true" />
+            Portfolio
+          </Label>
+          <Input
+            id="portfolio_url"
+            placeholder="https://…"
+            aria-invalid={!!errors.portfolio_url}
+            {...register('portfolio_url')}
+          />
+          {errors.portfolio_url && (
+            <p role="alert" className="text-sm text-destructive">
+              {errors.portfolio_url.message}
+            </p>
+          )}
+        </div>
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="linkedin_url" className="flex items-center gap-1.5">
+            <Linkedin className="h-3.5 w-3.5" aria-hidden="true" />
+            LinkedIn
+          </Label>
+          <Input
+            id="linkedin_url"
+            placeholder="https://linkedin.com/in/…"
+            aria-invalid={!!errors.linkedin_url}
+            {...register('linkedin_url')}
+          />
+          {errors.linkedin_url && (
+            <p role="alert" className="text-sm text-destructive">
+              {errors.linkedin_url.message}
+            </p>
+          )}
+        </div>
       </div>
 
       <div className="flex gap-2">

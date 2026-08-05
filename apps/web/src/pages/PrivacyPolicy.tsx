@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 
-const LAST_UPDATED = '22 juillet 2026';
+const LAST_UPDATED = '4 août 2026';
 
 const DATA_CATEGORIES = [
   {
@@ -56,9 +56,7 @@ export function PrivacyPolicy() {
               1. Responsable du traitement
             </h2>
             <p className="mt-3">
-              Jeuncy (
-              <span className="text-foreground">[Raison sociale à compléter]</span>, voir
-              nos{' '}
+              Jeuncy (<span className="text-foreground">SAS Jeuncy</span>, voir nos{' '}
               <Link to="/mentions-legales" className="text-primary hover:underline">
                 mentions légales
               </Link>
@@ -148,6 +146,11 @@ export function PrivacyPolicy() {
                 Jitsi (meet.jit.si), pour l'hébergement du flux de visioconférence lors
                 d'une démonstration
               </li>
+              <li>
+                OpenStreetMap, pour l'affichage de la carte de localisation de notre
+                agence sur la page À propos (aucun cookie, votre adresse IP est transmise
+                à leurs serveurs comme pour tout affichage d'image externe)
+              </li>
               <li>OVH, notre hébergeur, pour le stockage technique des données</li>
             </ul>
             <p className="mt-3">
@@ -226,9 +229,17 @@ export function PrivacyPolicy() {
             <p className="mt-3">
               Conformément au RGPD, vous disposez d'un droit d'accès, de rectification,
               d'effacement, de limitation et d'opposition au traitement de vos données,
-              ainsi que d'un droit à la portabilité. Vous pouvez exercer ces droits en
-              nous contactant à l'adresse{' '}
-              <span className="text-foreground">contact@jeuncy.com</span>. Vous disposez
+              ainsi que d'un droit à la portabilité. Si vous êtes connecté(e), vous pouvez
+              exercer vous-même vos droits d'accès et d'effacement depuis la page{' '}
+              <Link
+                to="/mon-compte/confidentialite"
+                className="text-primary hover:underline"
+              >
+                Confidentialité et données
+              </Link>{' '}
+              (export au format JSON, suppression définitive du compte). Pour toute autre
+              demande, contactez-nous à l'adresse{' '}
+              <span className="text-foreground">bonjour@jeuncy.com</span>. Vous disposez
               également du droit d'introduire une réclamation auprès de la Commission
               Nationale de l'Informatique et des Libertés (CNIL), www.cnil.fr.
             </p>

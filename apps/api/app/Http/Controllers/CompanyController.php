@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\Company\StoreCompanyRequest;
 use App\Http\Requests\Company\UpdateCompanyRequest;
+use App\Http\Requests\Company\UploadCompanyLogoRequest;
 use App\Services\CompanyService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -27,5 +28,15 @@ class CompanyController extends Controller
     public function update(UpdateCompanyRequest $request): JsonResponse
     {
         return response()->json($this->service->updateForUser($request->user(), $request->validated()));
+    }
+
+    public function uploadLogo(UploadCompanyLogoRequest $request): JsonResponse
+    {
+        return response()->json($this->service->uploadLogo($request->user(), $request->file('logo')));
+    }
+
+    public function removeLogo(Request $request): JsonResponse
+    {
+        return response()->json($this->service->removeLogo($request->user()));
     }
 }

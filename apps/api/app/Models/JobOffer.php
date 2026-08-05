@@ -13,8 +13,9 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 #[Fillable([
     'company_id', 'cfa_organization_id', 'title', 'description', 'contract_type',
-    'status', 'payment_status', 'location', 'city', 'compensation', 'experience_level',
-    'benefits', 'diploma_level', 'training_rhythm', 'published_at', 'expires_at',
+    'status', 'payment_status', 'location', 'city', 'work_mode', 'compensation',
+    'experience_level', 'benefits', 'diploma_level', 'training_rhythm', 'published_at',
+    'expires_at', 'applications_unlocked_at',
 ])]
 class JobOffer extends Model
 {
@@ -28,6 +29,7 @@ class JobOffer extends Model
             'payment_status' => PaymentStatus::class,
             'published_at' => 'datetime',
             'expires_at' => 'datetime',
+            'applications_unlocked_at' => 'datetime',
         ];
     }
 

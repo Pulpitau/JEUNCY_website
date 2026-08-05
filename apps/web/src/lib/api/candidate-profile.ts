@@ -52,6 +52,9 @@ export interface CandidateProfile {
   bio: string | null;
   hobbies: string | null;
   driving_license: string | null;
+  video_url: string | null;
+  portfolio_url: string | null;
+  linkedin_url: string | null;
   photo_url: string | null;
   experiences: Experience[];
   educations: Education[];
@@ -86,6 +89,9 @@ export interface CandidateProfileInput {
   bio?: string | null;
   hobbies?: string | null;
   driving_license?: string | null;
+  video_url?: string | null;
+  portfolio_url?: string | null;
+  linkedin_url?: string | null;
 }
 
 export interface ExperienceInput {

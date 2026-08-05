@@ -1,5 +1,7 @@
+import { Video, Briefcase, Linkedin } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import type { CandidateProfile } from '@/lib/api/candidate-profile';
+import { getYoutubeEmbedUrl } from '@/lib/youtube';
 
 interface ProfileInfoSummaryProps {
   profile: CandidateProfile;
@@ -77,6 +79,61 @@ export function ProfileInfoSummary({ profile, onEdit }: ProfileInfoSummaryProps)
             Loisirs
           </dt>
           <dd className="mt-1 font-inter text-sm text-foreground">{profile.hobbies}</dd>
+        </div>
+      )}
+
+      {(profile.video_url || profile.portfolio_url || profile.linkedin_url) && (
+        <div className="flex flex-col gap-3">
+          <dt className="font-inter text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            Liens
+          </dt>
+          <div className="flex flex-wrap gap-4 font-inter text-sm">
+            {profile.portfolio_url && (
+              <a
+                href={profile.portfolio_url}
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center gap-1.5 text-primary hover:underline"
+              >
+                <Briefcase className="h-4 w-4" aria-hidden="true" />
+                Portfolio
+              </a>
+            )}
+            {profile.linkedin_url && (
+              <a
+                href={profile.linkedin_url}
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center gap-1.5 text-primary hover:underline"
+              >
+                <Linkedin className="h-4 w-4" aria-hidden="true" />
+                LinkedIn
+              </a>
+            )}
+            {profile.video_url && !getYoutubeEmbedUrl(profile.video_url) && (
+              <a
+                href={profile.video_url}
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center gap-1.5 text-primary hover:underline"
+              >
+                <Video className="h-4 w-4" aria-hidden="true" />
+                Vidéo de présentation
+              </a>
+            )}
+          </div>
+
+          {profile.video_url && getYoutubeEmbedUrl(profile.video_url) && (
+            <div className="aspect-video w-full max-w-md overflow-hidden rounded-md border border-border">
+              <iframe
+                src={getYoutubeEmbedUrl(profile.video_url)!}
+                title="Vidéo de présentation"
+                className="h-full w-full"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+              />
+            </div>
+          )}
         </div>
       )}
     </div>

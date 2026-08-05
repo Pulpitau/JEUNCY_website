@@ -1,4 +1,4 @@
-import type { PaymentStatus } from '@jeuncy/shared';
+import type { PaymentStatus, PaymentType } from '@jeuncy/shared';
 import { apiRequest } from './client';
 import type { JobOffer } from './job-offers';
 
@@ -6,6 +6,7 @@ export interface Payment {
   id: number;
   user_id: number;
   job_offer_id: number | null;
+  type: PaymentType;
   amount_cents: number;
   currency: string;
   status: PaymentStatus;

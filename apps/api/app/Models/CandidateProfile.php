@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 #[Fillable([
     'user_id', 'first_name', 'last_name', 'headline', 'phone', 'birth_date',
     'address', 'city', 'postal_code', 'bio', 'photo_url', 'hobbies', 'driving_license',
+    'video_url', 'portfolio_url', 'linkedin_url',
 ])]
 class CandidateProfile extends Model
 {

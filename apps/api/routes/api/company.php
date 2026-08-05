@@ -12,4 +12,6 @@ Route::prefix('company')->middleware(['auth:api', 'role:COMPANY'])->group(functi
     Route::get('/', [CompanyController::class, 'show']);
     Route::post('/', [CompanyController::class, 'store']);
     Route::patch('/', [CompanyController::class, 'update']);
+    Route::post('logo', [CompanyController::class, 'uploadLogo']);
+    Route::delete('logo', [CompanyController::class, 'removeLogo']);
 });

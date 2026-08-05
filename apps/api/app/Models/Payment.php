@@ -3,12 +3,13 @@
 namespace App\Models;
 
 use App\Enums\PaymentStatus;
+use App\Enums\PaymentType;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 #[Fillable([
-    'user_id', 'job_offer_id', 'amount_cents', 'currency', 'status',
+    'user_id', 'job_offer_id', 'type', 'amount_cents', 'currency', 'status',
     'stripe_payment_intent_id', 'stripe_session_id',
 ])]
 class Payment extends Model
@@ -17,7 +18,10 @@ class Payment extends Model
 
     protected function casts(): array
     {
-        return ['status' => PaymentStatus::class];
+        return [
+            'status' => PaymentStatus::class,
+            'type' => PaymentType::class,
+        ];
     }
 
     public function user(): BelongsTo
