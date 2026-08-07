@@ -99,6 +99,21 @@ class JobOfferService
         return $jobOffer;
     }
 
+    // Suppression definitive (contrairement a archiveForUser, irreversible) :
+    // demandee pour permettre a une entreprise/CFA de nettoyer une offre de
+    // test ou obsolete plutot que de l'accumuler en "archivee". Les
+    // candidatures et competences liees sont supprimees en cascade (voir
+    // create_applications_table / create_job_offer_skills_table) ; un
+    // paiement lie garde son historique (obligation comptable) mais perd sa
+    // reference a l'offre (payments.job_offer_id passe a null, voir
+    // create_payments_table) — comportement identique a la suppression de
+    // compte RGPD (AccountService::deleteAccount).
+    public function deleteForUser(User $user, JobOffer $jobOffer): void
+    {
+        $jobOffer = $this->requireOwnedOffer($user, $jobOffer);
+        $jobOffer->delete();
+    }
+
     // Reutilise par PaymentService avant de creer une session de paiement : une
     // offre doit appartenir a l'utilisateur et etre encore en brouillon.
     public function requireOwnedDraftOffer(User $user, JobOffer $jobOffer): JobOffer

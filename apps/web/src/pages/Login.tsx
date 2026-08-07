@@ -18,6 +18,7 @@ import { login as loginRequest } from '@/lib/api/auth';
 import { ApiError, API_URL } from '@/lib/api/client';
 import { useAuthStore } from '@/store/auth-store';
 import { cn } from '@/lib/utils';
+import { GoogleIcon } from '@/components/icons/GoogleIcon';
 
 const loginSchema = z.object({
   email: z.string().email('Adresse email invalide.'),
@@ -58,6 +59,22 @@ export function Login() {
           <CardDescription>Content de te revoir sur Jeuncy.</CardDescription>
         </CardHeader>
         <CardContent>
+          <a
+            href={`${API_URL}/auth/google`}
+            className={cn(buttonVariants({ variant: 'outline' }), 'w-full gap-2')}
+          >
+            <GoogleIcon className="h-4 w-4" />
+            Continuer avec Google
+          </a>
+
+          <div className="my-6 flex items-center gap-3">
+            <div className="h-px flex-1 bg-border" />
+            <span className="font-inter text-xs text-muted-foreground">
+              ou avec ton email
+            </span>
+            <div className="h-px flex-1 bg-border" />
+          </div>
+
           <form
             onSubmit={handleSubmit(onSubmit)}
             noValidate
@@ -119,19 +136,6 @@ export function Login() {
               {isSubmitting ? 'Connexion…' : 'Se connecter'}
             </Button>
           </form>
-
-          <div className="mt-6 flex items-center gap-3">
-            <div className="h-px flex-1 bg-border" />
-            <span className="font-inter text-xs text-muted-foreground">ou</span>
-            <div className="h-px flex-1 bg-border" />
-          </div>
-
-          <a
-            href={`${API_URL}/auth/google`}
-            className={cn(buttonVariants({ variant: 'outline' }), 'mt-4 w-full')}
-          >
-            Continuer avec Google
-          </a>
 
           <p className="mt-6 text-center text-sm font-inter text-muted-foreground">
             Pas encore de compte ?{' '}

@@ -85,10 +85,11 @@ export interface JobOfferSearchFilters {
 // Tarifs de publication d'une offre SEULE (sans acces aux candidatures),
 // differents entreprise/CFA (voir JobOfferService::priceLabelFor cote
 // backend, source de verite pour le montant reellement facture) — nouveau
-// modele economique du 2026-08-05, voir aussi lib/api/subscriptions.ts pour
-// l'abonnement mensuel et APPLICATIONS_UNLOCK_PRICE_LABEL ci-dessous.
-export const COMPANY_OFFER_PRICE_LABEL = '8 €';
-export const CFA_OFFER_PRICE_LABEL = '10 €';
+// modele economique du 2026-08-05, dernier ajustement de tarif le
+// 2026-08-06, voir aussi lib/api/subscriptions.ts pour l'abonnement mensuel
+// et APPLICATIONS_UNLOCK_PRICE_LABEL ci-dessous.
+export const COMPANY_OFFER_PRICE_LABEL = '9,99 €';
+export const CFA_OFFER_PRICE_LABEL = '5,99 €';
 
 // Deblocage ponctuel de l'acces aux candidatures d'UNE offre precise, meme
 // tarif entreprise/CFA.
@@ -114,6 +115,12 @@ export function updateOffer(id: number, input: Partial<JobOfferInput>) {
 
 export function archiveOffer(id: number) {
   return apiRequest<JobOffer>(`/job-offers/${id}/archive`, { method: 'POST' });
+}
+
+// Suppression definitive (contrairement a archiveOffer, irreversible) — voir
+// JobOfferService::deleteForUser cote backend.
+export function deleteOffer(id: number) {
+  return apiRequest<{ deleted: true }>(`/job-offers/${id}`, { method: 'DELETE' });
 }
 
 export function createCheckoutSession(id: number) {

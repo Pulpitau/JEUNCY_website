@@ -297,18 +297,6 @@ export function JobOfferForm({
         </div>
       </div>
 
-      {variant === 'COMPANY' && (
-        <div className="flex flex-col gap-2">
-          <Label htmlFor="offer-benefits">Avantages</Label>
-          <Textarea
-            id="offer-benefits"
-            rows={3}
-            placeholder="Ex : Tickets restaurant, mutuelle, télétravail 2j/semaine, prime de fin d'année…"
-            {...register('benefits')}
-          />
-        </div>
-      )}
-
       <div className="flex flex-col gap-2">
         <Label htmlFor="offer-description">Description</Label>
         <Textarea
@@ -323,6 +311,18 @@ export function JobOfferForm({
           </p>
         )}
       </div>
+
+      {variant === 'COMPANY' && (
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="offer-benefits">Avantages (facultatif)</Label>
+          <Textarea
+            id="offer-benefits"
+            rows={3}
+            placeholder="Ex : Tickets restaurant, mutuelle, télétravail 2j/semaine, prime de fin d'année…"
+            {...register('benefits')}
+          />
+        </div>
+      )}
 
       <div className="flex gap-2">
         <Button type="submit" variant="gradient" disabled={isSubmitting}>

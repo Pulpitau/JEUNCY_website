@@ -115,6 +115,50 @@ class JobOfferServiceTest extends TestCase
         $this->assertSame(JobOfferStatus::ARCHIVED, $archived->status);
     }
 
+    public function test_delete_removes_offer(): void
+    {
+        $owner = $this->makeCompanyUser();
+        $offer = $this->service->createForUser($owner, $this->offerPayload());
+        $offerId = $offer->id;
+
+        $this->service->deleteForUser($owner->fresh(), $offer);
+
+        $this->assertDatabaseMissing('job_offers', ['id' => $offerId]);
+    }
+
+    public function test_delete_rejects_offer_owned_by_another_company(): void
+    {
+        $owner = $this->makeCompanyUser('rh@nexatech.example.com');
+        $offer = $this->service->createForUser($owner, $this->offerPayload());
+
+        $intruder = $this->makeCompanyUser('contact@cafedeslices.example.com');
+
+        $this->expectException(ApiException::class);
+        $this->service->deleteForUser($intruder, $offer);
+    }
+
+    // Une offre supprimee alors qu'un paiement y est rattache ne doit pas
+    // supprimer l'historique comptable : payments.job_offer_id passe a null
+    // (voir create_payments_table, nullOnDelete) plutot que de bloquer ou de
+    // cascader la suppression du Payment lui-meme.
+    public function test_delete_nullifies_linked_payment_without_deleting_it(): void
+    {
+        $owner = $this->makeCompanyUser();
+        $offer = $this->service->createForUser($owner, $this->offerPayload());
+        $payment = \App\Models\Payment::create([
+            'user_id' => $owner->id,
+            'job_offer_id' => $offer->id,
+            'type' => \App\Enums\PaymentType::OFFER_PUBLICATION,
+            'amount_cents' => 999,
+            'status' => PaymentStatus::SUCCEEDED,
+            'stripe_session_id' => 'cs_test_delete',
+        ]);
+
+        $this->service->deleteForUser($owner->fresh(), $offer);
+
+        $this->assertDatabaseHas('payments', ['id' => $payment->id, 'job_offer_id' => null]);
+    }
+
     public function test_require_owned_draft_offer_rejects_already_published_offer(): void
     {
         $owner = $this->makeCompanyUser();
@@ -183,7 +227,7 @@ class JobOfferServiceTest extends TestCase
         $offer = $this->service->createForUser($owner, $this->offerPayload());
         $this->mailServiceMock->shouldReceive('sendTrialStartedEmail')
             ->once()
-            ->with('rh@nexatech.example.com', 'NexaTech', '8,00 €');
+            ->with('rh@nexatech.example.com', 'NexaTech', '9,99 €');
 
         $published = $this->service->publishViaTrialForUser($owner->fresh(), $offer);
 
@@ -219,7 +263,7 @@ class JobOfferServiceTest extends TestCase
         $offer = $this->service->createForUser($owner, $this->offerPayload());
         $this->mailServiceMock->shouldReceive('sendTrialStartedEmail')
             ->once()
-            ->with('contact@cfa-sup-alternance.example.com', 'CFA Sup Alternance', '10,00 €');
+            ->with('contact@cfa-sup-alternance.example.com', 'CFA Sup Alternance', '5,99 €');
 
         $published = $this->service->publishViaTrialForUser($owner->fresh(), $offer);
 
@@ -236,10 +280,10 @@ class JobOfferServiceTest extends TestCase
         $companyOffer = $this->service->createForUser($this->makeCompanyUser(), $this->offerPayload());
         $cfaOffer = $this->service->createForUser($this->makeCfaUser(), $this->offerPayload());
 
-        $this->assertSame(800, $this->service->priceCentsFor($companyOffer));
-        $this->assertSame(1000, $this->service->priceCentsFor($cfaOffer));
-        $this->assertSame('8,00 €', $this->service->priceLabelFor($companyOffer));
-        $this->assertSame('10,00 €', $this->service->priceLabelFor($cfaOffer));
+        $this->assertSame(999, $this->service->priceCentsFor($companyOffer));
+        $this->assertSame(599, $this->service->priceCentsFor($cfaOffer));
+        $this->assertSame('9,99 €', $this->service->priceLabelFor($companyOffer));
+        $this->assertSame('5,99 €', $this->service->priceLabelFor($cfaOffer));
     }
 
     public function test_publish_via_trial_rejects_when_offer_quota_exhausted(): void

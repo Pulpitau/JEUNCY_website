@@ -30,6 +30,33 @@ class AuthServiceTest extends TestCase
         $this->authService = $this->app->make(AuthService::class);
     }
 
+    public function test_validate_google_user_creates_account_with_requested_role(): void
+    {
+        $user = $this->authService->validateGoogleUser('google-123', 'rh@nexatech.example.com', UserRole::COMPANY);
+
+        $this->assertSame(UserRole::COMPANY, $user->role);
+        $this->assertSame('google-123', $user->google_id);
+    }
+
+    public function test_validate_google_user_defaults_to_candidate_without_requested_role(): void
+    {
+        $user = $this->authService->validateGoogleUser('google-456', 'lea@example.com');
+
+        $this->assertSame(UserRole::CANDIDATE, $user->role);
+    }
+
+    // Le role demande n'a d'effet qu'a la creation : une reconnexion via
+    // Google d'un compte deja existant ne doit jamais changer son role,
+    // meme si un "state" different est renvoye par erreur ou manipulation.
+    public function test_validate_google_user_ignores_requested_role_for_existing_account(): void
+    {
+        User::create(['email' => 'lea@example.com', 'password_hash' => null, 'role' => UserRole::CANDIDATE, 'google_id' => 'google-789']);
+
+        $user = $this->authService->validateGoogleUser('google-789', 'lea@example.com', UserRole::CFA);
+
+        $this->assertSame(UserRole::CANDIDATE, $user->role);
+    }
+
     public function test_validate_credentials_rejects_unknown_email(): void
     {
         $this->expectException(ApiException::class);

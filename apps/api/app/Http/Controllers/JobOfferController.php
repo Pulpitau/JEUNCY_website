@@ -35,6 +35,13 @@ class JobOfferController extends Controller
         return response()->json($this->service->archiveForUser($request->user(), $jobOffer));
     }
 
+    public function destroy(Request $request, JobOffer $jobOffer): JsonResponse
+    {
+        $this->service->deleteForUser($request->user(), $jobOffer);
+
+        return response()->json(['deleted' => true]);
+    }
+
     public function publishTrial(Request $request, JobOffer $jobOffer): JsonResponse
     {
         return response()->json($this->service->publishViaTrialForUser($request->user(), $jobOffer));

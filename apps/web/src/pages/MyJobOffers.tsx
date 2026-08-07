@@ -11,6 +11,7 @@ import {
   createOffer,
   updateOffer,
   archiveOffer,
+  deleteOffer,
   createCheckoutSession,
   publishOfferViaTrial,
   publishOfferViaSubscription,
@@ -48,6 +49,7 @@ export function MyJobOffers() {
   const [subscriptionPublishError, setSubscriptionPublishError] = useState<string | null>(
     null,
   );
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const [createError, setCreateError] = useState<string | null>(null);
   const [createErrorCode, setCreateErrorCode] = useState<string | null>(null);
   const [subscriptionError, setSubscriptionError] = useState<string | null>(null);
@@ -143,6 +145,17 @@ export function MyJobOffers() {
   const archiveMutation = useMutation({
     mutationFn: archiveOffer,
     onSuccess: invalidateOffers,
+  });
+  const deleteMutation = useMutation({
+    mutationFn: deleteOffer,
+    onSuccess: invalidateOffers,
+    onError: (error) => {
+      setDeleteError(
+        error instanceof ApiError
+          ? error.message
+          : "Impossible de supprimer l'offre pour le moment.",
+      );
+    },
   });
   const checkoutMutation = useMutation({
     mutationFn: createCheckoutSession,
@@ -253,6 +266,11 @@ export function MyJobOffers() {
       {subscriptionPublishError && (
         <p role="alert" className="font-inter text-sm text-destructive">
           {subscriptionPublishError}
+        </p>
+      )}
+      {deleteError && (
+        <p role="alert" className="font-inter text-sm text-destructive">
+          {deleteError}
         </p>
       )}
 
@@ -409,6 +427,11 @@ export function MyJobOffers() {
               isPublishing={checkoutMutation.isPending}
               onUpdate={(id, values) => updateMutation.mutateAsync({ id, values })}
               onArchive={(id) => archiveMutation.mutateAsync(id)}
+              isDeleting={deleteMutation.isPending}
+              onDelete={(id) => {
+                setDeleteError(null);
+                return deleteMutation.mutateAsync(id);
+              }}
               onPublish={(id) => {
                 setCheckoutError(null);
                 return checkoutMutation.mutateAsync(id);

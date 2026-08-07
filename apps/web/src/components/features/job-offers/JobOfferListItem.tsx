@@ -28,6 +28,8 @@ interface JobOfferListItemProps {
   offer: JobOffer;
   onUpdate: (id: number, values: Partial<JobOfferInput>) => Promise<unknown>;
   onArchive: (id: number) => Promise<unknown>;
+  onDelete: (id: number) => Promise<unknown>;
+  isDeleting: boolean;
   onPublish: (id: number) => Promise<unknown>;
   isSubmitting: boolean;
   isPublishing: boolean;
@@ -45,6 +47,8 @@ export function JobOfferListItem({
   offer,
   onUpdate,
   onArchive,
+  onDelete,
+  isDeleting,
   onPublish,
   isSubmitting,
   isPublishing,
@@ -226,6 +230,24 @@ export function JobOfferListItem({
             Archiver
           </Button>
         )}
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+          onClick={() => {
+            if (
+              window.confirm(
+                `Supprimer définitivement l'offre « ${offer.title} » ? Cette action est irréversible.`,
+              )
+            ) {
+              void onDelete(offer.id);
+            }
+          }}
+          disabled={isDeleting}
+        >
+          {isDeleting ? 'Suppression…' : 'Supprimer'}
+        </Button>
         {offer.status === JobOfferStatus.PUBLISHED && (
           <Button
             type="button"

@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 
-const LAST_UPDATED = '4 août 2026';
+const LAST_UPDATED = '6 août 2026';
 
 const DATA_CATEGORIES = [
   {
@@ -24,10 +24,10 @@ const DATA_CATEGORIES = [
     ],
   },
   {
-    title: 'Paiement',
+    title: 'Paiement et abonnement',
     items: [
-      'Les coordonnées bancaires ne sont jamais stockées par Jeuncy : le paiement des offres est traité directement par Stripe',
-      'Jeuncy conserve uniquement le statut et le montant du paiement, à des fins de facturation',
+      'Les coordonnées bancaires ne sont jamais stockées par Jeuncy : le paiement des offres et la souscription à un abonnement mensuel sont traités directement par Stripe',
+      'Jeuncy conserve uniquement le statut, le montant et, pour un abonnement, la période de facturation en cours — à des fins de facturation et de gestion de votre accès',
     ],
   },
   {
@@ -100,7 +100,11 @@ export function PrivacyPolicy() {
               <li>
                 Générer votre CV au format PDF à partir des informations de votre profil
               </li>
-              <li>Permettre la publication et le paiement des offres d'emploi</li>
+              <li>
+                Permettre la publication et le paiement des offres d'emploi, ainsi que la
+                souscription et la gestion d'un abonnement mensuel donnant accès à la
+                publication illimitée et aux candidatures
+              </li>
               <li>Organiser des visioconférences de démonstration</li>
               <li>
                 Vous envoyer des notifications liées à votre activité sur la plateforme
@@ -116,9 +120,10 @@ export function PrivacyPolicy() {
             <p className="mt-3">
               Ces traitements reposent sur l'exécution du contrat qui vous lie à Jeuncy
               (création de compte, mise en relation, génération de CV, paiement des
-              offres), sur votre consentement (participation à une visioconférence de
-              démonstration) et, ponctuellement, sur l'intérêt légitime de Jeuncy à
-              assurer la sécurité et le bon fonctionnement de la plateforme.
+              offres, souscription et gestion d'un abonnement), sur votre consentement
+              (participation à une visioconférence de démonstration) et, ponctuellement,
+              sur l'intérêt légitime de Jeuncy à assurer la sécurité et le bon
+              fonctionnement de la plateforme.
             </p>
           </section>
 
@@ -137,7 +142,10 @@ export function PrivacyPolicy() {
                 Les entreprises ou CFA auxquels vous postulez (uniquement les informations
                 de votre profil et de votre candidature)
               </li>
-              <li>Stripe, pour le traitement sécurisé des paiements des offres</li>
+              <li>
+                Stripe, pour le traitement sécurisé des paiements des offres et des
+                abonnements
+              </li>
               <li>
                 Resend, pour l'envoi des emails transactionnels (réinitialisation de mot
                 de passe, notifications)
@@ -173,9 +181,9 @@ export function PrivacyPolicy() {
                 pour respecter une obligation légale
               </li>
               <li>
-                Les données de facturation liées aux paiements sont conservées pendant la
-                durée exigée par la réglementation comptable et fiscale, même après la
-                suppression du compte associé
+                Les données de facturation liées aux paiements et aux abonnements sont
+                conservées pendant la durée exigée par la réglementation comptable et
+                fiscale, même après la suppression du compte associé
               </li>
               <li>
                 Un CV généré et non régénéré depuis 15 jours est automatiquement archivé

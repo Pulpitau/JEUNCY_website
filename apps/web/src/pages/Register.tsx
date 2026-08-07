@@ -18,6 +18,7 @@ import { register as registerRequest } from '@/lib/api/auth';
 import { ApiError, API_URL } from '@/lib/api/client';
 import { useAuthStore } from '@/store/auth-store';
 import { cn } from '@/lib/utils';
+import { GoogleIcon } from '@/components/icons/GoogleIcon';
 
 const ROLE_OPTIONS = [
   { value: 'CANDIDATE', label: 'Candidat' },
@@ -51,11 +52,19 @@ export function Register() {
   const {
     register: registerField,
     handleSubmit,
+    watch,
     formState: { errors, isSubmitting },
   } = useForm<RegisterFormValues>({
     resolver: zodResolver(registerSchema),
     defaultValues: { role: defaultRole },
   });
+
+  // Le bouton Google reprend le type de compte choisi ci-dessous (transmis
+  // au backend via le parametre "role", voir AuthController::googleRedirect)
+  // — Google cree donc desormais un compte du bon type des la premiere
+  // connexion, plus seulement un compte Candidat par defaut.
+  const selectedRole = watch('role');
+  const googleHref = `${API_URL}/auth/google?role=${selectedRole}`;
 
   async function onSubmit(values: RegisterFormValues) {
     setServerError(null);
@@ -78,6 +87,12 @@ export function Register() {
           <CardDescription>Ton alternance commence ici.</CardDescription>
         </CardHeader>
         <CardContent>
+          <p className="mb-4 font-inter text-sm text-muted-foreground">
+            Choisis d'abord ton type de compte, puis crée-le en un clic avec{' '}
+            <span className="font-medium text-foreground">Google</span>, ou remplis le{' '}
+            <span className="font-medium text-foreground">formulaire</span> plus bas.
+          </p>
+
           <form
             onSubmit={handleSubmit(onSubmit)}
             noValidate
@@ -107,6 +122,23 @@ export function Register() {
                 </p>
               )}
             </fieldset>
+
+            <a
+              href={googleHref}
+              className={cn(buttonVariants({ variant: 'outline' }), 'w-full gap-2')}
+            >
+              <GoogleIcon className="h-4 w-4" />
+              Continuer avec Google en tant que{' '}
+              {ROLE_OPTIONS.find((option) => option.value === selectedRole)?.label}
+            </a>
+
+            <div className="flex items-center gap-3">
+              <div className="h-px flex-1 bg-border" />
+              <span className="font-inter text-xs text-muted-foreground">
+                ou avec le formulaire
+              </span>
+              <div className="h-px flex-1 bg-border" />
+            </div>
 
             <div className="flex flex-col gap-2">
               <Label htmlFor="email">Email</Label>
@@ -156,23 +188,6 @@ export function Register() {
               {isSubmitting ? 'Création…' : 'Créer mon compte'}
             </Button>
           </form>
-
-          <div className="mt-6 flex items-center gap-3">
-            <div className="h-px flex-1 bg-border" />
-            <span className="font-inter text-xs text-muted-foreground">ou</span>
-            <div className="h-px flex-1 bg-border" />
-          </div>
-
-          <a
-            href={`${API_URL}/auth/google`}
-            className={cn(buttonVariants({ variant: 'outline' }), 'mt-4 w-full')}
-          >
-            Continuer avec Google
-          </a>
-          <p className="mt-2 text-center font-inter text-xs text-muted-foreground">
-            Réservé aux candidats pour l'instant — les comptes entreprise et CFA doivent
-            passer par le formulaire ci-dessus.
-          </p>
 
           <p className="mt-6 text-center text-sm font-inter text-muted-foreground">
             Déjà un compte ?{' '}
