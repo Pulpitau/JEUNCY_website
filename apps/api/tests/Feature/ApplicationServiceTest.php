@@ -243,6 +243,57 @@ class ApplicationServiceTest extends TestCase
         $this->service->listForOffer($intruder->fresh(), $offer);
     }
 
+    public function test_withdraw_deletes_application_and_notifies_owner(): void
+    {
+        $offer = $this->makePublishedOffer();
+        $candidate = $this->makeCandidate();
+        $application = $this->service->applyForUser($candidate, $offer, null);
+        $applicationId = $application->id;
+
+        $this->service->withdrawForUser($candidate->fresh(), $application);
+
+        $this->assertDatabaseMissing('applications', ['id' => $applicationId]);
+        $owner = User::where('email', 'rh@nexatech.example.com')->first();
+        $this->assertSame(1, $owner->notifications()->where('type', NotificationType::APPLICATION_STATUS_CHANGED)->count());
+    }
+
+    public function test_withdraw_rejects_application_owned_by_another_candidate(): void
+    {
+        $offer = $this->makePublishedOffer();
+        $candidate = $this->makeCandidate();
+        $application = $this->service->applyForUser($candidate, $offer, null);
+        $intruder = $this->makeCandidate('malik@example.com');
+
+        $this->expectException(ApiException::class);
+        $this->service->withdrawForUser($intruder->fresh(), $application);
+    }
+
+    public function test_withdraw_deletes_uploaded_cv_file(): void
+    {
+        Storage::fake('public');
+        $offer = $this->makePublishedOffer();
+        $candidate = $this->makeCandidate();
+        $file = UploadedFile::fake()->create('cv.pdf', 100, 'application/pdf');
+        $application = $this->service->applyForUser($candidate, $offer, null, '0612345678', null, $file);
+        $storedPath = 'application-cvs/'.basename($application->cv_file_url);
+
+        $this->service->withdrawForUser($candidate->fresh(), $application);
+
+        Storage::disk('public')->assertMissing($storedPath);
+    }
+
+    public function test_withdraw_allows_reapplying_to_same_offer(): void
+    {
+        $offer = $this->makePublishedOffer();
+        $candidate = $this->makeCandidate();
+        $application = $this->service->applyForUser($candidate, $offer, null);
+
+        $this->service->withdrawForUser($candidate->fresh(), $application);
+        $newApplication = $this->service->applyForUser($candidate->fresh(), $offer->fresh(), 'Je retente ma chance !');
+
+        $this->assertNotNull($newApplication->id);
+    }
+
     public function test_update_status_notifies_candidate(): void
     {
         $offer = $this->makePublishedOffer();

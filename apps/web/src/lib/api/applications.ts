@@ -74,6 +74,14 @@ export function listApplicationsForOffer(jobOfferId: number) {
   return apiRequest<ApplicationWithCandidate[]>(`/job-offers/${jobOfferId}/applications`);
 }
 
+// Suppression definitive cote candidat (contrairement a updateApplicationStatus,
+// reserve a l'entreprise/CFA) — voir ApplicationService::withdrawForUser.
+export function withdrawApplication(applicationId: number) {
+  return apiRequest<{ withdrawn: true }>(`/applications/${applicationId}`, {
+    method: 'DELETE',
+  });
+}
+
 export function updateApplicationStatus(
   applicationId: number,
   status: ApplicationStatus,

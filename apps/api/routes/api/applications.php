@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\Route;
 Route::prefix('applications')->middleware('auth:api')->group(function () {
     Route::post('/', [ApplicationController::class, 'store'])->middleware('role:CANDIDATE');
     Route::get('/', [ApplicationController::class, 'index'])->middleware('role:CANDIDATE');
+    Route::delete('{application}', [ApplicationController::class, 'destroy'])->middleware('role:CANDIDATE');
     Route::patch('{application}/status', [JobOfferApplicationController::class, 'updateStatus'])
         ->middleware('role:COMPANY,CFA');
 });

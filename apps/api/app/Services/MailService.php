@@ -86,6 +86,31 @@ class MailService
         $this->send($apiKey, $to, 'Ta période d\'essai gratuite Jeuncy est terminée', $this->wrapEmailHtml('Ton essai gratuit est terminé', $body));
     }
 
+    // Declenche par SendVideoRoomReminders (cron horaire) pour l'hote et,
+    // s'il existe, le participant d'une salle programmee dans l'heure qui
+    // suit. $joinUrl pointe vers la page Jeuncy /demo/{jitsi_room_name}
+    // (jamais directement vers meet.jit.si, voir CLAUDE.md section 7).
+    public function sendVideoRoomReminderEmail(string $to, \DateTimeInterface $scheduledAt, string $joinUrl): void
+    {
+        $apiKey = config('services.resend.key');
+
+        if (! $apiKey) {
+            Log::warning("RESEND_API_KEY absent : rappel de visio non envoye a {$to}");
+
+            return;
+        }
+
+        $formattedTime = $scheduledAt->format('d/m/Y à H:i');
+
+        $body = <<<HTML
+            <p>Bonjour,</p>
+            <p>Petit rappel : une visioconférence Jeuncy à laquelle tu participes est prévue le <strong>{$formattedTime}</strong>.</p>
+            {$this->ctaButton('Rejoindre la visio', $joinUrl)}
+            HTML;
+
+        $this->send($apiKey, $to, 'Rappel : ta visioconférence Jeuncy approche', $this->wrapEmailHtml('Ta visio approche', $body));
+    }
+
     // Envoi centralise : un echec Resend (recipient invalide, quota, panne
     // ponctuelle...) ne doit jamais faire echouer l'action metier qui a
     // declenche l'email (publication d'offre, reinitialisation de mot de

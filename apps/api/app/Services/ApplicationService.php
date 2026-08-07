@@ -133,6 +133,46 @@ class ApplicationService
         return Storage::disk('public')->url($path);
     }
 
+    // Annulation cote candidat (contrairement a updateStatus, reserve a
+    // l'entreprise/CFA proprietaire de l'offre) : suppression definitive
+    // plutot qu'un statut "WITHDRAWN" — permet au candidat de repostuler
+    // ensuite si besoin (la contrainte unique candidate_profile_id/
+    // job_offer_id l'en empecherait sinon), et evite d'ajouter une valeur a
+    // l'enum natif applications.status pour un cas d'usage qui n'a pas besoin
+    // de conserver l'historique cote candidat. L'entreprise/CFA est
+    // notifiee avant la suppression, un CV importe (pas genere) rattache a
+    // cette candidature est aussi supprime du disque (meme convention que
+    // CandidateProfileService::removePhoto).
+    public function withdrawForUser(User $user, Application $application): void
+    {
+        $profile = $this->candidateProfileService->requireProfile($user);
+        if ($application->candidate_profile_id !== $profile->id) {
+            throw new ApiException('FORBIDDEN', "Cette candidature ne t'appartient pas.", 403);
+        }
+
+        $jobOffer = $application->jobOffer;
+        $owner = $this->jobOfferService->ownerUser($jobOffer);
+        $owner?->notifications()->create([
+            'type' => NotificationType::APPLICATION_STATUS_CHANGED,
+            'message' => "{$profile->first_name} {$profile->last_name} a retiré sa candidature pour \"{$jobOffer->title}\".",
+            'link' => '/mes-offres',
+        ]);
+
+        if ($application->cv_file_url) {
+            $this->deleteStoredCv($application->cv_file_url);
+        }
+
+        $application->delete();
+    }
+
+    private function deleteStoredCv(string $cvFileUrl): void
+    {
+        $base = rtrim(Storage::disk('public')->url(''), '/').'/';
+        $relativePath = Str::startsWith($cvFileUrl, $base) ? substr($cvFileUrl, strlen($base)) : $cvFileUrl;
+
+        Storage::disk('public')->delete($relativePath);
+    }
+
     public function updateStatus(User $user, Application $application, ApplicationStatus $status): Application
     {
         $jobOffer = $application->jobOffer;
