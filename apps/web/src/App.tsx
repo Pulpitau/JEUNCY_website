@@ -14,6 +14,8 @@ import { AuthCallback } from '@/pages/AuthCallback';
 import { Profile } from '@/pages/Profile';
 import { OrganizationProfile } from '@/pages/OrganizationProfile';
 import { MyJobOffers } from '@/pages/MyJobOffers';
+import { Cvtheque } from '@/pages/Cvtheque';
+import { CvthequeCandidate } from '@/pages/CvthequeCandidate';
 import { JobOffers } from '@/pages/JobOffers';
 import { JobOfferDetail } from '@/pages/JobOfferDetail';
 import { MyApplications } from '@/pages/MyApplications';
@@ -70,6 +72,25 @@ export default function App() {
             element={
               <RequireAuth role={[UserRole.COMPANY, UserRole.CFA]}>
                 <MyJobOffers />
+              </RequireAuth>
+            }
+          />
+          {/* CVtheque : RequireAuth ne filtre que le ROLE. La garde
+              d'abonnement, elle, est cote serveur (402) et la page affiche
+              alors son ecran d'accroche — voir CvthequeService. */}
+          <Route
+            path="/candidats"
+            element={
+              <RequireAuth role={[UserRole.COMPANY, UserRole.CFA]}>
+                <Cvtheque />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/candidats/:id"
+            element={
+              <RequireAuth role={[UserRole.COMPANY, UserRole.CFA]}>
+                <CvthequeCandidate />
               </RequireAuth>
             }
           />

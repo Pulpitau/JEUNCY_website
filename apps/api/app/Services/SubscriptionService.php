@@ -21,15 +21,62 @@ class SubscriptionService
         return new StripeClient(config('services.stripe.secret'));
     }
 
-    // Tarif mensuel, different entreprise/CFA (voir config/services.php) —
-    // memes tarifs a l'offre que priceCentsFor cote JobOfferService, mais
-    // volontairement une methode separee : les deux grilles tarifaires sont
-    // amenees a evoluer independamment l'une de l'autre.
-    public function priceCentsFor(User $user): int
+    // Tarif mensuel plein, potentiellement different entreprise/CFA (voir
+    // config/services.php ; identiques depuis le 2026-08-17, mais les deux
+    // grilles restent separees pour pouvoir diverger sans migration).
+    public function standardPriceCentsFor(User $user): int
     {
         return $user->role === UserRole::CFA
             ? config('services.stripe.cfa_subscription_price_cents')
             : config('services.stripe.company_subscription_price_cents');
+    }
+
+    // Places restantes au tarif d'ouverture. Jamais negatif : si le total est
+    // un jour abaisse en config alors que des places sont deja prises, on
+    // affiche 0 plutot qu'un nombre negatif absurde cote marketing.
+    public function founderSeatsRemaining(): int
+    {
+        $total = (int) config('services.stripe.founder_seats_total');
+
+        return max(0, $total - $this->founderSeatsTaken());
+    }
+
+    // Volontairement SANS filtre sur le statut : un abonnement fondateur
+    // resilie a bien consomme sa place. Sinon le compteur public remonterait a
+    // chaque resiliation et rouvrirait le tarif a des retardataires, alors que
+    // l'offre est annoncee comme reservee aux 50 premiers.
+    public function founderSeatsTaken(): int
+    {
+        return Subscription::where('is_founder_rate', true)->count();
+    }
+
+    public function founderRateAvailable(): bool
+    {
+        return $this->founderSeatsRemaining() > 0;
+    }
+
+    // Tarif reellement facture : le tarif d'ouverture s'il reste des places au
+    // moment de la souscription, sinon le tarif plein.
+    public function priceCentsFor(User $user): int
+    {
+        return $this->founderRateAvailable()
+            ? (int) config('services.stripe.founder_subscription_price_cents')
+            : $this->standardPriceCentsFor($user);
+    }
+
+    // Etat de l'offre d'ouverture, expose publiquement (sans authentification)
+    // pour alimenter le compteur de la page Tarifs.
+    public function founderOffer(): array
+    {
+        return [
+            'price_cents' => (int) config('services.stripe.founder_subscription_price_cents'),
+            'standard_company_price_cents' => (int) config('services.stripe.company_subscription_price_cents'),
+            'standard_cfa_price_cents' => (int) config('services.stripe.cfa_subscription_price_cents'),
+            'seats_total' => (int) config('services.stripe.founder_seats_total'),
+            'seats_taken' => $this->founderSeatsTaken(),
+            'seats_remaining' => $this->founderSeatsRemaining(),
+            'available' => $this->founderRateAvailable(),
+        ];
     }
 
     public function createCheckoutSession(User $user): string
@@ -39,10 +86,21 @@ class SubscriptionService
         }
 
         $frontendUrl = rtrim(config('app.frontend_url'), '/');
-        $priceCents = $this->priceCentsFor($user);
-        $productName = $user->role === UserRole::CFA
-            ? 'Abonnement Jeuncy CFA — publication illimitée'
-            : 'Abonnement Jeuncy Entreprise — publication illimitée';
+
+        // Le tarif est fige ICI, au moment de la souscription, et transporte
+        // jusqu'au webhook via les metadonnees (voir handleCheckoutCompleted) :
+        // c'est ce qui verrouille le tarif fondateur a vie. Le recalculer au
+        // webhook donnerait un montant faux des que les 50 places sont prises,
+        // alors que Stripe, lui, continuerait de prelever 299€.
+        $isFounderRate = $this->founderRateAvailable();
+        $priceCents = $isFounderRate
+            ? (int) config('services.stripe.founder_subscription_price_cents')
+            : $this->standardPriceCentsFor($user);
+
+        $audience = $user->role === UserRole::CFA ? 'CFA' : 'Entreprise';
+        $productName = $isFounderRate
+            ? "Abonnement Jeuncy {$audience} — Tarif fondateur (tout illimité)"
+            : "Abonnement Jeuncy {$audience} — tout illimité";
 
         $session = $this->stripe()->checkout->sessions->create([
             'mode' => 'subscription',
@@ -62,6 +120,8 @@ class SubscriptionService
             'metadata' => [
                 'user_id' => (string) $user->id,
                 'type' => 'subscription',
+                'founder_rate' => $isFounderRate ? '1' : '0',
+                'amount_cents' => (string) $priceCents,
             ],
         ]);
 
@@ -119,12 +179,21 @@ class SubscriptionService
             return;
         }
 
+        // Montant et tarif fondateur relus des metadonnees, PAS recalcules :
+        // seul ce qui a ete decide a la souscription correspond a ce que Stripe
+        // preleve reellement (voir createCheckoutSession). Repli sur le tarif
+        // plein uniquement pour les sessions anterieures a cette metadonnee.
+        $isFounderRate = ($session->metadata->founder_rate ?? '0') === '1';
+        $amountCents = (int) ($session->metadata->amount_cents ?? 0)
+            ?: $this->standardPriceCentsFor($user);
+
         Subscription::updateOrCreate(
             ['stripe_subscription_id' => $session->subscription],
             [
                 'user_id' => $user->id,
                 'status' => SubscriptionStatus::ACTIVE,
-                'amount_cents' => $this->priceCentsFor($user),
+                'amount_cents' => $amountCents,
+                'is_founder_rate' => $isFounderRate,
                 'currency' => 'EUR',
                 'stripe_customer_id' => $session->customer,
             ],
@@ -132,7 +201,9 @@ class SubscriptionService
 
         $user->notifications()->create([
             'type' => NotificationType::PAYMENT_SUCCEEDED,
-            'message' => 'Ton abonnement Jeuncy est activé : publication illimitée et accès aux candidatures inclus.',
+            'message' => $isFounderRate
+                ? 'Ton abonnement Jeuncy est activé au tarif fondateur, conservé tant que tu restes abonné : offres illimitées, candidatures et CVthèque inclus.'
+                : 'Ton abonnement Jeuncy est activé : offres illimitées, candidatures et CVthèque inclus.',
             'link' => '/mes-offres',
         ]);
     }

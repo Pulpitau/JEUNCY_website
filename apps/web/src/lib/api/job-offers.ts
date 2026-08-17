@@ -82,18 +82,16 @@ export interface JobOfferSearchFilters {
   page?: number;
 }
 
-// Tarifs de publication d'une offre SEULE (sans acces aux candidatures),
-// differents entreprise/CFA (voir JobOfferService::priceLabelFor cote
-// backend, source de verite pour le montant reellement facture) — nouveau
-// modele economique du 2026-08-05, dernier ajustement de tarif le
-// 2026-08-06, voir aussi lib/api/subscriptions.ts pour l'abonnement mensuel
-// et APPLICATIONS_UNLOCK_PRICE_LABEL ci-dessous.
+// Tarifs de publication d'une offre SEULE, differents entreprise/CFA (voir
+// JobOfferService::priceLabelFor cote backend, source de verite pour le
+// montant reellement facture).
+//
+// Ce paiement ne couvre QUE la mise en ligne : ni l'acces aux candidatures, ni
+// la CVtheque, qui passent exclusivement par l'abonnement depuis le
+// 2026-08-17 (voir lib/api/subscriptions.ts). Le deblocage a l'offre qui
+// existait entre le 2026-08-05 et cette date n'est plus vendable.
 export const COMPANY_OFFER_PRICE_LABEL = '9,99 €';
 export const CFA_OFFER_PRICE_LABEL = '5,99 €';
-
-// Deblocage ponctuel de l'acces aux candidatures d'UNE offre precise, meme
-// tarif entreprise/CFA.
-export const APPLICATIONS_UNLOCK_PRICE_LABEL = '50 €';
 
 export function offerPriceLabel(offer: Pick<JobOffer, 'cfa_organization_id'>): string {
   return offer.cfa_organization_id !== null
@@ -125,12 +123,6 @@ export function deleteOffer(id: number) {
 
 export function createCheckoutSession(id: number) {
   return apiRequest<{ checkout_url: string }>(`/job-offers/${id}/checkout`, {
-    method: 'POST',
-  });
-}
-
-export function createApplicationsUnlockCheckoutSession(id: number) {
-  return apiRequest<{ checkout_url: string }>(`/job-offers/${id}/checkout-applications`, {
     method: 'POST',
   });
 }

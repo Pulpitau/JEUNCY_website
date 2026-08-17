@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 
-const LAST_UPDATED = '6 août 2026';
+const LAST_UPDATED = '17 août 2026';
 
 const DATA_CATEGORIES = [
   {
@@ -124,6 +124,50 @@ export function PrivacyPolicy() {
               (participation à une visioconférence de démonstration) et, ponctuellement,
               sur l'intérêt légitime de Jeuncy à assurer la sécurité et le bon
               fonctionnement de la plateforme.
+            </p>
+          </section>
+
+          {/* Section ajoutee le 2026-08-17 avec la CVtheque. Le profil candidat
+              etant visible par defaut, l'information et le droit d'opposition
+              doivent etre explicites ici — c'est ce qui rend ce defaut
+              defendable (RGPD art. 13 et 21). */}
+          <section>
+            <h2 className="font-poppins text-xl font-semibold text-foreground">
+              4 bis. CVthèque : visibilité de votre profil candidat
+            </h2>
+            <p className="mt-3">
+              Jeuncy propose aux entreprises et aux CFA disposant d'un abonnement actif
+              une fonction de recherche de profils, appelée « CVthèque ». Si vous êtes
+              candidat, votre profil y est <strong>visible par défaut</strong> dès sa
+              création.
+            </p>
+            <p className="mt-3">
+              <strong>Qui peut vous voir :</strong> uniquement les comptes entreprise et
+              CFA vérifiés et titulaires d'un abonnement en cours. Votre profil n'est
+              jamais accessible publiquement sur Internet, n'est pas indexé par les
+              moteurs de recherche, et n'est ni vendu ni transmis à des tiers.
+            </p>
+            <p className="mt-3">
+              <strong>Ce qu'ils voient :</strong> dans les résultats de recherche, votre
+              prénom, votre nom, votre titre professionnel, votre ville, votre photo si
+              vous en avez ajouté une, vos compétences, logiciels et langues. Vos
+              coordonnées directes (adresse e-mail, numéro de téléphone, adresse postale,
+              date de naissance) ne sont <strong>pas</strong> affichées dans la liste :
+              elles n'apparaissent qu'après ouverture de votre fiche complète, avec votre
+              parcours détaillé.
+            </p>
+            <p className="mt-3">
+              <strong>Comment vous y opposer :</strong> vous pouvez vous retirer de la
+              CVthèque à tout moment, en un clic, depuis la section « Visibilité auprès
+              des recruteurs » de votre profil. Le retrait est immédiat et sans
+              justification à fournir. Vous continuez à pouvoir postuler normalement aux
+              offres : seule la recherche de votre profil par les recruteurs est
+              désactivée. Ce droit d'opposition est prévu par l'article 21 du RGPD.
+            </p>
+            <p className="mt-3">
+              La base légale de ce traitement est l'intérêt légitime de Jeuncy à assurer
+              la mise en relation entre candidats et recruteurs, objet même du service,
+              équilibré par ce droit d'opposition libre et immédiat.
             </p>
           </section>
 

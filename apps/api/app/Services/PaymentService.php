@@ -74,60 +74,16 @@ class PaymentService
         return $session->url;
     }
 
-    // Paiement ponctuel distinct de la publication : debloque uniquement la
-    // vue des candidatures de cette offre precise (voir
-    // ApplicationService::listForOffer pour la garde qui lit
-    // applications_unlocked_at). Alternative a l'abonnement mensuel pour une
-    // entreprise/CFA qui ne publie qu'occasionnellement.
-    public function createApplicationsUnlockCheckoutSession(User $user, JobOffer $jobOffer): string
-    {
-        $jobOffer = $this->jobOfferService->requireOwnedOffer($user, $jobOffer);
-
-        if ($jobOffer->status !== JobOfferStatus::PUBLISHED) {
-            throw new ApiException('JOB_OFFER_NOT_PUBLISHED', "Seule une offre publiée peut débloquer ses candidatures.", 409);
-        }
-        if ($jobOffer->applications_unlocked_at !== null) {
-            throw new ApiException('APPLICATIONS_ALREADY_UNLOCKED', 'Les candidatures de cette offre sont déjà accessibles.', 409);
-        }
-
-        $frontendUrl = rtrim(config('app.frontend_url'), '/');
-        $priceCents = config('services.stripe.applications_unlock_price_cents');
-
-        $session = $this->stripe()->checkout->sessions->create([
-            'mode' => 'payment',
-            'payment_method_types' => ['card'],
-            'customer_email' => $user->email,
-            'line_items' => [[
-                'quantity' => 1,
-                'price_data' => [
-                    'currency' => 'eur',
-                    'unit_amount' => $priceCents,
-                    'product_data' => [
-                        'name' => "Accès aux candidatures \u{2014} {$jobOffer->title}",
-                    ],
-                ],
-            ]],
-            'success_url' => $frontendUrl.'/mes-offres?checkout=applications_success',
-            'cancel_url' => $frontendUrl.'/mes-offres?checkout=applications_cancelled',
-            'metadata' => [
-                'job_offer_id' => (string) $jobOffer->id,
-                'user_id' => (string) $user->id,
-                'type' => 'applications_unlock',
-            ],
-        ]);
-
-        Payment::create([
-            'user_id' => $user->id,
-            'job_offer_id' => $jobOffer->id,
-            'type' => PaymentType::APPLICATIONS_UNLOCK,
-            'amount_cents' => $priceCents,
-            'currency' => 'EUR',
-            'status' => PaymentStatus::PENDING,
-            'stripe_session_id' => $session->id,
-        ]);
-
-        return $session->url;
-    }
+    // Le deblocage des candidatures a l'offre (50€ ponctuels) a ete SUPPRIME
+    // le 2026-08-17 : l'acces aux candidatures et a la CVtheque passe desormais
+    // exclusivement par l'abonnement mensuel. Le paiement a l'offre ne couvre
+    // plus que la publication.
+    //
+    // markApplicationsUnlocked et la lecture de applications_unlocked_at sont
+    // volontairement CONSERVES : des offres ont ete debloquees sous l'ancien
+    // modele, et les entreprises concernees doivent garder l'acces qu'elles ont
+    // paye. Seul le point d'entree qui permettait d'en acheter de nouveaux a
+    // disparu.
 
     // Historique des paiements/factures de l'entreprise ou du CFA connecte (voir
     // "connu et a traiter plus tard" phase 3 dans CLAUDE.md).
@@ -210,8 +166,14 @@ class PaymentService
     }
 
     // Meme logique d'idempotence que markPaymentSucceeded, mais met a jour
-    // applications_unlocked_at sur l'offre au lieu de la publier (deja
-    // publiee dans ce parcours, voir createApplicationsUnlockCheckoutSession).
+    // applications_unlocked_at sur l'offre au lieu de la publier (elle l'est
+    // deja dans ce parcours).
+    //
+    // Conservee alors que le deblocage a l'offre n'est plus vendable depuis le
+    // 2026-08-17 : une session Stripe creee juste avant la bascule peut encore
+    // arriver ici par un rejeu de webhook. La supprimer ferait tomber ce
+    // paiement dans markPaymentSucceeded, qui republierait l'offre au lieu de
+    // debloquer ses candidatures.
     public function markApplicationsUnlocked(string $stripeSessionId): void
     {
         $payment = Payment::where('stripe_session_id', $stripeSessionId)->first();

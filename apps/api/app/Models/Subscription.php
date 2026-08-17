@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 #[Fillable([
-    'user_id', 'status', 'amount_cents', 'currency',
+    'user_id', 'status', 'amount_cents', 'currency', 'is_founder_rate',
     'stripe_subscription_id', 'stripe_customer_id',
     'current_period_end', 'canceled_at',
 ])]
@@ -20,6 +20,7 @@ class Subscription extends Model
     {
         return [
             'status' => SubscriptionStatus::class,
+            'is_founder_rate' => 'boolean',
             'current_period_end' => 'datetime',
             'canceled_at' => 'datetime',
         ];

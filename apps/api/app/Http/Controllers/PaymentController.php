@@ -18,13 +18,6 @@ class PaymentController extends Controller
         return response()->json(['checkout_url' => $checkoutUrl]);
     }
 
-    public function checkoutApplications(Request $request, JobOffer $jobOffer): JsonResponse
-    {
-        $checkoutUrl = $this->service->createApplicationsUnlockCheckoutSession($request->user(), $jobOffer);
-
-        return response()->json(['checkout_url' => $checkoutUrl]);
-    }
-
     public function mine(Request $request): JsonResponse
     {
         return response()->json($this->service->listOwn($request->user()));

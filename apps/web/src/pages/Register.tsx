@@ -179,6 +179,21 @@ export function Register() {
               </p>
             )}
 
+            {/* Information prealable a la collecte (RGPD art. 13) : le profil
+                candidat etant visible par defaut dans la CVtheque, il doit le
+                savoir AVANT de creer son compte, pas seulement en fouillant la
+                politique de confidentialite. */}
+            {selectedRole === 'CANDIDATE' && (
+              <p className="rounded-md border border-border bg-muted/40 px-3 py-2 font-inter text-xs leading-relaxed text-muted-foreground">
+                Ton profil sera visible par les entreprises et CFA abonnés, qui pourront
+                te contacter directement. Tu pourras t'en retirer en un clic depuis ton
+                profil à tout moment.{' '}
+                <Link to="/confidentialite" className="text-primary hover:underline">
+                  En savoir plus
+                </Link>
+              </p>
+            )}
+
             <Button
               type="submit"
               variant="gradient"

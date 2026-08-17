@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { UserRole, SubscriptionStatus } from '@jeuncy/shared';
+import { Sparkles } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { JobOfferForm } from '@/components/features/job-offers/JobOfferForm';
@@ -18,17 +19,14 @@ import {
 } from '@/lib/api/job-offers';
 import { getMyCompany } from '@/lib/api/company';
 import { getMyCfaOrganization } from '@/lib/api/cfa-organization';
-import {
-  COMPANY_OFFER_PRICE_LABEL,
-  CFA_OFFER_PRICE_LABEL,
-  APPLICATIONS_UNLOCK_PRICE_LABEL,
-} from '@/lib/api/job-offers';
+import { COMPANY_OFFER_PRICE_LABEL, CFA_OFFER_PRICE_LABEL } from '@/lib/api/job-offers';
 import {
   getMySubscription,
   createSubscriptionCheckoutSession,
   cancelSubscription,
-  COMPANY_SUBSCRIPTION_PRICE_LABEL,
-  CFA_SUBSCRIPTION_PRICE_LABEL,
+  getFounderOffer,
+  SUBSCRIPTION_PRICE_LABEL,
+  FOUNDER_SUBSCRIPTION_PRICE_LABEL,
 } from '@/lib/api/subscriptions';
 import { ApiError } from '@/lib/api/client';
 import { useAuthStore } from '@/store/auth-store';
@@ -80,6 +78,15 @@ export function MyJobOffers() {
   });
   const subscription = subscriptionQuery.data ?? null;
   const hasActiveSubscription = subscription?.status === SubscriptionStatus.ACTIVE;
+
+  // Inutile de demander l'etat de l'offre d'ouverture a quelqu'un qui est deja
+  // abonne : elle ne lui est plus proposee.
+  const founderOfferQuery = useQuery({
+    queryKey: ['founder-offer'],
+    queryFn: getFounderOffer,
+    enabled: canUseTrial && !hasActiveSubscription,
+  });
+  const founderOffer = founderOfferQuery.data ?? null;
 
   const subscriptionCheckoutMutation = useMutation({
     mutationFn: createSubscriptionCheckoutSession,
@@ -290,10 +297,10 @@ export function MyJobOffers() {
             </>
           ) : (
             <>
-              Ta période d'essai gratuite est terminée. Publier une nouvelle offre coûte{' '}
-              {isCfa ? CFA_OFFER_PRICE_LABEL : COMPANY_OFFER_PRICE_LABEL}, et l'accès aux
-              candidatures de cette offre {APPLICATIONS_UNLOCK_PRICE_LABEL} en plus — ou
-              passe à l'abonnement mensuel pour tout inclure.
+              Ta période d'essai gratuite est terminée. Publier une offre à l'unité coûte{' '}
+              {isCfa ? CFA_OFFER_PRICE_LABEL : COMPANY_OFFER_PRICE_LABEL} — ou passe à
+              l'abonnement pour publier sans limite, voir toutes tes candidatures et
+              accéder à la CVthèque.
             </>
           )}
         </p>
@@ -308,8 +315,17 @@ export function MyJobOffers() {
             {hasActiveSubscription ? (
               <div className="flex flex-col gap-2">
                 <p className="font-inter text-sm text-foreground">
-                  Abonnement actif — publication illimitée et accès aux candidatures de
-                  toutes tes offres.
+                  Abonnement actif — offres illimitées, candidatures de toutes tes offres
+                  et accès à la CVthèque.
+                  {subscription?.is_founder_rate && (
+                    <>
+                      {' '}
+                      <span className="font-poppins font-semibold text-jeuncy-orange">
+                        Tarif fondateur conservé
+                      </span>{' '}
+                      tant que ton abonnement continue.
+                    </>
+                  )}
                   {subscription?.canceled_at && (
                     <>
                       {' '}
@@ -338,13 +354,43 @@ export function MyJobOffers() {
               </div>
             ) : (
               <div className="flex flex-col gap-2">
+                {/* Le compteur de places fondateur est la vraie incitation :
+                    on l'affiche avant le prix, et on barre le tarif plein pour
+                    que l'economie saute aux yeux. */}
+                {founderOffer?.available && (
+                  <div className="flex flex-wrap items-center gap-2 rounded-md border border-jeuncy-orange/40 bg-jeuncy-orange/10 px-3 py-2">
+                    <Sparkles
+                      className="h-4 w-4 shrink-0 text-jeuncy-orange"
+                      aria-hidden="true"
+                    />
+                    <span className="font-poppins text-sm font-semibold text-foreground">
+                      Offre d'ouverture — il reste {founderOffer.seats_remaining} place
+                      {founderOffer.seats_remaining > 1 ? 's' : ''} sur{' '}
+                      {founderOffer.seats_total}
+                    </span>
+                  </div>
+                )}
                 <p className="font-inter text-sm text-muted-foreground">
-                  Publication illimitée + accès aux candidatures de toutes tes offres,
-                  pour{' '}
-                  {isCfa
-                    ? CFA_SUBSCRIPTION_PRICE_LABEL
-                    : COMPANY_SUBSCRIPTION_PRICE_LABEL}
-                  /mois. Résiliable à tout moment.
+                  Offres illimitées, toutes tes candidatures et la CVthèque pour{' '}
+                  {founderOffer?.available ? (
+                    <>
+                      <span className="text-muted-foreground line-through">
+                        {SUBSCRIPTION_PRICE_LABEL}
+                      </span>{' '}
+                      <span className="font-poppins font-semibold text-foreground">
+                        {FOUNDER_SUBSCRIPTION_PRICE_LABEL}
+                      </span>
+                      /mois, conservés à vie tant que tu restes abonné.
+                    </>
+                  ) : (
+                    <>
+                      <span className="font-poppins font-semibold text-foreground">
+                        {SUBSCRIPTION_PRICE_LABEL}
+                      </span>
+                      /mois.
+                    </>
+                  )}{' '}
+                  Résiliable à tout moment.
                 </p>
                 <Button
                   type="button"

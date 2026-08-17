@@ -17,6 +17,7 @@ import { SkillsSection } from '@/components/features/profile/SkillsSection';
 import { SoftwareSection } from '@/components/features/profile/SoftwareSection';
 import { CvSection } from '@/components/features/profile/CvSection';
 import { ImportCvSection } from '@/components/features/profile/ImportCvSection';
+import { CvthequeVisibilitySection } from '@/components/features/profile/CvthequeVisibilitySection';
 import {
   getMyProfile,
   createProfile,
@@ -290,6 +291,11 @@ export function Profile() {
               />
             </CardContent>
           </Card>
+
+          <CvthequeVisibilitySection
+            isVisible={profile.is_visible_in_cvtheque}
+            queryKey={PROFILE_QUERY_KEY}
+          />
         </>
       )}
     </main>

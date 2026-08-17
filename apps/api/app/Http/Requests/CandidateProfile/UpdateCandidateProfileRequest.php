@@ -28,6 +28,11 @@ class UpdateCandidateProfileRequest extends FormRequest
             'video_url' => ['sometimes', 'nullable', 'url', 'max:255'],
             'portfolio_url' => ['sometimes', 'nullable', 'url', 'max:255'],
             'linkedin_url' => ['sometimes', 'nullable', 'url', 'max:255'],
+            // Droit d'opposition a la CVtheque (RGPD art. 21). 'sometimes' et
+            // non 'required' : un enregistrement du formulaire de profil qui
+            // n'envoie pas ce champ ne doit surtout pas remettre le candidat
+            // en visible a son insu.
+            'is_visible_in_cvtheque' => ['sometimes', 'boolean'],
         ];
     }
 }

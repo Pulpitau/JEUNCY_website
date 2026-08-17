@@ -6,9 +6,6 @@ use Illuminate\Support\Facades\Route;
 Route::post('job-offers/{jobOffer}/checkout', [PaymentController::class, 'checkout'])
     ->middleware(['auth:api', 'role:COMPANY,CFA']);
 
-Route::post('job-offers/{jobOffer}/checkout-applications', [PaymentController::class, 'checkoutApplications'])
-    ->middleware(['auth:api', 'role:COMPANY,CFA']);
-
 Route::get('payments/mine', [PaymentController::class, 'mine'])
     ->middleware(['auth:api', 'role:COMPANY,CFA']);
 

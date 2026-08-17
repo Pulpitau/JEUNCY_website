@@ -34,22 +34,25 @@ return [
         'webhook_secret' => env('STRIPE_WEBHOOK_SECRET'),
         // Prix fixe (en centimes) de publication d'une offre seule, different
         // selon qu'elle est publiee par une entreprise ou par un CFA (voir
-        // JobOfferService::priceCentsFor) — ne donne plus acces aux
-        // candidatures depuis le nouveau modele economique du 2026-08-05
-        // (voir applications_unlock_price_cents et les abonnements
-        // ci-dessous), d'ou la baisse du tarif entreprise et la hausse du
-        // tarif CFA par rapport aux montants precedents (9,99€/4,99€).
-        'company_offer_price_cents' => (int) env('STRIPE_COMPANY_OFFER_PRICE_CENTS', 800),
-        'cfa_offer_price_cents' => (int) env('STRIPE_CFA_OFFER_PRICE_CENTS', 1000),
-        // Deblocage ponctuel de l'acces aux candidatures d'UNE offre precise
-        // (voir PaymentService::createApplicationsUnlockCheckoutSession) —
-        // meme tarif entreprise/CFA, decision produit du 2026-08-05.
-        'applications_unlock_price_cents' => (int) env('STRIPE_APPLICATIONS_UNLOCK_PRICE_CENTS', 5000),
-        // Abonnement mensuel (voir SubscriptionService::priceCentsFor) :
-        // publication illimitee + acces aux candidatures de toutes les offres
-        // inclus, decision produit du 2026-08-05.
-        'company_subscription_price_cents' => (int) env('STRIPE_COMPANY_SUBSCRIPTION_PRICE_CENTS', 7900),
-        'cfa_subscription_price_cents' => (int) env('STRIPE_CFA_SUBSCRIPTION_PRICE_CENTS', 9900),
+        // JobOfferService::priceCentsFor). Couvre la publication et RIEN
+        // d'autre : ni l'acces aux candidatures, ni la CVtheque, qui passent
+        // desormais exclusivement par l'abonnement (decision du 2026-08-17,
+        // qui a supprime le deblocage a l'offre existant depuis le 2026-08-05).
+        'company_offer_price_cents' => (int) env('STRIPE_COMPANY_OFFER_PRICE_CENTS', 999),
+        'cfa_offer_price_cents' => (int) env('STRIPE_CFA_OFFER_PRICE_CENTS', 599),
+        // Abonnement mensuel (voir SubscriptionService::priceCentsFor) : tout
+        // illimite — publication d'offres, acces aux candidatures de toutes les
+        // offres, et acces a la CVtheque. Meme tarif entreprise et CFA depuis le
+        // 2026-08-17 ("pour le moment", les deux grilles restent separees pour
+        // pouvoir diverger a nouveau sans migration).
+        'company_subscription_price_cents' => (int) env('STRIPE_COMPANY_SUBSCRIPTION_PRICE_CENTS', 49900),
+        'cfa_subscription_price_cents' => (int) env('STRIPE_CFA_SUBSCRIPTION_PRICE_CENTS', 49900),
+        // Tarif d'ouverture reserve aux 50 premiers abonnes, entreprises et CFA
+        // confondus, verrouille a vie tant que l'abonnement continue (voir
+        // SubscriptionService::founderSeatsRemaining et la migration
+        // add_founder_rate_to_subscriptions_table).
+        'founder_subscription_price_cents' => (int) env('STRIPE_FOUNDER_SUBSCRIPTION_PRICE_CENTS', 29900),
+        'founder_seats_total' => (int) env('STRIPE_FOUNDER_SEATS_TOTAL', 50),
     ],
 
     'ses' => [

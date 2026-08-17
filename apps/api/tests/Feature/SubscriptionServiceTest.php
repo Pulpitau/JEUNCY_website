@@ -61,7 +61,10 @@ class SubscriptionServiceTest extends TestCase
         $subscription = Subscription::where('stripe_subscription_id', 'sub_test_123')->first();
         $this->assertNotNull($subscription);
         $this->assertSame(SubscriptionStatus::ACTIVE, $subscription->status);
-        $this->assertSame(7900, $subscription->amount_cents);
+        // Session sans metadonnee de montant : repli sur le tarif plein (cas
+        // des sessions creees avant l'ajout du tarif fondateur).
+        $this->assertSame(49900, $subscription->amount_cents);
+        $this->assertFalse($subscription->is_founder_rate);
         $this->assertSame(1, $user->notifications()->where('type', NotificationType::PAYMENT_SUCCEEDED)->count());
     }
 
@@ -72,7 +75,94 @@ class SubscriptionServiceTest extends TestCase
         $this->service->handleCheckoutCompleted($this->fakeCheckoutSession($user, 'sub_test_cfa'));
 
         $subscription = Subscription::where('stripe_subscription_id', 'sub_test_cfa')->first();
-        $this->assertSame(9900, $subscription->amount_cents);
+        $this->assertSame(49900, $subscription->amount_cents);
+    }
+
+    // --- Tarif d'ouverture (299€, 50 premiers, verrouille a vie) ---
+
+    public function test_founder_rate_is_offered_while_seats_remain(): void
+    {
+        $this->assertTrue($this->service->founderRateAvailable());
+        $this->assertSame(50, $this->service->founderSeatsRemaining());
+        $this->assertSame(29900, $this->service->priceCentsFor($this->makeCompanyUser()));
+    }
+
+    public function test_founder_rate_is_persisted_from_session_metadata(): void
+    {
+        $user = $this->makeCompanyUser();
+        $session = $this->fakeCheckoutSession($user, 'sub_founder_1');
+        $session->metadata->founder_rate = '1';
+        $session->metadata->amount_cents = '29900';
+
+        $this->service->handleCheckoutCompleted($session);
+
+        $subscription = Subscription::where('stripe_subscription_id', 'sub_founder_1')->first();
+        $this->assertTrue($subscription->is_founder_rate);
+        $this->assertSame(29900, $subscription->amount_cents);
+        $this->assertSame(49, $this->service->founderSeatsRemaining());
+    }
+
+    public function test_founder_rate_closes_once_all_seats_are_taken(): void
+    {
+        config(['services.stripe.founder_seats_total' => 2]);
+        $user = $this->makeCompanyUser();
+
+        foreach (['sub_f1', 'sub_f2'] as $id) {
+            Subscription::create([
+                'user_id' => $user->id,
+                'status' => SubscriptionStatus::ACTIVE,
+                'amount_cents' => 29900,
+                'is_founder_rate' => true,
+                'stripe_subscription_id' => $id,
+                'stripe_customer_id' => 'cus_'.$id,
+            ]);
+        }
+
+        $this->assertFalse($this->service->founderRateAvailable());
+        $this->assertSame(0, $this->service->founderSeatsRemaining());
+        // Le 51e paie le tarif plein.
+        $this->assertSame(49900, $this->service->priceCentsFor($user));
+    }
+
+    // Une place fondateur consommee ne revient JAMAIS dans le pot, meme apres
+    // resiliation : sinon le compteur public remonterait et rouvrirait le tarif
+    // a des retardataires, alors qu'il est annonce comme reserve aux 50
+    // premiers.
+    public function test_canceled_founder_subscription_does_not_free_its_seat(): void
+    {
+        config(['services.stripe.founder_seats_total' => 1]);
+        $user = $this->makeCompanyUser();
+
+        Subscription::create([
+            'user_id' => $user->id,
+            'status' => SubscriptionStatus::CANCELED,
+            'amount_cents' => 29900,
+            'is_founder_rate' => true,
+            'stripe_subscription_id' => 'sub_f_canceled',
+            'stripe_customer_id' => 'cus_f_canceled',
+        ]);
+
+        $this->assertSame(0, $this->service->founderSeatsRemaining());
+        $this->assertFalse($this->service->founderRateAvailable());
+    }
+
+    public function test_founder_seats_remaining_never_goes_negative(): void
+    {
+        config(['services.stripe.founder_seats_total' => 1]);
+        $user = $this->makeCompanyUser();
+
+        foreach (['sub_n1', 'sub_n2', 'sub_n3'] as $id) {
+            Subscription::create([
+                'user_id' => $user->id,
+                'status' => SubscriptionStatus::ACTIVE,
+                'amount_cents' => 29900,
+                'is_founder_rate' => true,
+                'stripe_subscription_id' => $id,
+                'stripe_customer_id' => 'cus_'.$id,
+            ]);
+        }
+
+        $this->assertSame(0, $this->service->founderSeatsRemaining());
     }
 
     public function test_handle_subscription_updated_marks_past_due(): void

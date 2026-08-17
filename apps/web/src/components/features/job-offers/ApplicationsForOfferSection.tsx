@@ -1,17 +1,14 @@
+import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { ApplicationStatus } from '@jeuncy/shared';
 import { Video, Briefcase, Linkedin, Lock } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
+import { buttonVariants } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import {
   listApplicationsForOffer,
   updateApplicationStatus,
 } from '@/lib/api/applications';
-import {
-  createApplicationsUnlockCheckoutSession,
-  APPLICATIONS_UNLOCK_PRICE_LABEL,
-} from '@/lib/api/job-offers';
 import { ApiError } from '@/lib/api/client';
 
 const STATUS_LABELS: Record<string, string> = {
@@ -55,13 +52,6 @@ export function ApplicationsForOfferSection({
     onSuccess: () => queryClient.invalidateQueries({ queryKey }),
   });
 
-  const unlockMutation = useMutation({
-    mutationFn: () => createApplicationsUnlockCheckoutSession(jobOfferId),
-    onSuccess: ({ checkout_url }) => {
-      window.location.href = checkout_url;
-    },
-  });
-
   const applications = applicationsQuery.data ?? [];
 
   if (applicationsQuery.isLoading) {
@@ -78,32 +68,25 @@ export function ApplicationsForOfferSection({
     applicationsQuery.error.status === 402
   ) {
     return (
-      <div className="flex flex-col items-start gap-2 rounded-md border border-jeuncy-orange/30 bg-jeuncy-orange/10 p-4">
+      // Plus de deblocage a l'offre depuis le 2026-08-17 : le seul chemin vers
+      // les candidatures est l'abonnement, on renvoie donc directement vers
+      // lui plutot que de proposer un achat qui n'existe plus.
+      <div className="flex flex-col items-start gap-3 rounded-md border border-jeuncy-orange/30 bg-jeuncy-orange/10 p-4">
         <div className="flex items-center gap-2 font-poppins text-sm font-medium text-foreground">
           <Lock className="h-4 w-4 text-jeuncy-orange" aria-hidden="true" />
           Candidatures verrouillées
         </div>
         <p className="font-inter text-sm text-muted-foreground">
-          Débloque l'accès aux candidatures de cette offre (
-          {APPLICATIONS_UNLOCK_PRICE_LABEL}
-          ), ou passe à l'abonnement mensuel pour un accès illimité à toutes tes offres.
+          L'accès aux candidatures est inclus dans l'abonnement, avec la publication
+          illimitée d'offres et la CVthèque pour contacter directement les profils qui
+          vous intéressent.
         </p>
-        {unlockMutation.isError && (
-          <p role="alert" className="font-inter text-sm text-destructive">
-            Impossible de démarrer le paiement pour le moment.
-          </p>
-        )}
-        <Button
-          type="button"
-          variant="gradient"
-          size="sm"
-          onClick={() => unlockMutation.mutate()}
-          disabled={unlockMutation.isPending}
+        <Link
+          to="/tarifs"
+          className={cn(buttonVariants({ variant: 'gradient', size: 'sm' }))}
         >
-          {unlockMutation.isPending
-            ? 'Redirection…'
-            : `Débloquer cette offre (${APPLICATIONS_UNLOCK_PRICE_LABEL})`}
-        </Button>
+          Voir l'abonnement
+        </Link>
       </div>
     );
   }
