@@ -111,6 +111,51 @@ class MailService
         $this->send($apiKey, $to, 'Rappel : ta visioconférence Jeuncy approche', $this->wrapEmailHtml('Ta visio approche', $body));
     }
 
+    // Information des candidats DEJA inscrits au moment de l'ouverture de la
+    // CVtheque (2026-08-17). Ceux-ci n'ont pas vu la mention affichee sur le
+    // formulaire d'inscription, puisqu'elle n'existait pas : les prevenir est
+    // ce qui rend le defaut "visible" honnete a leur egard (RGPD art. 13,
+    // information en cas de nouvelle finalite).
+    //
+    // Le ton est volontairement factuel et le retrait presente comme un choix
+    // ordinaire, pas comme une faveur : un email qui vend la CVtheque sans
+    // rendre l'opposition evidente manquerait son objet.
+    //
+    // A n'envoyer QU'UNE FOIS (voir la commande candidates:notify-cvtheque, qui
+    // porte la garde anti-doublon) : un rappel repete se lirait comme du
+    // demarchage.
+    public function sendCvthequeAnnouncementEmail(string $to, ?string $firstName = null): void
+    {
+        $apiKey = config('services.resend.key');
+
+        if (! $apiKey) {
+            Log::warning("RESEND_API_KEY absent : annonce CVtheque non envoyee a {$to}");
+
+            return;
+        }
+
+        $frontendUrl = rtrim(config('app.frontend_url'), '/');
+        $greeting = $firstName ? 'Bonjour '.e($firstName).',' : 'Bonjour,';
+
+        $body = <<<HTML
+            <p>{$greeting}</p>
+            <p>Une nouveauté vient d'arriver sur Jeuncy, et comme elle concerne ton profil, on préfère t'en informer directement.</p>
+            <p>Les entreprises et les CFA abonnés peuvent désormais <strong>rechercher des profils de candidats</strong> et te contacter sans attendre que tu postules. Concrètement, tu peux recevoir des propositions pour des offres que tu n'aurais peut-être jamais vues.</p>
+            <p><strong>Ce qu'ils voient de toi :</strong> ton prénom, ton nom, ton titre, ta ville, tes compétences et ton parcours. Tes coordonnées (email, téléphone) n'apparaissent qu'après avoir ouvert ta fiche complète — elles ne sont jamais affichées dans les résultats de recherche.</p>
+            <p><strong>Qui y a accès :</strong> uniquement les comptes entreprise et CFA abonnés. Ton profil n'est pas public sur Internet, n'apparaît pas dans Google, et n'est ni vendu ni transmis à qui que ce soit.</p>
+            <p><strong>Si tu préfères ne pas y figurer :</strong> tu peux te retirer en un clic depuis ton profil, section « Visibilité auprès des recruteurs ». C'est immédiat, sans justification à donner, et tu continues à postuler normalement aux offres.</p>
+            {$this->ctaButton('Gérer ma visibilité', $frontendUrl.'/profile')}
+            <p style="font-size:13px;color:#6b7280;">Pour tout savoir sur l'usage de tes données, notre <a href="{$frontendUrl}/confidentialite" style="color:#FF2D55;">politique de confidentialité</a> détaille la CVthèque à la section 4 bis.</p>
+            HTML;
+
+        $this->send(
+            $apiKey,
+            $to,
+            'Ton profil Jeuncy est désormais visible des recruteurs',
+            $this->wrapEmailHtml('Une nouveauté qui concerne ton profil', $body),
+        );
+    }
+
     // Envoi centralise : un echec Resend (recipient invalide, quota, panne
     // ponctuelle...) ne doit jamais faire echouer l'action metier qui a
     // declenche l'email (publication d'offre, reinitialisation de mot de

@@ -55,6 +55,14 @@ return [
         'founder_seats_total' => (int) env('STRIPE_FOUNDER_SEATS_TOTAL', 50),
     ],
 
+    // Date d'ouverture de la CVtheque. Sert de frontiere a
+    // candidates:notify-cvtheque : seuls les profils crees AVANT recoivent
+    // l'email d'information, ceux crees apres ayant vu la mention directement
+    // sur le formulaire d'inscription.
+    'cvtheque' => [
+        'launched_at' => env('CVTHEQUE_LAUNCHED_AT', '2026-08-17 00:00:00'),
+    ],
+
     'ses' => [
         'key' => env('AWS_ACCESS_KEY_ID'),
         'secret' => env('AWS_SECRET_ACCESS_KEY'),

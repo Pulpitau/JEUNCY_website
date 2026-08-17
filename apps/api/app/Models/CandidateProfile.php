@@ -12,6 +12,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
     'user_id', 'first_name', 'last_name', 'headline', 'phone', 'birth_date',
     'address', 'city', 'postal_code', 'bio', 'photo_url', 'hobbies', 'driving_license',
     'video_url', 'portfolio_url', 'linkedin_url', 'is_visible_in_cvtheque',
+    'cvtheque_notified_at',
 ])]
 class CandidateProfile extends Model
 {
@@ -22,6 +23,7 @@ class CandidateProfile extends Model
         return [
             'birth_date' => 'date',
             'is_visible_in_cvtheque' => 'boolean',
+            'cvtheque_notified_at' => 'datetime',
         ];
     }
 
