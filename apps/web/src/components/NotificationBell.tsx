@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Bell } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useDismissableLayer } from '@/hooks/use-dismissable-layer';
 import {
   listNotifications,
   markNotificationRead,
@@ -14,8 +15,18 @@ const NOTIFICATIONS_QUERY_KEY = ['notifications'];
 
 export function NotificationBell() {
   const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+
+  // Sans ca, le panneau restait ouvert en cliquant ailleurs — y compris sur
+  // la pastille profil, qu'il recouvrait alors entierement (voir
+  // use-dismissable-layer).
+  useDismissableLayer({
+    isOpen,
+    containerRef,
+    onDismiss: () => setIsOpen(false),
+  });
 
   const notificationsQuery = useQuery({
     queryKey: NOTIFICATIONS_QUERY_KEY,
@@ -46,12 +57,14 @@ export function NotificationBell() {
   }
 
   return (
-    <div className="relative">
+    <div ref={containerRef} className="relative">
       <Button
         type="button"
         variant="ghost"
         size="icon"
         aria-label="Notifications"
+        aria-haspopup="dialog"
+        aria-expanded={isOpen}
         onClick={() => setIsOpen((current) => !current)}
       >
         <Bell className="h-5 w-5" />

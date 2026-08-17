@@ -6,9 +6,10 @@ interface CvSectionProps {
   cvs: GeneratedCv[];
   onGenerate: () => Promise<unknown>;
   isGenerating: boolean;
+  error?: string | null;
 }
 
-export function CvSection({ cvs, onGenerate, isGenerating }: CvSectionProps) {
+export function CvSection({ cvs, onGenerate, isGenerating, error }: CvSectionProps) {
   return (
     <div className="flex flex-col gap-4">
       <p className="font-inter text-sm text-muted-foreground">
@@ -24,6 +25,11 @@ export function CvSection({ cvs, onGenerate, isGenerating }: CvSectionProps) {
       >
         {isGenerating ? 'Génération…' : 'Générer mon CV (PDF)'}
       </Button>
+      {error && (
+        <p role="alert" className="text-sm text-destructive">
+          {error}
+        </p>
+      )}
 
       {cvs.length > 0 && (
         <div className="flex flex-col gap-2">

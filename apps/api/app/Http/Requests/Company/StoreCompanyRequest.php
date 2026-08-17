@@ -2,7 +2,9 @@
 
 namespace App\Http\Requests\Company;
 
+use App\Enums\WorkMode;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class StoreCompanyRequest extends FormRequest
 {
@@ -21,6 +23,7 @@ class StoreCompanyRequest extends FormRequest
             'address' => ['nullable', 'string', 'max:255'],
             'city' => ['nullable', 'string', 'max:255'],
             'postal_code' => ['nullable', 'string', 'max:10'],
+            'work_mode' => ['nullable', Rule::enum(WorkMode::class)],
         ];
     }
 }

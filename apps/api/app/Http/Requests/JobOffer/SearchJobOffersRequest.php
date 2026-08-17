@@ -2,6 +2,8 @@
 
 namespace App\Http\Requests\JobOffer;
 
+use App\Enums\ContractType;
+use App\Enums\WorkMode;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -16,8 +18,9 @@ class SearchJobOffersRequest extends FormRequest
     {
         return [
             'q' => ['sometimes', 'string', 'max:255'],
-            'contract_type' => ['sometimes', Rule::in(['ALTERNANCE', 'SAISONNIER', 'BENEVOLAT'])],
+            'contract_type' => ['sometimes', Rule::enum(ContractType::class)],
             'city' => ['sometimes', 'string', 'max:255'],
+            'work_mode' => ['sometimes', Rule::enum(WorkMode::class)],
         ];
     }
 }

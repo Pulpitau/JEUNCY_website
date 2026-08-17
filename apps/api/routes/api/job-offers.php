@@ -15,4 +15,11 @@ Route::prefix('job-offers')->middleware(['auth:api', 'role:COMPANY,CFA'])->group
     Route::post('/', [JobOfferController::class, 'store']);
     Route::patch('{jobOffer}', [JobOfferController::class, 'update']);
     Route::post('{jobOffer}/archive', [JobOfferController::class, 'archive']);
+    // Suppression definitive, contrairement a archive() qui n'est qu'un
+    // changement de statut (voir JobOfferService::deleteForUser).
+    Route::delete('{jobOffer}', [JobOfferController::class, 'destroy']);
+    // Essai gratuit, ouvert aux entreprises et aux CFA (voir JobOfferService::publishViaTrialForUser).
+    Route::post('{jobOffer}/publish-trial', [JobOfferController::class, 'publishTrial']);
+    // Publication gratuite via abonnement actif (voir JobOfferService::publishViaSubscriptionForUser).
+    Route::post('{jobOffer}/publish-subscription', [JobOfferController::class, 'publishSubscription']);
 });

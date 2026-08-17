@@ -27,7 +27,13 @@ class CvService
             'scales' => $this->contentScales($profile),
             'palette' => $this->palette($profile),
         ])->setPaper('a4');
-        $path = 'cvs/'.$profile->id.'/'.Str::uuid().'.pdf';
+        // "cvs/" (et non "generated-cvs/") est bloque par defaut par Apache sur
+        // l'hebergement mutualise OVH : les hebergeurs partagent souvent une regle
+        // deny-all sur tout dossier nomme "cvs" (insensible a la casse), heritage
+        // de la protection historique contre l'exposition de depots CVS (l'ancien
+        // outil de version control) - renvoie un 403 Apache generique avant meme
+        // d'atteindre PHP, quels que soient les permissions du fichier.
+        $path = 'generated-cvs/'.$profile->id.'/'.Str::uuid().'.pdf';
         Storage::disk('public')->put($path, $pdf->output());
 
         return $profile->generatedCvs()->create([

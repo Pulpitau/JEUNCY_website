@@ -10,13 +10,14 @@ import {
   CardDescription,
   CardContent,
 } from '@/components/ui/card';
+import { FreeForCandidatesBadge } from '@/components/FreeForCandidatesBadge';
 
 const AUDIENCES = [
   {
     title: 'Candidats',
     description:
       'Crée ton profil, génère ton CV et postule aux offres qui te correspondent.',
-    tag: 'Alternants & saisonniers',
+    tag: 'Gratuit, à vie',
     anchor: '/a-propos#candidats',
   },
   {
@@ -45,43 +46,58 @@ export function Home() {
 
   return (
     <main>
-      <section className="mx-auto max-w-6xl px-4 py-20 text-center">
-        <Badge
-          variant="secondary"
-          className="animate-in fade-in slide-in-from-bottom-2 mb-4 duration-500"
-        >
-          Alternance · Saisonnier · Bénévolat
-        </Badge>
-        <h1 className="animate-in fade-in slide-in-from-bottom-3 font-poppins text-4xl font-bold tracking-tight text-foreground duration-700 md:text-6xl">
-          Ton alternance commence ici.
-        </h1>
-        <p className="animate-in fade-in slide-in-from-bottom-3 mx-auto mt-4 max-w-xl font-inter text-lg text-muted-foreground duration-700 [animation-delay:100ms] [animation-fill-mode:backwards]">
-          Jeuncy connecte les jeunes talents aux entreprises et CFA qui recrutent, sans
-          detour.
-        </p>
+      <section className="relative">
+        {/* Pas de glow/blob decoratif en fond ici : plusieurs tentatives
+            (blur+overflow-hidden, puis degrade radial) ont toutes fini par
+            montrer une coupure visible selon la fenetre/le navigateur. Le
+            texte en degrade + les cartes/boutons plus vifs suffisent a
+            l'effet "jeune et dynamique" sans ce risque. */}
+        <div className="relative mx-auto max-w-6xl px-4 py-20 text-center">
+          <Badge
+            variant="secondary"
+            className="animate-in fade-in slide-in-from-bottom-2 mb-4 duration-500"
+          >
+            Alternance · Saisonnier · Bénévolat · Job étudiant
+          </Badge>
+          <h1 className="animate-in fade-in slide-in-from-bottom-3 font-poppins text-4xl font-bold tracking-tight text-foreground duration-700 md:text-6xl">
+            Ton <span className="text-jeuncy-coral">alternance</span> commence ici.
+          </h1>
+          <p className="animate-in fade-in slide-in-from-bottom-3 mx-auto mt-4 max-w-xl font-inter text-lg text-muted-foreground duration-700 [animation-delay:100ms] [animation-fill-mode:backwards]">
+            Jeuncy connecte les jeunes talents aux entreprises et CFA qui recrutent, sans
+            detour.
+          </p>
 
-        <div className="animate-in fade-in slide-in-from-bottom-3 mx-auto mt-8 flex max-w-md flex-col gap-3 duration-700 [animation-delay:200ms] [animation-fill-mode:backwards] sm:flex-row">
-          <Input
-            placeholder="Quel métier recherches-tu ?"
-            aria-label="Rechercher un métier"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter') {
-                event.preventDefault();
-                handleSearch();
-              }
-            }}
-          />
-          <Button variant="gradient" className="sm:shrink-0" onClick={handleSearch}>
-            Chercher une offre
-          </Button>
-        </div>
+          <div className="animate-in fade-in slide-in-from-bottom-3 mx-auto mt-8 flex max-w-md flex-col gap-3 duration-700 [animation-delay:200ms] [animation-fill-mode:backwards] sm:flex-row">
+            <Input
+              placeholder="Quel métier recherches-tu ?"
+              aria-label="Rechercher un métier"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') {
+                  event.preventDefault();
+                  handleSearch();
+                }
+              }}
+            />
+            <Button
+              variant="gradient"
+              className="transition-transform duration-200 hover:scale-105 sm:shrink-0"
+              onClick={handleSearch}
+            >
+              Chercher une offre
+            </Button>
+          </div>
 
-        <div className="animate-in fade-in slide-in-from-bottom-3 mt-4 flex justify-center gap-3 duration-700 [animation-delay:300ms] [animation-fill-mode:backwards]">
-          <Button variant="outline" onClick={() => navigate('/register')}>
-            Je suis une entreprise
-          </Button>
+          <div className="animate-in fade-in slide-in-from-bottom-3 mt-4 flex justify-center gap-3 duration-700 [animation-delay:300ms] [animation-fill-mode:backwards]">
+            <Button variant="outline" onClick={() => navigate('/register')}>
+              Je suis une entreprise
+            </Button>
+          </div>
+
+          <div className="animate-in fade-in slide-in-from-bottom-3 mt-6 flex justify-center duration-700 [animation-delay:400ms] [animation-fill-mode:backwards]">
+            <FreeForCandidatesBadge />
+          </div>
         </div>
       </section>
 

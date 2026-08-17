@@ -21,7 +21,14 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withSchedule(function (Schedule $schedule): void {
         $schedule->command('job-offers:expire')->daily();
+        $schedule->command('job-offers:archive-expired-trials')->daily();
         $schedule->command('cvs:archive-inactive')->daily();
+        // Horaire (pas quotidien comme les 3 taches ci-dessus) : la fenetre de
+        // rappel est d'1h (voir SendVideoRoomReminders), donc alignee sur la
+        // frequence du cron OVH lui-meme (schedule:run appele toutes les
+        // heures, voir cron-schedule.php) — inutile de planifier plus souvent
+        // que ce que l'hebergement declenche reellement.
+        $schedule->command('video-rooms:send-reminders')->hourly();
     })
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->api(append: [

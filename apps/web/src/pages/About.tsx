@@ -1,5 +1,14 @@
 import { useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import {
+  Target,
+  Handshake,
+  Sparkles,
+  MapPin,
+  UserPlus,
+  FileText,
+  Send,
+} from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -9,16 +18,56 @@ const BRAND_VALUES = [
     title: 'Mission',
     description:
       'Créer des rencontres professionnelles utiles et accélérer le recrutement d’alternants.',
+    icon: Target,
   },
   {
     title: 'Promesse',
     description:
       'Simplifier la recherche d’une entreprise et présenter aux employeurs des profils pertinents.',
+    icon: Handshake,
   },
   {
     title: 'Personnalité',
     description:
       'Jeune sans être adolescente. Professionnelle sans être froide. Dynamique sans être agressive. Directe, optimiste et humaine.',
+    icon: Sparkles,
+  },
+];
+
+const AGENCIES = [
+  {
+    city: 'Perpignan',
+    address: '46 boulevard Clémenceau, 66000 Perpignan',
+    region: 'Sud de la France',
+    // Coordonnees geocodees via Nominatim (OpenStreetMap) pour l'adresse
+    // exacte. Embed OSM plutot que Google Maps : pas de cle API a gerer, et
+    // pas de cookie tiers a declarer dans la politique de confidentialite
+    // (voir PrivacyPolicy.tsx section 5).
+    mapEmbedUrl:
+      'https://www.openstreetmap.org/export/embed.html?bbox=2.8847354%2C42.6965984%2C2.8927354%2C42.7025984&layer=mapnik&marker=42.6995984%2C2.8887354',
+    mapLargeUrl:
+      'https://www.openstreetmap.org/?mlat=42.6995984&mlon=2.8887354#map=17/42.6995984/2.8887354',
+  },
+];
+
+const CANDIDATE_STEPS = [
+  {
+    title: 'Crée ton profil',
+    description:
+      'Renseigne tes informations, tes expériences et tes formations en quelques minutes.',
+    icon: UserPlus,
+  },
+  {
+    title: 'Génère ton CV',
+    description:
+      'Jeuncy met en forme automatiquement un CV professionnel, prêt à être téléchargé.',
+    icon: FileText,
+  },
+  {
+    title: 'Postule en un clic',
+    description:
+      'Trouve les offres d’alternance, de saisonnier ou de bénévolat qui te correspondent et candidate directement.',
+    icon: Send,
   },
 ];
 
@@ -82,6 +131,7 @@ export function About() {
           {BRAND_VALUES.map((value) => (
             <Card key={value.title}>
               <CardHeader>
+                <value.icon className="h-6 w-6 text-primary" aria-hidden="true" />
                 <CardTitle>{value.title}</CardTitle>
               </CardHeader>
               <CardContent>
@@ -91,6 +141,38 @@ export function About() {
               </CardContent>
             </Card>
           ))}
+        </div>
+      </section>
+
+      <section className="bg-muted/30 px-4 py-16">
+        <div className="mx-auto max-w-5xl">
+          <div className="mx-auto max-w-2xl text-center">
+            <Badge variant="outline" className="mb-4">
+              Comment ça marche
+            </Badge>
+            <h2 className="font-poppins text-3xl font-bold text-foreground">
+              Trois étapes pour trouver ton alternance
+            </h2>
+          </div>
+          <div className="mt-10 grid gap-6 md:grid-cols-3">
+            {CANDIDATE_STEPS.map((step, index) => (
+              <div
+                key={step.title}
+                className="flex flex-col items-start gap-3 rounded-lg border border-border bg-card p-6"
+              >
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-jeuncy-gradient text-white">
+                  <step.icon className="h-5 w-5" aria-hidden="true" />
+                </div>
+                <p className="font-inter text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Étape {index + 1}
+                </p>
+                <p className="font-poppins font-semibold text-foreground">{step.title}</p>
+                <p className="font-inter text-sm text-muted-foreground">
+                  {step.description}
+                </p>
+              </div>
+            ))}
+          </div>
         </div>
       </section>
 
@@ -112,6 +194,61 @@ export function About() {
           </div>
         </section>
       ))}
+
+      <section id="agences" className="scroll-mt-20 px-4 py-16">
+        <div className="mx-auto max-w-5xl">
+          <div className="mx-auto max-w-2xl text-center">
+            <Badge variant="outline" className="mb-4">
+              Nos agences
+            </Badge>
+            <h2 className="font-poppins text-3xl font-bold text-foreground">
+              Là où on te retrouve
+            </h2>
+            <p className="mt-3 font-inter text-muted-foreground">
+              Une équipe présente sur le terrain, proche des candidats et des entreprises.
+            </p>
+          </div>
+          <div className="mt-10 flex flex-wrap items-stretch justify-center gap-6">
+            {AGENCIES.map((agency) => (
+              <div key={agency.city} className="flex flex-col gap-4 sm:flex-row">
+                <Card className="w-full sm:w-64">
+                  <CardHeader>
+                    <MapPin className="h-6 w-6 text-primary" aria-hidden="true" />
+                    <CardTitle>{agency.city}</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="font-inter text-sm text-muted-foreground">
+                      {agency.address}
+                    </p>
+                    <p className="mt-1 font-inter text-xs text-muted-foreground">
+                      {agency.region}
+                    </p>
+                  </CardContent>
+                </Card>
+                <div className="flex w-full flex-col gap-1 sm:w-80">
+                  <div className="overflow-hidden rounded-lg border border-border">
+                    <iframe
+                      title={`Localisation de l'agence Jeuncy à ${agency.city}`}
+                      src={agency.mapEmbedUrl}
+                      className="h-48 w-full sm:h-full"
+                      loading="lazy"
+                      referrerPolicy="no-referrer-when-downgrade"
+                    />
+                  </div>
+                  <a
+                    href={agency.mapLargeUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="self-end font-inter text-xs text-muted-foreground hover:text-primary hover:underline"
+                  >
+                    Voir en plus grand
+                  </a>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
 
       <section className="mx-auto max-w-4xl px-4 py-20 text-center">
         <h2 className="font-poppins text-3xl font-bold text-foreground">

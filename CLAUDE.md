@@ -161,9 +161,17 @@ Toute route API vérifie le rôle via `@Roles()` + `RolesGuard` avant d'agir.
   boutons de la toolbar, page de pré-connexion).
 - Limites connues à documenter pour l'utilisateur : l'instance publique meet.jit.si ne permet
   pas un branding complet (logo Jeuncy dans l'interface d'appel) ni l'enregistrement des
-  sessions. Si ces besoins deviennent prioritaires, migration possible vers un
-  **self-hosting Jitsi via Docker** (même API front, juste changer le domaine du serveur),
-  à évaluer en V2 si le besoin se confirme.
+  sessions. Depuis fin 2023, meet.jit.si exige aussi que **le premier participant à
+  entrer dans une salle (l'hôte) se connecte via un compte Google, GitHub ou Facebook** —
+  ce n'est plus possible de créer une salle de façon anonyme sur l'instance publique. Le
+  participant/candidat invité, lui, peut toujours rejoindre librement sans compte. Décision
+  prise (2026-07-23) : garder meet.jit.si tel quel plutôt que migrer, la contrainte étant
+  mineure pour des hôtes internes (entreprise/CFA/admin) qui ont déjà un compte Google —
+  documenté dans l'UI de `/mes-visios`. Si ces besoins deviennent prioritaires, migration
+  possible vers un **self-hosting Jitsi via Docker** (même API front, juste changer le
+  domaine du serveur), à évaluer en V2 si le besoin se confirme — mais impossible sur
+  l'hébergement mutualisé OVH actuel (pas de VPS/Docker), nécessiterait un serveur dédié
+  supplémentaire.
 
 ## 8. Dépôt Git
 

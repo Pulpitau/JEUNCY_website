@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-#[Fillable(['host_id', 'participant_id', 'jitsi_room_name', 'status', 'scheduled_at', 'started_at', 'ended_at'])]
+#[Fillable(['host_id', 'participant_id', 'jitsi_room_name', 'status', 'scheduled_at', 'reminder_sent_at', 'started_at', 'ended_at'])]
 class VideoRoom extends Model
 {
     protected $table = 'video_rooms';
@@ -19,6 +19,7 @@ class VideoRoom extends Model
         return [
             'status' => VideoRoomStatus::class,
             'scheduled_at' => 'datetime',
+            'reminder_sent_at' => 'datetime',
             'started_at' => 'datetime',
             'ended_at' => 'datetime',
         ];

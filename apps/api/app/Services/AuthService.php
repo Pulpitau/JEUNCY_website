@@ -86,7 +86,12 @@ class AuthService
         $user->increment('token_version');
     }
 
-    public function validateGoogleUser(string $googleId, string $email): User
+    // $role ne s'applique qu'a la creation d'un tout nouveau compte (voir
+    // AuthController::googleRedirect/googleCallback pour comment le choix
+    // Candidat/Entreprise/CFA de la page d'inscription arrive jusqu'ici) —
+    // un compte Google existant garde toujours son role actuel, jamais
+    // modifie par une reconnexion ulterieure.
+    public function validateGoogleUser(string $googleId, string $email, UserRole $role = UserRole::CANDIDATE): User
     {
         $existingByGoogleId = User::where('google_id', $googleId)->first();
         if ($existingByGoogleId) {
@@ -105,12 +110,10 @@ class AuthService
             return $existingByEmail;
         }
 
-        // Nouvelle inscription via Google : role CANDIDATE par defaut, modifiable
-        // plus tard dans le profil (pas de choix de role dans le flux OAuth).
         return User::create([
             'email' => $email,
             'password_hash' => null,
-            'role' => UserRole::CANDIDATE,
+            'role' => $role,
             'google_id' => $googleId,
             'last_login_at' => now(),
         ]);

@@ -3,8 +3,9 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Link, useNavigate } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { PasswordInput } from '@/components/ui/password-input';
 import { Label } from '@/components/ui/label';
 import {
   Card,
@@ -14,8 +15,10 @@ import {
   CardDescription,
 } from '@/components/ui/card';
 import { login as loginRequest } from '@/lib/api/auth';
-import { ApiError } from '@/lib/api/client';
+import { ApiError, API_URL } from '@/lib/api/client';
 import { useAuthStore } from '@/store/auth-store';
+import { cn } from '@/lib/utils';
+import { GoogleIcon } from '@/components/icons/GoogleIcon';
 
 const loginSchema = z.object({
   email: z.string().email('Adresse email invalide.'),
@@ -56,6 +59,22 @@ export function Login() {
           <CardDescription>Content de te revoir sur Jeuncy.</CardDescription>
         </CardHeader>
         <CardContent>
+          <a
+            href={`${API_URL}/auth/google`}
+            className={cn(buttonVariants({ variant: 'outline' }), 'w-full gap-2')}
+          >
+            <GoogleIcon className="h-4 w-4" />
+            Continuer avec Google
+          </a>
+
+          <div className="my-6 flex items-center gap-3">
+            <div className="h-px flex-1 bg-border" />
+            <span className="font-inter text-xs text-muted-foreground">
+              ou avec ton email
+            </span>
+            <div className="h-px flex-1 bg-border" />
+          </div>
+
           <form
             onSubmit={handleSubmit(onSubmit)}
             noValidate
@@ -88,9 +107,8 @@ export function Login() {
                   Mot de passe oublié ?
                 </Link>
               </div>
-              <Input
+              <PasswordInput
                 id="password"
-                type="password"
                 autoComplete="current-password"
                 aria-invalid={!!errors.password}
                 aria-describedby={errors.password ? 'password-error' : undefined}

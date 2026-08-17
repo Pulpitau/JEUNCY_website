@@ -1,0 +1,17 @@
+# React Router (SPA) : toute URL qui ne correspond pas a un vrai fichier/dossier
+# doit retomber sur index.html pour que le routing cote client prenne le relais.
+# Sans ca, un lien profond (ex: /auth/callback apres Google OAuth, ou tout
+# lien partage/rafraichi) renvoie un 404 Apache au lieu de charger l'app.
+#
+# Ce fichier est copie tel quel dans dist/ a chaque build (voir vite.config.ts,
+# publicDir par defaut = public/) : il est donc automatiquement present a
+# chaque redeploiement, contrairement au Basic Auth de staging (.htpasswd) qui
+# lui doit rester ajoute a la main sur le serveur (specifique a staging, ne
+# doit pas se retrouver dans le build de production).
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteRule . /index.html [L]
+</IfModule>

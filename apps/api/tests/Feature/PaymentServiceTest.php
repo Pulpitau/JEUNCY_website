@@ -6,6 +6,7 @@ use App\Enums\ContractType;
 use App\Enums\JobOfferStatus;
 use App\Enums\NotificationType;
 use App\Enums\PaymentStatus;
+use App\Enums\PaymentType;
 use App\Enums\UserRole;
 use App\Models\Payment;
 use App\Models\User;
@@ -112,5 +113,50 @@ class PaymentServiceTest extends TestCase
 
         $this->assertCount(1, $payments);
         $this->assertSame('cs_test_demo123', $payments->first()->stripe_session_id);
+    }
+
+    // Deblocage payant des candidatures d'une offre precise (nouveau modele
+    // economique du 2026-08-05) : markApplicationsUnlocked ne doit ni publier
+    // ni republier l'offre (deja publiee dans ce parcours), seulement poser
+    // applications_unlocked_at — a la difference de markPaymentSucceeded.
+    public function test_mark_applications_unlocked_sets_flag_without_touching_offer_status(): void
+    {
+        [$user, $offer] = $this->makeOfferAwaitingPayment();
+        $offer->update(['status' => JobOfferStatus::PUBLISHED, 'published_at' => now()]);
+        $payment = Payment::create([
+            'user_id' => $user->id,
+            'job_offer_id' => $offer->id,
+            'type' => PaymentType::APPLICATIONS_UNLOCK,
+            'amount_cents' => 5000,
+            'currency' => 'EUR',
+            'status' => PaymentStatus::PENDING,
+            'stripe_session_id' => 'cs_test_unlock123',
+        ]);
+
+        $this->service->markApplicationsUnlocked('cs_test_unlock123');
+
+        $this->assertSame(PaymentStatus::SUCCEEDED, $payment->fresh()->status);
+        $this->assertNotNull($offer->fresh()->applications_unlocked_at);
+        $this->assertSame(JobOfferStatus::PUBLISHED, $offer->fresh()->status);
+        $this->assertSame(1, $user->notifications()->where('type', NotificationType::PAYMENT_SUCCEEDED)->count());
+    }
+
+    public function test_mark_applications_unlocked_is_idempotent(): void
+    {
+        [$user, $offer] = $this->makeOfferAwaitingPayment();
+        Payment::create([
+            'user_id' => $user->id,
+            'job_offer_id' => $offer->id,
+            'type' => PaymentType::APPLICATIONS_UNLOCK,
+            'amount_cents' => 5000,
+            'currency' => 'EUR',
+            'status' => PaymentStatus::PENDING,
+            'stripe_session_id' => 'cs_test_unlock456',
+        ]);
+
+        $this->service->markApplicationsUnlocked('cs_test_unlock456');
+        $this->service->markApplicationsUnlocked('cs_test_unlock456');
+
+        $this->assertSame(1, $user->notifications()->where('type', NotificationType::PAYMENT_SUCCEEDED)->count());
     }
 }

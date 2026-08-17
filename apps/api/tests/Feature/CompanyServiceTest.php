@@ -2,8 +2,12 @@
 
 namespace Tests\Feature;
 
+use App\Enums\ContractType;
+use App\Enums\JobOfferStatus;
 use App\Enums\UserRole;
+use App\Enums\WorkMode;
 use App\Exceptions\ApiException;
+use App\Models\JobOffer;
 use App\Models\User;
 use App\Services\CompanyService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -57,5 +61,103 @@ class CompanyServiceTest extends TestCase
         $updated = $this->service->updateForUser($user->fresh(), ['city' => 'Nantes']);
 
         $this->assertSame('Nantes', $updated->city);
+    }
+
+    public function test_search_public_lists_all_companies(): void
+    {
+        $this->service->createForUser($this->makeUser(), ['name' => 'NexaTech', 'city' => 'Rennes']);
+        $this->service->createForUser(
+            User::create(['email' => 'contact@cafedeslices.example.com', 'password_hash' => 'x', 'role' => UserRole::COMPANY]),
+            ['name' => 'Café des Lices', 'city' => 'Rennes'],
+        );
+
+        $result = $this->service->searchPublic();
+
+        $this->assertSame(2, $result->total());
+    }
+
+    public function test_search_public_filters_by_city(): void
+    {
+        $this->service->createForUser($this->makeUser(), ['name' => 'NexaTech', 'city' => 'Rennes']);
+        $this->service->createForUser(
+            User::create(['email' => 'contact@paris.example.com', 'password_hash' => 'x', 'role' => UserRole::COMPANY]),
+            ['name' => 'ParisCo', 'city' => 'Paris'],
+        );
+
+        $result = $this->service->searchPublic(['city' => 'Rennes']);
+
+        $this->assertSame(1, $result->total());
+        $this->assertSame('NexaTech', $result->items()[0]->name);
+    }
+
+    public function test_search_public_filters_by_name(): void
+    {
+        $this->service->createForUser($this->makeUser(), ['name' => 'NexaTech']);
+        $this->service->createForUser(
+            User::create(['email' => 'contact@paris.example.com', 'password_hash' => 'x', 'role' => UserRole::COMPANY]),
+            ['name' => 'ParisCo'],
+        );
+
+        $result = $this->service->searchPublic(['name' => 'nexa']);
+
+        $this->assertSame(1, $result->total());
+        $this->assertSame('NexaTech', $result->items()[0]->name);
+    }
+
+    public function test_search_public_filters_by_work_mode(): void
+    {
+        $this->service->createForUser($this->makeUser(), ['name' => 'NexaTech', 'work_mode' => WorkMode::DISTANCIEL->value]);
+        $this->service->createForUser(
+            User::create(['email' => 'contact@paris.example.com', 'password_hash' => 'x', 'role' => UserRole::COMPANY]),
+            ['name' => 'ParisCo', 'work_mode' => WorkMode::PRESENTIEL->value],
+        );
+
+        $result = $this->service->searchPublic(['work_mode' => WorkMode::DISTANCIEL->value]);
+
+        $this->assertSame(1, $result->total());
+        $this->assertSame('NexaTech', $result->items()[0]->name);
+    }
+
+    public function test_search_public_filters_by_contract_type(): void
+    {
+        $company = $this->service->createForUser($this->makeUser(), ['name' => 'NexaTech']);
+        $otherCompany = $this->service->createForUser(
+            User::create(['email' => 'contact@paris.example.com', 'password_hash' => 'x', 'role' => UserRole::COMPANY]),
+            ['name' => 'ParisCo'],
+        );
+        JobOffer::create([
+            'company_id' => $company->id,
+            'title' => 'Alternant dev',
+            'description' => 'x',
+            'contract_type' => ContractType::ALTERNANCE,
+            'status' => JobOfferStatus::PUBLISHED,
+        ]);
+        JobOffer::create([
+            'company_id' => $otherCompany->id,
+            'title' => 'Stagiaire marketing',
+            'description' => 'x',
+            'contract_type' => ContractType::STAGE,
+            'status' => JobOfferStatus::PUBLISHED,
+        ]);
+
+        $result = $this->service->searchPublic(['contract_type' => ContractType::ALTERNANCE->value]);
+
+        $this->assertSame(1, $result->total());
+        $this->assertSame('NexaTech', $result->items()[0]->name);
+    }
+
+    public function test_find_public_throws_when_company_not_found(): void
+    {
+        $this->expectException(ApiException::class);
+        $this->service->findPublic(999);
+    }
+
+    public function test_find_public_returns_company(): void
+    {
+        $company = $this->service->createForUser($this->makeUser(), ['name' => 'NexaTech']);
+
+        $found = $this->service->findPublic($company->id);
+
+        $this->assertSame('NexaTech', $found->name);
     }
 }

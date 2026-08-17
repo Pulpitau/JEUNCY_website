@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 #[Fillable([
     'user_id', 'first_name', 'last_name', 'headline', 'phone', 'birth_date',
     'address', 'city', 'postal_code', 'bio', 'photo_url', 'hobbies', 'driving_license',
+    'video_url', 'portfolio_url', 'linkedin_url', 'is_visible_in_cvtheque',
 ])]
 class CandidateProfile extends Model
 {
@@ -18,7 +19,10 @@ class CandidateProfile extends Model
 
     protected function casts(): array
     {
-        return ['birth_date' => 'date'];
+        return [
+            'birth_date' => 'date',
+            'is_visible_in_cvtheque' => 'boolean',
+        ];
     }
 
     public function user(): BelongsTo

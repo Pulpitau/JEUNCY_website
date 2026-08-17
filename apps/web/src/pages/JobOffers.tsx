@@ -1,19 +1,23 @@
 import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { ContractType } from '@jeuncy/shared';
+import { ContractType, type WorkMode } from '@jeuncy/shared';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
+import { WORK_MODE_LABELS } from '@/lib/work-mode-labels';
 import { searchPublicOffers } from '@/lib/api/job-offers';
 import { PublicJobOfferCard } from '@/components/features/job-offers/PublicJobOfferCard';
+import { FreeForCandidatesBadge } from '@/components/FreeForCandidatesBadge';
 
 const CONTRACT_TYPE_OPTIONS = [
   { value: '', label: 'Tous les contrats' },
   { value: ContractType.ALTERNANCE, label: 'Alternance' },
   { value: ContractType.SAISONNIER, label: 'Saisonnier' },
   { value: ContractType.BENEVOLAT, label: 'Bénévolat' },
+  { value: ContractType.JOB_ETUDIANT, label: 'Job étudiant' },
+  { value: ContractType.STAGE, label: 'Stage' },
 ];
 
 export function JobOffers() {
@@ -21,18 +25,20 @@ export function JobOffers() {
   const q = searchParams.get('q') ?? '';
   const contractType = searchParams.get('contract_type') ?? '';
   const city = searchParams.get('city') ?? '';
+  const workMode = searchParams.get('work_mode') ?? '';
   const page = Number(searchParams.get('page') ?? '1');
 
   const [draftQ, setDraftQ] = useState(q);
   const [draftCity, setDraftCity] = useState(city);
 
   const offersQuery = useQuery({
-    queryKey: ['job-offers', 'public', { q, contractType, city, page }],
+    queryKey: ['job-offers', 'public', { q, contractType, city, workMode, page }],
     queryFn: () =>
       searchPublicOffers({
         q: q || undefined,
         contract_type: (contractType as ContractType) || undefined,
         city: city || undefined,
+        work_mode: (workMode as WorkMode) || undefined,
         page,
       }),
   });
@@ -43,6 +49,7 @@ export function JobOffers() {
       q: draftQ,
       contract_type: contractType,
       city: draftCity,
+      work_mode: workMode,
       ...overrides,
     };
     Object.entries(merged).forEach(([key, value]) => {
@@ -65,11 +72,15 @@ export function JobOffers() {
 
   return (
     <main className="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-12">
-      <div>
-        <h1 className="font-poppins text-3xl font-bold">Les offres</h1>
-        <p className="mt-1 font-inter text-muted-foreground">
-          Alternance, saisonnier, bénévolat — trouve l'offre qui te correspond.
-        </p>
+      <div className="flex flex-col gap-3">
+        <div>
+          <h1 className="font-poppins text-3xl font-bold">Les offres</h1>
+          <p className="mt-1 font-inter text-muted-foreground">
+            Alternance, saisonnier, bénévolat, job étudiant — trouve l'offre qui te
+            correspond.
+          </p>
+        </div>
+        <FreeForCandidatesBadge className="self-start" />
       </div>
 
       <form
@@ -110,6 +121,24 @@ export function JobOffers() {
             {CONTRACT_TYPE_OPTIONS.map((option) => (
               <option key={option.value} value={option.value}>
                 {option.label}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="flex flex-1 flex-col gap-2">
+          <Label htmlFor="search-work-mode">Type d'offre</Label>
+          <select
+            id="search-work-mode"
+            className={cn(
+              'flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm font-inter focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+            )}
+            value={workMode}
+            onChange={(event) => applyFilters({ work_mode: event.target.value })}
+          >
+            <option value="">Tous les modes</option>
+            {Object.entries(WORK_MODE_LABELS).map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
               </option>
             ))}
           </select>

@@ -2,12 +2,61 @@
 
 namespace App\Services;
 
+use App\Enums\JobOfferStatus;
 use App\Exceptions\ApiException;
 use App\Models\Company;
 use App\Models\User;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class CompanyService
 {
+    // Annuaire public : n'importe quel visiteur peut parcourir les entreprises
+    // inscrites, aucune authentification requise (voir routes/api/companies.php).
+    public function searchPublic(array $filters = []): LengthAwarePaginator
+    {
+        return Company::query()
+            ->when(
+                $filters['name'] ?? null,
+                fn ($query, $name) => $query->where('name', 'like', '%'.$name.'%'),
+            )
+            ->when(
+                $filters['city'] ?? null,
+                fn ($query, $city) => $query->where('city', 'like', '%'.$city.'%'),
+            )
+            ->when(
+                $filters['work_mode'] ?? null,
+                fn ($query, $workMode) => $query->where('work_mode', $workMode),
+            )
+            // Filtre par type de contrat des offres publiees de l'entreprise
+            // (pas un champ direct de Company, contrairement a work_mode).
+            ->when(
+                $filters['contract_type'] ?? null,
+                fn ($query, $contractType) => $query->whereHas(
+                    'jobOffers',
+                    fn ($jobOfferQuery) => $jobOfferQuery
+                        ->where('status', JobOfferStatus::PUBLISHED)
+                        ->where('contract_type', $contractType),
+                ),
+            )
+            ->orderBy('name')
+            ->paginate(12);
+    }
+
+    public function findPublic(int $id): Company
+    {
+        $company = Company::query()
+            ->with(['jobOffers' => fn ($query) => $query->where('status', JobOfferStatus::PUBLISHED)])
+            ->find($id);
+        if (! $company) {
+            throw new ApiException('COMPANY_NOT_FOUND', "Cette entreprise n'existe pas.", 404);
+        }
+
+        return $company;
+    }
+
     public function getForUser(User $user): Company
     {
         return $this->requireCompany($user);
@@ -38,5 +87,42 @@ class CompanyService
         }
 
         return $company;
+    }
+
+    // Rassure le candidat sur les offres publiees (voir CLAUDE.md) : un logo
+    // visible sur les cartes/pages d'offres rend l'annonce moins "vide" et
+    // plus credible, meme pattern que la photo de profil candidat.
+    public function uploadLogo(User $user, UploadedFile $file): Company
+    {
+        $company = $this->requireCompany($user);
+
+        if ($company->logo_url) {
+            $this->deleteStoredLogo($company->logo_url);
+        }
+
+        $filename = $company->id.'-'.Str::uuid().'.'.$file->extension();
+        $path = $file->storeAs('company-logos', $filename, 'public');
+        $company->update(['logo_url' => Storage::disk('public')->url($path)]);
+
+        return $company;
+    }
+
+    public function removeLogo(User $user): Company
+    {
+        $company = $this->requireCompany($user);
+
+        if ($company->logo_url) {
+            $this->deleteStoredLogo($company->logo_url);
+            $company->update(['logo_url' => null]);
+        }
+
+        return $company;
+    }
+
+    private function deleteStoredLogo(string $logoUrl): void
+    {
+        $base = rtrim(Storage::disk('public')->url(''), '/').'/';
+        $relativePath = Str::startsWith($logoUrl, $base) ? substr($logoUrl, strlen($base)) : $logoUrl;
+        Storage::disk('public')->delete($relativePath);
     }
 }

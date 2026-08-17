@@ -90,15 +90,30 @@ class AuthController extends Controller
         return response()->json(['message' => 'Mot de passe mis à jour.']);
     }
 
-    public function googleRedirect(): RedirectResponse
+    // Le type de compte choisi (Candidat/Entreprise/CFA sur la page
+    // d'inscription) est transmis via le parametre OAuth standard "state" —
+    // en mode stateless() Socialite ne l'utilise plus pour son propre CSRF
+    // (deja le cas avant ce changement), on peut donc s'en servir pour
+    // vehiculer cette info a travers l'aller-retour vers Google (aucun
+    // parametre personnalise n'est jamais renvoye par Google, seul "state"
+    // est echo verbatim). Repris cote callback ci-dessous, valide a nouveau
+    // contre UserRole avant usage (voir AuthService::validateGoogleUser).
+    public function googleRedirect(Request $request): RedirectResponse
     {
-        return Socialite::driver('google')->stateless()->redirect();
+        $requestedRole = UserRole::tryFrom((string) $request->query('role'));
+        $role = $requestedRole && $requestedRole !== UserRole::ADMIN ? $requestedRole : UserRole::CANDIDATE;
+
+        return Socialite::driver('google')->stateless()->with(['state' => $role->value])->redirect();
     }
 
-    public function googleCallback(): RedirectResponse
+    public function googleCallback(Request $request): RedirectResponse
     {
         $googleUser = Socialite::driver('google')->stateless()->user();
-        $user = $this->authService->validateGoogleUser($googleUser->getId(), $googleUser->getEmail());
+        $requestedRole = UserRole::tryFrom((string) $request->query('state'));
+        // ADMIN reste exclu meme si quelqu'un forge la valeur de "state" —
+        // meme garde qu'a l'inscription classique (voir RegisterRequest).
+        $role = $requestedRole && $requestedRole !== UserRole::ADMIN ? $requestedRole : UserRole::CANDIDATE;
+        $user = $this->authService->validateGoogleUser($googleUser->getId(), $googleUser->getEmail(), $role);
         $tokens = $this->authService->issueTokens($user);
 
         // Pas d'access token dans l'URL (evite qu'il finisse dans l'historique du

@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 
-const LAST_UPDATED = '22 juillet 2026';
+const LAST_UPDATED = '17 août 2026';
 
 const DATA_CATEGORIES = [
   {
@@ -24,10 +24,10 @@ const DATA_CATEGORIES = [
     ],
   },
   {
-    title: 'Paiement',
+    title: 'Paiement et abonnement',
     items: [
-      'Les coordonnées bancaires ne sont jamais stockées par Jeuncy : le paiement des offres est traité directement par Stripe',
-      'Jeuncy conserve uniquement le statut et le montant du paiement, à des fins de facturation',
+      'Les coordonnées bancaires ne sont jamais stockées par Jeuncy : le paiement des offres et la souscription à un abonnement mensuel sont traités directement par Stripe',
+      'Jeuncy conserve uniquement le statut, le montant et, pour un abonnement, la période de facturation en cours — à des fins de facturation et de gestion de votre accès',
     ],
   },
   {
@@ -56,9 +56,7 @@ export function PrivacyPolicy() {
               1. Responsable du traitement
             </h2>
             <p className="mt-3">
-              Jeuncy (
-              <span className="text-foreground">[Raison sociale à compléter]</span>, voir
-              nos{' '}
+              Jeuncy (<span className="text-foreground">SAS Jeuncy</span>, voir nos{' '}
               <Link to="/mentions-legales" className="text-primary hover:underline">
                 mentions légales
               </Link>
@@ -102,7 +100,11 @@ export function PrivacyPolicy() {
               <li>
                 Générer votre CV au format PDF à partir des informations de votre profil
               </li>
-              <li>Permettre la publication et le paiement des offres d'emploi</li>
+              <li>
+                Permettre la publication et le paiement des offres d'emploi, ainsi que la
+                souscription et la gestion d'un abonnement mensuel donnant accès à la
+                publication illimitée et aux candidatures
+              </li>
               <li>Organiser des visioconférences de démonstration</li>
               <li>
                 Vous envoyer des notifications liées à votre activité sur la plateforme
@@ -118,9 +120,54 @@ export function PrivacyPolicy() {
             <p className="mt-3">
               Ces traitements reposent sur l'exécution du contrat qui vous lie à Jeuncy
               (création de compte, mise en relation, génération de CV, paiement des
-              offres), sur votre consentement (participation à une visioconférence de
-              démonstration) et, ponctuellement, sur l'intérêt légitime de Jeuncy à
-              assurer la sécurité et le bon fonctionnement de la plateforme.
+              offres, souscription et gestion d'un abonnement), sur votre consentement
+              (participation à une visioconférence de démonstration) et, ponctuellement,
+              sur l'intérêt légitime de Jeuncy à assurer la sécurité et le bon
+              fonctionnement de la plateforme.
+            </p>
+          </section>
+
+          {/* Section ajoutee le 2026-08-17 avec la CVtheque. Le profil candidat
+              etant visible par defaut, l'information et le droit d'opposition
+              doivent etre explicites ici — c'est ce qui rend ce defaut
+              defendable (RGPD art. 13 et 21). */}
+          <section>
+            <h2 className="font-poppins text-xl font-semibold text-foreground">
+              4 bis. CVthèque : visibilité de votre profil candidat
+            </h2>
+            <p className="mt-3">
+              Jeuncy propose aux entreprises et aux CFA disposant d'un abonnement actif
+              une fonction de recherche de profils, appelée « CVthèque ». Si vous êtes
+              candidat, votre profil y est <strong>visible par défaut</strong> dès sa
+              création.
+            </p>
+            <p className="mt-3">
+              <strong>Qui peut vous voir :</strong> uniquement les comptes entreprise et
+              CFA vérifiés et titulaires d'un abonnement en cours. Votre profil n'est
+              jamais accessible publiquement sur Internet, n'est pas indexé par les
+              moteurs de recherche, et n'est ni vendu ni transmis à des tiers.
+            </p>
+            <p className="mt-3">
+              <strong>Ce qu'ils voient :</strong> dans les résultats de recherche, votre
+              prénom, votre nom, votre titre professionnel, votre ville, votre photo si
+              vous en avez ajouté une, vos compétences, logiciels et langues. Vos
+              coordonnées directes (adresse e-mail, numéro de téléphone, adresse postale,
+              date de naissance) ne sont <strong>pas</strong> affichées dans la liste :
+              elles n'apparaissent qu'après ouverture de votre fiche complète, avec votre
+              parcours détaillé.
+            </p>
+            <p className="mt-3">
+              <strong>Comment vous y opposer :</strong> vous pouvez vous retirer de la
+              CVthèque à tout moment, en un clic, depuis la section « Visibilité auprès
+              des recruteurs » de votre profil. Le retrait est immédiat et sans
+              justification à fournir. Vous continuez à pouvoir postuler normalement aux
+              offres : seule la recherche de votre profil par les recruteurs est
+              désactivée. Ce droit d'opposition est prévu par l'article 21 du RGPD.
+            </p>
+            <p className="mt-3">
+              La base légale de ce traitement est l'intérêt légitime de Jeuncy à assurer
+              la mise en relation entre candidats et recruteurs, objet même du service,
+              équilibré par ce droit d'opposition libre et immédiat.
             </p>
           </section>
 
@@ -139,7 +186,10 @@ export function PrivacyPolicy() {
                 Les entreprises ou CFA auxquels vous postulez (uniquement les informations
                 de votre profil et de votre candidature)
               </li>
-              <li>Stripe, pour le traitement sécurisé des paiements des offres</li>
+              <li>
+                Stripe, pour le traitement sécurisé des paiements des offres et des
+                abonnements
+              </li>
               <li>
                 Resend, pour l'envoi des emails transactionnels (réinitialisation de mot
                 de passe, notifications)
@@ -147,6 +197,11 @@ export function PrivacyPolicy() {
               <li>
                 Jitsi (meet.jit.si), pour l'hébergement du flux de visioconférence lors
                 d'une démonstration
+              </li>
+              <li>
+                OpenStreetMap, pour l'affichage de la carte de localisation de notre
+                agence sur la page À propos (aucun cookie, votre adresse IP est transmise
+                à leurs serveurs comme pour tout affichage d'image externe)
               </li>
               <li>OVH, notre hébergeur, pour le stockage technique des données</li>
             </ul>
@@ -170,9 +225,9 @@ export function PrivacyPolicy() {
                 pour respecter une obligation légale
               </li>
               <li>
-                Les données de facturation liées aux paiements sont conservées pendant la
-                durée exigée par la réglementation comptable et fiscale, même après la
-                suppression du compte associé
+                Les données de facturation liées aux paiements et aux abonnements sont
+                conservées pendant la durée exigée par la réglementation comptable et
+                fiscale, même après la suppression du compte associé
               </li>
               <li>
                 Un CV généré et non régénéré depuis 15 jours est automatiquement archivé
@@ -226,9 +281,17 @@ export function PrivacyPolicy() {
             <p className="mt-3">
               Conformément au RGPD, vous disposez d'un droit d'accès, de rectification,
               d'effacement, de limitation et d'opposition au traitement de vos données,
-              ainsi que d'un droit à la portabilité. Vous pouvez exercer ces droits en
-              nous contactant à l'adresse{' '}
-              <span className="text-foreground">contact@jeuncy.com</span>. Vous disposez
+              ainsi que d'un droit à la portabilité. Si vous êtes connecté(e), vous pouvez
+              exercer vous-même vos droits d'accès et d'effacement depuis la page{' '}
+              <Link
+                to="/mon-compte/confidentialite"
+                className="text-primary hover:underline"
+              >
+                Confidentialité et données
+              </Link>{' '}
+              (export au format JSON, suppression définitive du compte). Pour toute autre
+              demande, contactez-nous à l'adresse{' '}
+              <span className="text-foreground">bonjour@jeuncy.com</span>. Vous disposez
               également du droit d'introduire une réclamation auprès de la Commission
               Nationale de l'Informatique et des Libertés (CNIL), www.cnil.fr.
             </p>

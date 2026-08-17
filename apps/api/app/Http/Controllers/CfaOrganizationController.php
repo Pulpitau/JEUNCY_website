@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\CfaOrganization\StoreCfaOrganizationRequest;
 use App\Http\Requests\CfaOrganization\UpdateCfaOrganizationRequest;
+use App\Http\Requests\CfaOrganization\UploadCfaOrganizationLogoRequest;
 use App\Services\CfaOrganizationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -27,5 +28,15 @@ class CfaOrganizationController extends Controller
     public function update(UpdateCfaOrganizationRequest $request): JsonResponse
     {
         return response()->json($this->service->updateForUser($request->user(), $request->validated()));
+    }
+
+    public function uploadLogo(UploadCfaOrganizationLogoRequest $request): JsonResponse
+    {
+        return response()->json($this->service->uploadLogo($request->user(), $request->file('logo')));
+    }
+
+    public function removeLogo(Request $request): JsonResponse
+    {
+        return response()->json($this->service->removeLogo($request->user()));
     }
 }

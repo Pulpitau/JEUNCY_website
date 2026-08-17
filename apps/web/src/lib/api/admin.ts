@@ -62,7 +62,7 @@ export interface AdminPayment {
   status: PaymentStatus;
   created_at: string;
   user: UserSummary;
-  job_offer: { id: number; title: string };
+  job_offer: { id: number; title: string } | null;
 }
 
 export interface AdminVideoRoom {

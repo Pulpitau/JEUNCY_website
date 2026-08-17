@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Enums\JobOfferStatus;
 use App\Enums\NotificationType;
 use App\Enums\PaymentStatus;
+use App\Enums\PaymentType;
 use App\Exceptions\ApiException;
 use App\Models\JobOffer;
 use App\Models\Payment;
@@ -17,7 +18,10 @@ use UnexpectedValueException;
 
 class PaymentService
 {
-    public function __construct(private readonly JobOfferService $jobOfferService) {}
+    public function __construct(
+        private readonly JobOfferService $jobOfferService,
+        private readonly SubscriptionService $subscriptionService,
+    ) {}
 
     // Construit le client Stripe a la demande plutot qu'au constructeur : seule
     // createCheckoutSessionForOffer en a besoin, pas le traitement du webhook
@@ -30,8 +34,9 @@ class PaymentService
 
     public function createCheckoutSessionForOffer(User $user, JobOffer $jobOffer): string
     {
-        $jobOffer = $this->jobOfferService->requireOwnedDraftOffer($user, $jobOffer);
+        $jobOffer = $this->jobOfferService->requirePayableOffer($user, $jobOffer);
         $frontendUrl = rtrim(config('app.frontend_url'), '/');
+        $priceCents = $this->jobOfferService->priceCentsFor($jobOffer);
 
         $session = $this->stripe()->checkout->sessions->create([
             'mode' => 'payment',
@@ -41,7 +46,7 @@ class PaymentService
                 'quantity' => 1,
                 'price_data' => [
                     'currency' => 'eur',
-                    'unit_amount' => config('services.stripe.job_offer_price_cents'),
+                    'unit_amount' => $priceCents,
                     'product_data' => [
                         'name' => "Publication de l'offre \u{2014} {$jobOffer->title}",
                     ],
@@ -52,13 +57,15 @@ class PaymentService
             'metadata' => [
                 'job_offer_id' => (string) $jobOffer->id,
                 'user_id' => (string) $user->id,
+                'type' => 'offer_publication',
             ],
         ]);
 
         Payment::create([
             'user_id' => $user->id,
             'job_offer_id' => $jobOffer->id,
-            'amount_cents' => config('services.stripe.job_offer_price_cents'),
+            'type' => PaymentType::OFFER_PUBLICATION,
+            'amount_cents' => $priceCents,
             'currency' => 'EUR',
             'status' => PaymentStatus::PENDING,
             'stripe_session_id' => $session->id,
@@ -66,6 +73,17 @@ class PaymentService
 
         return $session->url;
     }
+
+    // Le deblocage des candidatures a l'offre (50€ ponctuels) a ete SUPPRIME
+    // le 2026-08-17 : l'acces aux candidatures et a la CVtheque passe desormais
+    // exclusivement par l'abonnement mensuel. Le paiement a l'offre ne couvre
+    // plus que la publication.
+    //
+    // markApplicationsUnlocked et la lecture de applications_unlocked_at sont
+    // volontairement CONSERVES : des offres ont ete debloquees sous l'ancien
+    // modele, et les entreprises concernees doivent garder l'acces qu'elles ont
+    // paye. Seul le point d'entree qui permettait d'en acheter de nouveaux a
+    // disparu.
 
     // Historique des paiements/factures de l'entreprise ou du CFA connecte (voir
     // "connu et a traiter plus tard" phase 3 dans CLAUDE.md).
@@ -82,10 +100,34 @@ class PaymentService
             throw new ApiException('INVALID_WEBHOOK_SIGNATURE', 'Signature Stripe invalide.', 400);
         }
 
-        if ($event->type === 'checkout.session.completed') {
-            $session = $event->data->object;
-            $this->markPaymentSucceeded($session->id, $session->payment_intent);
+        match ($event->type) {
+            'checkout.session.completed' => $this->handleCheckoutCompleted($event->data->object),
+            'customer.subscription.updated' => $this->subscriptionService->handleSubscriptionUpdated($event->data->object),
+            'customer.subscription.deleted' => $this->subscriptionService->handleSubscriptionDeleted($event->data->object),
+            default => null,
+        };
+    }
+
+    // Une session Stripe Checkout completee peut correspondre a trois choses
+    // distinctes desormais : un abonnement mensuel, un deblocage de
+    // candidatures a l'offre, ou (comportement d'origine) le paiement de
+    // publication d'une offre — distingues par mode/metadata, jamais par le
+    // montant (fragile, amene a changer).
+    private function handleCheckoutCompleted(object $session): void
+    {
+        if (($session->mode ?? null) === 'subscription') {
+            $this->subscriptionService->handleCheckoutCompleted($session);
+
+            return;
         }
+
+        if (($session->metadata->type ?? null) === 'applications_unlock') {
+            $this->markApplicationsUnlocked($session->id);
+
+            return;
+        }
+
+        $this->markPaymentSucceeded($session->id, $session->payment_intent);
     }
 
     // Isole de la verification de signature Stripe pour rester testable sans
@@ -119,6 +161,39 @@ class PaymentService
         $payment->user->notifications()->create([
             'type' => NotificationType::PAYMENT_SUCCEEDED,
             'message' => "Ton paiement a été validé, l'offre \"{$jobOffer->title}\" est maintenant publiée.",
+            'link' => '/mes-offres',
+        ]);
+    }
+
+    // Meme logique d'idempotence que markPaymentSucceeded, mais met a jour
+    // applications_unlocked_at sur l'offre au lieu de la publier (elle l'est
+    // deja dans ce parcours).
+    //
+    // Conservee alors que le deblocage a l'offre n'est plus vendable depuis le
+    // 2026-08-17 : une session Stripe creee juste avant la bascule peut encore
+    // arriver ici par un rejeu de webhook. La supprimer ferait tomber ce
+    // paiement dans markPaymentSucceeded, qui republierait l'offre au lieu de
+    // debloquer ses candidatures.
+    public function markApplicationsUnlocked(string $stripeSessionId): void
+    {
+        $payment = Payment::where('stripe_session_id', $stripeSessionId)->first();
+
+        if (! $payment || $payment->status === PaymentStatus::SUCCEEDED) {
+            return;
+        }
+
+        $payment->update(['status' => PaymentStatus::SUCCEEDED]);
+
+        $jobOffer = $payment->jobOffer;
+        if (! $jobOffer) {
+            return;
+        }
+
+        $jobOffer->update(['applications_unlocked_at' => now()]);
+
+        $payment->user->notifications()->create([
+            'type' => NotificationType::PAYMENT_SUCCEEDED,
+            'message' => "Ton paiement a été validé, les candidatures de \"{$jobOffer->title}\" sont maintenant accessibles.",
             'link' => '/mes-offres',
         ]);
     }

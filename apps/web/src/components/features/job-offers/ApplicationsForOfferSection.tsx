@@ -1,11 +1,15 @@
+import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { ApplicationStatus } from '@jeuncy/shared';
+import { Video, Briefcase, Linkedin, Lock } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { buttonVariants } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import {
   listApplicationsForOffer,
   updateApplicationStatus,
 } from '@/lib/api/applications';
+import { ApiError } from '@/lib/api/client';
 
 const STATUS_LABELS: Record<string, string> = {
   [ApplicationStatus.SENT]: 'Envoyée',
@@ -35,6 +39,11 @@ export function ApplicationsForOfferSection({
   const applicationsQuery = useQuery({
     queryKey,
     queryFn: () => listApplicationsForOffer(jobOfferId),
+    // Un 402 (candidatures verrouillees) n'est pas une erreur transitoire a
+    // reessayer automatiquement — evite 3 tentatives inutiles avant
+    // d'afficher le paywall.
+    retry: (failureCount, error) =>
+      !(error instanceof ApiError && error.status === 402) && failureCount < 3,
   });
 
   const updateStatusMutation = useMutation({
@@ -50,6 +59,35 @@ export function ApplicationsForOfferSection({
       <p className="font-inter text-sm text-muted-foreground">
         Chargement des candidatures…
       </p>
+    );
+  }
+
+  if (
+    applicationsQuery.isError &&
+    applicationsQuery.error instanceof ApiError &&
+    applicationsQuery.error.status === 402
+  ) {
+    return (
+      // Plus de deblocage a l'offre depuis le 2026-08-17 : le seul chemin vers
+      // les candidatures est l'abonnement, on renvoie donc directement vers
+      // lui plutot que de proposer un achat qui n'existe plus.
+      <div className="flex flex-col items-start gap-3 rounded-md border border-jeuncy-orange/30 bg-jeuncy-orange/10 p-4">
+        <div className="flex items-center gap-2 font-poppins text-sm font-medium text-foreground">
+          <Lock className="h-4 w-4 text-jeuncy-orange" aria-hidden="true" />
+          Candidatures verrouillées
+        </div>
+        <p className="font-inter text-sm text-muted-foreground">
+          L'accès aux candidatures est inclus dans l'abonnement, avec la publication
+          illimitée d'offres et la CVthèque pour contacter directement les profils qui
+          vous intéressent.
+        </p>
+        <Link
+          to="/tarifs"
+          className={cn(buttonVariants({ variant: 'gradient', size: 'sm' }))}
+        >
+          Voir l'abonnement
+        </Link>
+      </div>
     );
   }
 
@@ -78,6 +116,63 @@ export function ApplicationsForOfferSection({
               )}
             </div>
             <Badge variant="outline">{STATUS_LABELS[application.status]}</Badge>
+          </div>
+
+          <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 font-inter text-sm text-foreground">
+            {application.contact_phone && (
+              <a href={`tel:${application.contact_phone}`} className="hover:underline">
+                {application.contact_phone}
+              </a>
+            )}
+            <a
+              href={`mailto:${application.candidate_profile.user.email}`}
+              className="hover:underline"
+            >
+              {application.candidate_profile.user.email}
+            </a>
+            {(application.generated_cv?.file_url ?? application.cv_file_url) && (
+              <a
+                href={application.generated_cv?.file_url ?? application.cv_file_url!}
+                target="_blank"
+                rel="noreferrer"
+                className="text-primary hover:underline"
+              >
+                Voir le CV
+              </a>
+            )}
+            {application.candidate_profile.video_url && (
+              <a
+                href={application.candidate_profile.video_url}
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center gap-1 text-primary hover:underline"
+              >
+                <Video className="h-3.5 w-3.5" aria-hidden="true" />
+                Vidéo de présentation
+              </a>
+            )}
+            {application.candidate_profile.portfolio_url && (
+              <a
+                href={application.candidate_profile.portfolio_url}
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center gap-1 text-primary hover:underline"
+              >
+                <Briefcase className="h-3.5 w-3.5" aria-hidden="true" />
+                Portfolio
+              </a>
+            )}
+            {application.candidate_profile.linkedin_url && (
+              <a
+                href={application.candidate_profile.linkedin_url}
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center gap-1 text-primary hover:underline"
+              >
+                <Linkedin className="h-3.5 w-3.5" aria-hidden="true" />
+                LinkedIn
+              </a>
+            )}
           </div>
 
           {application.cover_letter && (

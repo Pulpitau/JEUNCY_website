@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 
-const LAST_UPDATED = '22 juillet 2026';
+const LAST_UPDATED = '4 août 2026';
 
 export function LegalNotice() {
   return (
@@ -20,29 +20,23 @@ export function LegalNotice() {
             </h2>
             <p className="mt-3">
               Le site Jeuncy (jeuncy.com) est édité par :{' '}
-              <span className="text-foreground">[Raison sociale à compléter]</span>,{' '}
-              <span className="text-foreground">[forme juridique, ex. SASU]</span> au
-              capital de <span className="text-foreground">[montant] €</span>,
+              <span className="text-foreground">SAS Jeuncy</span>, Société par actions
+              simplifiée au capital de <span className="text-foreground">1 000 €</span>,
               immatriculée au Registre du Commerce et des Sociétés de{' '}
-              <span className="text-foreground">[ville]</span> sous le numéro SIREN{' '}
-              <span className="text-foreground">[numéro SIREN]</span> (SIRET :{' '}
-              <span className="text-foreground">[numéro SIRET]</span>), dont le siège
-              social est situé <span className="text-foreground">[adresse complète]</span>
-              .
+              <span className="text-foreground">Paris</span> sous le numéro{' '}
+              <span className="text-foreground">108 252 347</span>, dont le siège social
+              est situé{' '}
+              <span className="text-foreground">47 rue Vivienne, 75002 Paris</span>.
             </p>
             <p className="mt-3">
               Numéro de TVA intracommunautaire :{' '}
-              <span className="text-foreground">[numéro de TVA]</span>
+              <span className="text-foreground">FR83 108 252 347</span>
               <br />
               Directeur de la publication :{' '}
-              <span className="text-foreground">[nom et prénom]</span>
+              <span className="text-foreground">Patrice Nicolas Juillard</span>, Directeur
+              général
               <br />
-              Contact : <span className="text-foreground">contact@jeuncy.com</span>
-            </p>
-            <p className="mt-3 rounded-md border border-dashed border-border bg-muted/40 p-3 text-xs">
-              Les champs entre crochets doivent être complétés avec les informations
-              d'immatriculation réelles de la société avant la mise en ligne définitive du
-              site.
+              Contact : <span className="text-foreground">bonjour@jeuncy.com</span>
             </p>
           </section>
 
@@ -135,7 +129,7 @@ export function LegalNotice() {
             </h2>
             <p className="mt-3">
               Pour toute question relative au site ou à ces mentions légales :{' '}
-              <span className="text-foreground">contact@jeuncy.com</span>
+              <span className="text-foreground">bonjour@jeuncy.com</span>
             </p>
           </section>
         </div>

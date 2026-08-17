@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\Application\StoreApplicationRequest;
+use App\Models\Application;
 use App\Models\JobOffer;
 use App\Services\ApplicationService;
 use Illuminate\Http\JsonResponse;
@@ -20,6 +21,9 @@ class ApplicationController extends Controller
             $request->user(),
             $jobOffer,
             $validated['cover_letter'] ?? null,
+            $validated['contact_phone'],
+            $validated['generated_cv_id'] ?? null,
+            $request->file('cv_file'),
         );
 
         return response()->json($application, 201);
@@ -28,5 +32,12 @@ class ApplicationController extends Controller
     public function index(Request $request): JsonResponse
     {
         return response()->json($this->service->listForCandidate($request->user()));
+    }
+
+    public function destroy(Request $request, Application $application): JsonResponse
+    {
+        $this->service->withdrawForUser($request->user(), $application);
+
+        return response()->json(['withdrawn' => true]);
     }
 }

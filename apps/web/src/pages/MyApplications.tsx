@@ -1,7 +1,9 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ApplicationStatus } from '@jeuncy/shared';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import {
   Card,
   CardContent,
@@ -9,7 +11,10 @@ import {
   CardTitle,
   CardDescription,
 } from '@/components/ui/card';
-import { listMyApplications } from '@/lib/api/applications';
+import { listMyApplications, withdrawApplication } from '@/lib/api/applications';
+import { ApiError } from '@/lib/api/client';
+
+const APPLICATIONS_QUERY_KEY = ['applications', 'mine'];
 
 const STATUS_LABELS: Record<string, string> = {
   [ApplicationStatus.SENT]: 'Envoyée',
@@ -29,9 +34,22 @@ function statusVariant(
 }
 
 export function MyApplications() {
+  const queryClient = useQueryClient();
+  const [withdrawError, setWithdrawError] = useState<string | null>(null);
   const applicationsQuery = useQuery({
-    queryKey: ['applications', 'mine'],
+    queryKey: APPLICATIONS_QUERY_KEY,
     queryFn: listMyApplications,
+  });
+  const withdrawMutation = useMutation({
+    mutationFn: withdrawApplication,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: APPLICATIONS_QUERY_KEY }),
+    onError: (error) => {
+      setWithdrawError(
+        error instanceof ApiError
+          ? error.message
+          : 'Impossible de retirer la candidature pour le moment.',
+      );
+    },
   });
 
   const applications = applicationsQuery.data ?? [];
@@ -44,6 +62,12 @@ export function MyApplications() {
           Suis l'avancement de tes candidatures aux offres Jeuncy.
         </p>
       </div>
+
+      {withdrawError && (
+        <p role="alert" className="font-inter text-sm text-destructive">
+          {withdrawError}
+        </p>
+      )}
 
       {applicationsQuery.isLoading ? (
         <p className="font-inter text-sm text-muted-foreground">Chargement…</p>
@@ -81,13 +105,50 @@ export function MyApplications() {
                   </Badge>
                 </div>
               </CardHeader>
-              {application.cover_letter && (
-                <CardContent>
-                  <p className="font-inter text-sm text-muted-foreground">
-                    {application.cover_letter}
-                  </p>
+              {(application.cover_letter ||
+                application.generated_cv ||
+                application.cv_file_url) && (
+                <CardContent className="flex flex-col gap-2">
+                  {application.cover_letter && (
+                    <p className="font-inter text-sm text-muted-foreground">
+                      {application.cover_letter}
+                    </p>
+                  )}
+                  {(application.generated_cv?.file_url ?? application.cv_file_url) && (
+                    <a
+                      href={
+                        application.generated_cv?.file_url ?? application.cv_file_url!
+                      }
+                      target="_blank"
+                      rel="noreferrer"
+                      className="font-inter text-sm text-primary hover:underline"
+                    >
+                      Voir le CV envoyé
+                    </a>
+                  )}
                 </CardContent>
               )}
+              <CardContent className="pt-0">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                  disabled={withdrawMutation.isPending}
+                  onClick={() => {
+                    if (
+                      window.confirm(
+                        `Retirer ta candidature pour « ${application.job_offer.title} » ? Cette action est irréversible.`,
+                      )
+                    ) {
+                      setWithdrawError(null);
+                      withdrawMutation.mutate(application.id);
+                    }
+                  }}
+                >
+                  {withdrawMutation.isPending ? 'Retrait…' : 'Retirer ma candidature'}
+                </Button>
+              </CardContent>
             </Card>
           ))}
         </div>

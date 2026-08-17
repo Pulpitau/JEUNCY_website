@@ -6,7 +6,10 @@ use App\Enums\JobOfferStatus;
 use App\Enums\PaymentStatus;
 use App\Enums\UserRole;
 use App\Exceptions\ApiException;
+use App\Models\CfaOrganization;
+use App\Models\Company;
 use App\Models\JobOffer;
+use App\Models\Skill;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
@@ -14,24 +17,44 @@ use Illuminate\Pagination\LengthAwarePaginator;
 
 class JobOfferService
 {
+    // Periode d'essai gratuite (entreprises et CFA) : 15 jours a compter de la
+    // premiere (et unique) offre publiee gratuitement. Utilisable une seule
+    // fois par entreprise/CFA (trial_started_at n'est jamais remis a null,
+    // meme apres expiration — voir trialAvailable()). Quota reduit a 1 offre
+    // le 2026-07-28 (demande explicite, etait 15 initialement).
+    public const TRIAL_DURATION_DAYS = 15;
+
+    public const TRIAL_MAX_OFFERS = 1;
+
     public function __construct(
         private readonly CompanyService $companyService,
         private readonly CfaOrganizationService $cfaOrganizationService,
+        private readonly MailService $mailService,
+        private readonly SubscriptionService $subscriptionService,
     ) {}
 
     public function listOwn(User $user): Collection
     {
-        return $this->ownOffersQuery($user)->latest()->get();
+        return $this->ownOffersQuery($user)->with('skills')->latest()->get();
     }
 
     public function createForUser(User $user, array $data): JobOffer
     {
-        return JobOffer::create([
+        $skillNames = $data['skills'] ?? null;
+        unset($data['skills']);
+
+        $jobOffer = JobOffer::create([
             ...$this->publisherForeignKey($user),
             ...$data,
             'status' => JobOfferStatus::DRAFT,
             'payment_status' => PaymentStatus::PENDING,
         ]);
+
+        if ($skillNames !== null) {
+            $this->syncSkills($jobOffer, $skillNames);
+        }
+
+        return $jobOffer->load('skills');
     }
 
     // Restreint au brouillon (comme le paiement, voir requireOwnedDraftOffer) :
@@ -43,9 +66,29 @@ class JobOfferService
     public function updateForUser(User $user, JobOffer $jobOffer, array $data): JobOffer
     {
         $jobOffer = $this->requireOwnedDraftOffer($user, $jobOffer);
+
+        $skillNames = array_key_exists('skills', $data) ? $data['skills'] : null;
+        unset($data['skills']);
         $jobOffer->update($data);
 
-        return $jobOffer;
+        if ($skillNames !== null) {
+            $this->syncSkills($jobOffer, $skillNames);
+        }
+
+        return $jobOffer->load('skills');
+    }
+
+    // Meme pattern de dedoublonnage par nom que
+    // CandidateProfileService::syncSkills, reutilise le meme referentiel Skill.
+    private function syncSkills(JobOffer $jobOffer, array $names): void
+    {
+        $skillIds = collect($names)
+            ->map(fn (string $name) => trim($name))
+            ->filter()
+            ->unique()
+            ->map(fn (string $name) => Skill::firstOrCreate(['name' => $name])->id);
+
+        $jobOffer->skills()->sync($skillIds);
     }
 
     public function archiveForUser(User $user, JobOffer $jobOffer): JobOffer
@@ -54,6 +97,21 @@ class JobOfferService
         $jobOffer->update(['status' => JobOfferStatus::ARCHIVED]);
 
         return $jobOffer;
+    }
+
+    // Suppression definitive (contrairement a archiveForUser, irreversible) :
+    // demandee pour permettre a une entreprise/CFA de nettoyer une offre de
+    // test ou obsolete plutot que de l'accumuler en "archivee". Les
+    // candidatures et competences liees sont supprimees en cascade (voir
+    // create_applications_table / create_job_offer_skills_table) ; un
+    // paiement lie garde son historique (obligation comptable) mais perd sa
+    // reference a l'offre (payments.job_offer_id passe a null, voir
+    // create_payments_table) — comportement identique a la suppression de
+    // compte RGPD (AccountService::deleteAccount).
+    public function deleteForUser(User $user, JobOffer $jobOffer): void
+    {
+        $jobOffer = $this->requireOwnedOffer($user, $jobOffer);
+        $jobOffer->delete();
     }
 
     // Reutilise par PaymentService avant de creer une session de paiement : une
@@ -66,6 +124,134 @@ class JobOfferService
         }
 
         return $jobOffer;
+    }
+
+    // Reutilise par PaymentService : une offre payable est soit un brouillon
+    // (parcours normal), soit une offre publiee via l'essai gratuit puis
+    // archivee a l'expiration de celui-ci (voir ArchiveExpiredTrialOffers) —
+    // l'entreprise peut alors payer pour la republier. Une offre archivee
+    // manuellement (jamais liee a l'essai) reste volontairement non payable :
+    // aucune demande n'a ete faite pour republier une offre payee archivee
+    // par choix.
+    public function requirePayableOffer(User $user, JobOffer $jobOffer): JobOffer
+    {
+        $jobOffer = $this->requireOwnedOffer($user, $jobOffer);
+        $payableFromTrialArchive = $jobOffer->status === JobOfferStatus::ARCHIVED
+            && $jobOffer->payment_status === PaymentStatus::TRIAL;
+
+        if ($jobOffer->status !== JobOfferStatus::DRAFT && ! $payableFromTrialArchive) {
+            throw new ApiException('JOB_OFFER_NOT_PAYABLE', 'Cette offre ne peut pas etre payee dans son etat actuel.', 409);
+        }
+
+        return $jobOffer;
+    }
+
+    // Ouvert aux entreprises et aux CFA : publie une offre en brouillon sans
+    // paiement si l'essai gratuit est disponible. Demarre l'essai au premier
+    // appel (trial_started_at), incremente le compteur d'offres a chaque appel
+    // suivant. Envoie un email de bienvenue uniquement au tout premier appel
+    // (demarrage), jamais pour les offres suivantes.
+    public function publishViaTrialForUser(User $user, JobOffer $jobOffer): JobOffer
+    {
+        $jobOffer = $this->requireOwnedDraftOffer($user, $jobOffer);
+        $organization = $this->trialHolder($user);
+
+        if (! $this->trialAvailable($organization)) {
+            throw new ApiException('TRIAL_NOT_AVAILABLE', "La periode d'essai gratuite n'est plus disponible pour ce compte.", 409);
+        }
+
+        $isFirstTrialOffer = $organization->trial_started_at === null;
+        if ($isFirstTrialOffer) {
+            $organization->trial_started_at = now();
+        }
+        $organization->trial_offers_count++;
+        $organization->save();
+
+        // L'essai gratuit inclut l'acces aux candidatures (contrairement au
+        // paiement a l'offre desormais, voir PaymentService) : c'est tout
+        // l'interet de l'essai. applications_unlocked_at n'est jamais remis a
+        // null ensuite, meme apres l'archivage de l'offre a expiration de
+        // l'essai (voir ArchiveExpiredTrialOffers) — les candidatures deja
+        // recues restent consultables.
+        $jobOffer->update([
+            'status' => JobOfferStatus::PUBLISHED,
+            'payment_status' => PaymentStatus::TRIAL,
+            'published_at' => now(),
+            'applications_unlocked_at' => now(),
+        ]);
+
+        if ($isFirstTrialOffer) {
+            $this->mailService->sendTrialStartedEmail($user->email, $organization->name, $this->priceLabelFor($jobOffer));
+        }
+
+        return $jobOffer;
+    }
+
+    // Ouvert aux entreprises et aux CFA avec un abonnement actif (voir
+    // SubscriptionService::hasActiveSubscription) : publie (ou republie, meme
+    // regle que requirePayableOffer) une offre sans paiement a l'offre,
+    // benefice central de l'abonnement ("publication illimitee", voir
+    // Pricing.tsx). Contrairement a l'essai gratuit, applications_unlocked_at
+    // n'est PAS fixe ici : l'acces aux candidatures d'un abonne reste verifie
+    // dynamiquement (voir ApplicationService::listForOffer) et donc revocable
+    // si l'abonnement est resilie/expire, alors que l'essai gratuit accorde un
+    // acces definitif a cette offre precise.
+    public function publishViaSubscriptionForUser(User $user, JobOffer $jobOffer): JobOffer
+    {
+        $jobOffer = $this->requirePayableOffer($user, $jobOffer);
+
+        if (! $this->subscriptionService->hasActiveSubscription($user)) {
+            throw new ApiException('SUBSCRIPTION_NOT_ACTIVE', "Aucun abonnement actif sur ce compte.", 409);
+        }
+
+        $jobOffer->update([
+            'status' => JobOfferStatus::PUBLISHED,
+            'payment_status' => PaymentStatus::SUBSCRIPTION,
+            'published_at' => now(),
+        ]);
+
+        return $jobOffer;
+    }
+
+    public function trialAvailable(Company|CfaOrganization $organization): bool
+    {
+        if ($organization->trial_offers_count >= self::TRIAL_MAX_OFFERS) {
+            return false;
+        }
+
+        if ($organization->trial_started_at === null) {
+            return true;
+        }
+
+        return now()->lessThan($organization->trial_started_at->addDays(self::TRIAL_DURATION_DAYS));
+    }
+
+    // Compte (Company ou CfaOrganization) qui porte l'essai gratuit pour cet
+    // utilisateur — seuls COMPANY et CFA peuvent publier des offres (voir
+    // publisherForeignKey), donc l'un des deux existe forcement ici.
+    private function trialHolder(User $user): Company|CfaOrganization
+    {
+        return match ($user->role) {
+            UserRole::COMPANY => $this->companyService->requireCompany($user),
+            UserRole::CFA => $this->cfaOrganizationService->requireCfaOrganization($user),
+            default => throw new ApiException('FORBIDDEN', "La periode d'essai gratuite est reservee aux entreprises et aux CFA.", 403),
+        };
+    }
+
+    // Tarif de publication d'une offre (en centimes), different entreprise/CFA
+    // (voir config/services.php) — reutilise par PaymentService pour la
+    // session Stripe et par ArchiveExpiredTrialOffers pour l'email/notification
+    // de fin d'essai.
+    public function priceCentsFor(JobOffer $jobOffer): int
+    {
+        return $jobOffer->cfa_organization_id !== null
+            ? config('services.stripe.cfa_offer_price_cents')
+            : config('services.stripe.company_offer_price_cents');
+    }
+
+    public function priceLabelFor(JobOffer $jobOffer): string
+    {
+        return number_format($this->priceCentsFor($jobOffer) / 100, 2, ',', ' ').' €';
     }
 
     public function requireOwnedOffer(User $user, JobOffer $jobOffer): JobOffer
@@ -115,7 +301,7 @@ class JobOfferService
     {
         $query = JobOffer::query()
             ->where('status', JobOfferStatus::PUBLISHED)
-            ->with(['company', 'cfaOrganization'])
+            ->with(['company', 'cfaOrganization', 'skills'])
             ->orderByDesc('published_at');
 
         if (! empty($filters['contract_type'])) {
@@ -123,6 +309,9 @@ class JobOfferService
         }
         if (! empty($filters['city'])) {
             $query->where('city', 'like', '%'.$filters['city'].'%');
+        }
+        if (! empty($filters['work_mode'])) {
+            $query->where('work_mode', $filters['work_mode']);
         }
         if (! empty($filters['q'])) {
             $query->where(function (Builder $q) use ($filters) {
@@ -138,7 +327,7 @@ class JobOfferService
     {
         $jobOffer = JobOffer::query()
             ->where('status', JobOfferStatus::PUBLISHED)
-            ->with(['company', 'cfaOrganization'])
+            ->with(['company', 'cfaOrganization', 'skills'])
             ->find($id);
 
         if (! $jobOffer) {

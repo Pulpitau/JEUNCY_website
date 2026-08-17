@@ -5,6 +5,7 @@ import { Footer } from '@/components/Footer';
 import { RequireAuth } from '@/components/RequireAuth';
 import { Home } from '@/pages/Home';
 import { About } from '@/pages/About';
+import { Pricing } from '@/pages/Pricing';
 import { Login } from '@/pages/Login';
 import { Register } from '@/pages/Register';
 import { ForgotPassword } from '@/pages/ForgotPassword';
@@ -13,6 +14,8 @@ import { AuthCallback } from '@/pages/AuthCallback';
 import { Profile } from '@/pages/Profile';
 import { OrganizationProfile } from '@/pages/OrganizationProfile';
 import { MyJobOffers } from '@/pages/MyJobOffers';
+import { Cvtheque } from '@/pages/Cvtheque';
+import { CvthequeCandidate } from '@/pages/CvthequeCandidate';
 import { JobOffers } from '@/pages/JobOffers';
 import { JobOfferDetail } from '@/pages/JobOfferDetail';
 import { MyApplications } from '@/pages/MyApplications';
@@ -22,6 +25,11 @@ import { Admin } from '@/pages/Admin';
 import { MyPayments } from '@/pages/MyPayments';
 import { LegalNotice } from '@/pages/LegalNotice';
 import { PrivacyPolicy } from '@/pages/PrivacyPolicy';
+import { Companies } from '@/pages/Companies';
+import { CompanyProfile } from '@/pages/CompanyProfile';
+import { CfaOrganizations } from '@/pages/CfaOrganizations';
+import { CfaOrganizationProfile } from '@/pages/CfaOrganizationProfile';
+import { AccountPrivacy } from '@/pages/AccountPrivacy';
 
 export default function App() {
   return (
@@ -31,8 +39,13 @@ export default function App() {
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/a-propos" element={<About />} />
+          <Route path="/tarifs" element={<Pricing />} />
           <Route path="/offres" element={<JobOffers />} />
           <Route path="/offres/:id" element={<JobOfferDetail />} />
+          <Route path="/entreprises" element={<Companies />} />
+          <Route path="/entreprises/:id" element={<CompanyProfile />} />
+          <Route path="/cfa" element={<CfaOrganizations />} />
+          <Route path="/cfa/:id" element={<CfaOrganizationProfile />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
@@ -59,6 +72,25 @@ export default function App() {
             element={
               <RequireAuth role={[UserRole.COMPANY, UserRole.CFA]}>
                 <MyJobOffers />
+              </RequireAuth>
+            }
+          />
+          {/* CVtheque : RequireAuth ne filtre que le ROLE. La garde
+              d'abonnement, elle, est cote serveur (402) et la page affiche
+              alors son ecran d'accroche — voir CvthequeService. */}
+          <Route
+            path="/candidats"
+            element={
+              <RequireAuth role={[UserRole.COMPANY, UserRole.CFA]}>
+                <Cvtheque />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/candidats/:id"
+            element={
+              <RequireAuth role={[UserRole.COMPANY, UserRole.CFA]}>
+                <CvthequeCandidate />
               </RequireAuth>
             }
           />
@@ -92,6 +124,14 @@ export default function App() {
             element={
               <RequireAuth role={[UserRole.COMPANY, UserRole.CFA]}>
                 <MyPayments />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/mon-compte/confidentialite"
+            element={
+              <RequireAuth>
+                <AccountPrivacy />
               </RequireAuth>
             }
           />

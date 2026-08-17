@@ -1,5 +1,11 @@
-import type { ContractType, JobOfferStatus, PaymentStatus } from '@jeuncy/shared';
+import type {
+  ContractType,
+  JobOfferStatus,
+  PaymentStatus,
+  WorkMode,
+} from '@jeuncy/shared';
 import { apiRequest } from './client';
+import type { Skill } from './candidate-profile';
 
 export interface JobOffer {
   id: number;
@@ -12,8 +18,21 @@ export interface JobOffer {
   payment_status: PaymentStatus;
   location: string | null;
   city: string | null;
+  work_mode: WorkMode | null;
+  compensation: string | null;
+  experience_level: string | null;
+  benefits: string | null;
+  diploma_level: string | null;
+  training_rhythm: string | null;
+  skills: Skill[];
   published_at: string | null;
   expires_at: string | null;
+  // Non-null des que l'acces aux candidatures de cette offre precise a ete
+  // debloque (essai gratuit, paiement dedie, ou abonnement actif au moment de
+  // la publication) — voir ApplicationService::listForOffer cote backend
+  // pour la garde qui s'appuie dessus (ou sur un abonnement actif au moment
+  // de la consultation, pas seulement de la publication).
+  applications_unlocked_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -46,13 +65,38 @@ export interface JobOfferInput {
   contract_type: ContractType;
   location?: string | null;
   city?: string | null;
+  work_mode?: WorkMode | null;
+  compensation?: string | null;
+  experience_level?: string | null;
+  benefits?: string | null;
+  diploma_level?: string | null;
+  training_rhythm?: string | null;
+  skills?: string[];
 }
 
 export interface JobOfferSearchFilters {
   q?: string;
   contract_type?: ContractType;
   city?: string;
+  work_mode?: WorkMode;
   page?: number;
+}
+
+// Tarifs de publication d'une offre SEULE, differents entreprise/CFA (voir
+// JobOfferService::priceLabelFor cote backend, source de verite pour le
+// montant reellement facture).
+//
+// Ce paiement ne couvre QUE la mise en ligne : ni l'acces aux candidatures, ni
+// la CVtheque, qui passent exclusivement par l'abonnement depuis le
+// 2026-08-17 (voir lib/api/subscriptions.ts). Le deblocage a l'offre qui
+// existait entre le 2026-08-05 et cette date n'est plus vendable.
+export const COMPANY_OFFER_PRICE_LABEL = '9,99 €';
+export const CFA_OFFER_PRICE_LABEL = '5,99 €';
+
+export function offerPriceLabel(offer: Pick<JobOffer, 'cfa_organization_id'>): string {
+  return offer.cfa_organization_id !== null
+    ? CFA_OFFER_PRICE_LABEL
+    : COMPANY_OFFER_PRICE_LABEL;
 }
 
 export function listMyOffers() {
@@ -71,8 +115,24 @@ export function archiveOffer(id: number) {
   return apiRequest<JobOffer>(`/job-offers/${id}/archive`, { method: 'POST' });
 }
 
+// Suppression definitive (contrairement a archiveOffer, irreversible) — voir
+// JobOfferService::deleteForUser cote backend.
+export function deleteOffer(id: number) {
+  return apiRequest<{ deleted: true }>(`/job-offers/${id}`, { method: 'DELETE' });
+}
+
 export function createCheckoutSession(id: number) {
   return apiRequest<{ checkout_url: string }>(`/job-offers/${id}/checkout`, {
+    method: 'POST',
+  });
+}
+
+export function publishOfferViaTrial(id: number) {
+  return apiRequest<JobOffer>(`/job-offers/${id}/publish-trial`, { method: 'POST' });
+}
+
+export function publishOfferViaSubscription(id: number) {
+  return apiRequest<JobOffer>(`/job-offers/${id}/publish-subscription`, {
     method: 'POST',
   });
 }
@@ -82,6 +142,7 @@ export function searchPublicOffers(filters: JobOfferSearchFilters) {
   if (filters.q) params.set('q', filters.q);
   if (filters.contract_type) params.set('contract_type', filters.contract_type);
   if (filters.city) params.set('city', filters.city);
+  if (filters.work_mode) params.set('work_mode', filters.work_mode);
   if (filters.page) params.set('page', String(filters.page));
 
   const query = params.toString();

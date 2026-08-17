@@ -52,7 +52,13 @@ export interface CandidateProfile {
   bio: string | null;
   hobbies: string | null;
   driving_license: string | null;
+  video_url: string | null;
+  portfolio_url: string | null;
+  linkedin_url: string | null;
   photo_url: string | null;
+  // Droit d'opposition a la CVtheque (RGPD art. 21) : true par defaut cote
+  // base, le candidat peut se retirer depuis son profil.
+  is_visible_in_cvtheque: boolean;
   experiences: Experience[];
   educations: Education[];
   skills: Skill[];
@@ -86,6 +92,10 @@ export interface CandidateProfileInput {
   bio?: string | null;
   hobbies?: string | null;
   driving_license?: string | null;
+  video_url?: string | null;
+  portfolio_url?: string | null;
+  linkedin_url?: string | null;
+  is_visible_in_cvtheque?: boolean;
 }
 
 export interface ExperienceInput {
