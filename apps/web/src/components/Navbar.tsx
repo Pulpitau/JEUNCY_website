@@ -209,8 +209,15 @@ export function Navbar() {
       </div>
 
       {isMobileMenuOpen && (
+        // Le panneau doit defiler dans lui-meme, pas deborder : la barre est
+        // en sticky top-0, donc tout ce qui depasse le bas de l'ecran devient
+        // definitivement inatteignable (le scroll de page ne le ramene pas).
+        // Mesure : le menu connecte en entreprise reclame 681px, soit 113px
+        // hors ecran sur un iPhone SE et 14px sur un iPhone SE 2/3 — c'est
+        // "Se deconnecter" qui tombait dedans. dvh et non vh pour tenir compte
+        // de la barre d'adresse mobile, qui rogne encore 50 a 90px.
         <nav
-          className="animate-in slide-in-from-top-2 fade-in border-t border-border bg-background duration-200 md:hidden"
+          className="animate-in slide-in-from-top-2 fade-in max-h-[calc(100dvh-4rem)] overflow-y-auto overscroll-contain border-t border-border bg-background duration-200 md:hidden"
           aria-label="Navigation mobile"
         >
           <div className="flex flex-col gap-1 px-4 py-3">
