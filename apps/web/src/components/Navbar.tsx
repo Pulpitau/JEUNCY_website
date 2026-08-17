@@ -192,9 +192,13 @@ export function Navbar() {
             )}
           </div>
 
+          {/* h-11 w-11 (44px) et non h-9 : c'est le seuil de confort tactile
+              recommande par Apple. En dessous, on vise a cote sur un ecran
+              tenu d'une main — et c'est le bouton qui ouvre toute la
+              navigation mobile. */}
           <button
             type="button"
-            className="inline-flex h-9 w-9 items-center justify-center rounded-md text-foreground transition-transform active:scale-90 md:hidden"
+            className="inline-flex h-11 w-11 items-center justify-center rounded-md text-foreground transition-transform active:scale-90 md:hidden"
             aria-label={isMobileMenuOpen ? 'Fermer le menu' : 'Ouvrir le menu'}
             aria-expanded={isMobileMenuOpen}
             onClick={() => setIsMobileMenuOpen((current) => !current)}
@@ -220,13 +224,18 @@ export function Navbar() {
           className="animate-in slide-in-from-top-2 fade-in max-h-[calc(100dvh-4rem)] overflow-y-auto overscroll-contain border-t border-border bg-background duration-200 md:hidden"
           aria-label="Navigation mobile"
         >
+          {/* min-h-[44px] sur chaque element tapable plutot qu'un padding
+              calcule : la hauteur est garantie quelle que soit la taille de
+              police, y compris si l'utilisateur agrandit le texte de son
+              telephone. Toutes les entrees du menu partagent ce minimum —
+              elles faisaient 36px, et les pastilles de categories 26px. */}
           <div className="flex flex-col gap-1 px-4 py-3">
             {NAV_LINKS.map((link) => (
               <div key={link.href}>
                 <Link
                   to={link.href}
                   onClick={closeMobileMenu}
-                  className="block rounded-md px-3 py-2 font-inter text-sm font-medium text-foreground/80 transition-colors hover:bg-accent hover:text-foreground"
+                  className="flex min-h-[44px] items-center rounded-md px-3 py-2 font-inter text-sm font-medium text-foreground/80 transition-colors hover:bg-accent hover:text-foreground"
                 >
                   {link.label}
                 </Link>
@@ -237,7 +246,7 @@ export function Navbar() {
                         key={category.value}
                         to={`${OFFERS_HREF}?contract_type=${category.value}`}
                         onClick={closeMobileMenu}
-                        className="rounded-full border border-border px-2.5 py-1 font-inter text-xs text-foreground/70 transition-colors hover:border-primary hover:text-foreground"
+                        className="inline-flex min-h-[44px] items-center rounded-full border border-border px-4 font-inter text-sm text-foreground/70 transition-colors hover:border-primary hover:text-foreground"
                       >
                         {category.label}
                       </Link>
@@ -250,7 +259,7 @@ export function Navbar() {
             <Link
               to="/a-propos"
               onClick={closeMobileMenu}
-              className="block rounded-md px-3 py-2 font-inter text-sm font-medium text-foreground/80 transition-colors hover:bg-accent hover:text-foreground"
+              className="flex min-h-[44px] items-center rounded-md px-3 py-2 font-inter text-sm font-medium text-foreground/80 transition-colors hover:bg-accent hover:text-foreground"
             >
               À propos
             </Link>
@@ -284,7 +293,7 @@ export function Navbar() {
                     key={link.to}
                     to={link.to}
                     onClick={closeMobileMenu}
-                    className="flex items-center gap-2.5 rounded-md px-3 py-2 font-inter text-sm font-medium text-foreground/80 transition-colors hover:bg-accent hover:text-foreground"
+                    className="flex min-h-[44px] items-center gap-2.5 rounded-md px-3 py-2 font-inter text-sm font-medium text-foreground/80 transition-colors hover:bg-accent hover:text-foreground"
                   >
                     <link.icon className="h-4 w-4 shrink-0" aria-hidden="true" />
                     {link.label}
@@ -294,7 +303,7 @@ export function Navbar() {
                 <Button
                   variant="outline"
                   size="sm"
-                  className="mx-3 mt-2"
+                  className="mx-3 mt-2 min-h-[44px]"
                   onClick={handleLogout}
                 >
                   Se déconnecter
@@ -305,7 +314,7 @@ export function Navbar() {
                 <Link
                   to="/login"
                   onClick={closeMobileMenu}
-                  className="rounded-md px-3 py-2 font-inter text-sm font-medium text-foreground/80 transition-colors hover:bg-accent hover:text-foreground"
+                  className="flex min-h-[44px] items-center rounded-md px-3 py-2 font-inter text-sm font-medium text-foreground/80 transition-colors hover:bg-accent hover:text-foreground"
                 >
                   Se connecter
                 </Link>
@@ -314,7 +323,7 @@ export function Navbar() {
                   onClick={closeMobileMenu}
                   className={cn(
                     buttonVariants({ variant: 'gradient', size: 'sm' }),
-                    'mx-3 mt-1',
+                    'mx-3 mt-1 min-h-[44px]',
                   )}
                 >
                   Créer un compte
