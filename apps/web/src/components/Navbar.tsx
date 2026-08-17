@@ -1,21 +1,25 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Menu, X, ChevronDown } from 'lucide-react';
-import { UserRole, ContractType } from '@jeuncy/shared';
+import { ContractType } from '@jeuncy/shared';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { NotificationBell } from '@/components/NotificationBell';
+import { UserMenu } from '@/components/UserMenu';
 import { useThemeStore } from '@/store/theme-store';
 import { useAuthStore } from '@/store/auth-store';
 import { logout as logoutRequest } from '@/lib/api/auth';
+import { accountLinksFor, initialsFromEmail, roleLabel } from '@/lib/account-links';
 import { cn } from '@/lib/utils';
 
+// "À propos" a ete sorti de la barre (deplace en pied de page) : c'est une
+// page de decouverte, pas un outil de navigation quotidien, et sa presence
+// ici participait a l'encombrement signale.
 const NAV_LINKS = [
   { label: 'Offres', href: '/offres' },
   { label: 'Entreprises', href: '/entreprises' },
   { label: 'CFA', href: '/cfa' },
   { label: 'Tarifs', href: '/tarifs' },
-  { label: 'À propos', href: '/a-propos' },
 ];
 
 // Sous-categories affichees au survol de l'onglet Offres (voir OFFERS_HREF
@@ -87,8 +91,21 @@ export function Navbar() {
   return (
     <header className="sticky top-0 z-50 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/75">
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
-        <Link to="/" className="flex items-center gap-2" onClick={closeMobileMenu}>
-          <img src={logoSrc} alt="Jeuncy" className="h-9 w-9" />
+        {/* shrink-0 indispensable : la barre est tres chargee une fois
+            connecte en entreprise/CFA (Mon entreprise, Mes offres, Visio,
+            Paiements, Confidentialite...) et le logo, seul element sans
+            largeur de texte, se faisait ecraser par flex jusqu'a devenir
+            invisible. alt="" car le nom est deja porte par le texte a cote
+            (evite une annonce en double aux lecteurs d'ecran). */}
+        <Link
+          to="/"
+          className="flex shrink-0 items-center gap-2"
+          onClick={closeMobileMenu}
+        >
+          <img src={logoSrc} alt="" className="h-11 w-11" />
+          <span className="bg-jeuncy-gradient bg-clip-text font-poppins text-xl font-bold tracking-tight text-transparent">
+            JEUNCY
+          </span>
         </Link>
 
         <nav
@@ -150,75 +167,13 @@ export function Navbar() {
           {user && <NotificationBell />}
 
           {/* Actions completes : visibles a partir de md, remplacees par le
-              menu hamburger en dessous (voir panneau mobile plus bas). */}
+              menu hamburger en dessous (voir panneau mobile plus bas).
+              Une fois connecte, tout l'espace personnel tient dans une seule
+              pastille (UserMenu) au lieu des 5-6 boutons alignes qui
+              saturaient la barre. */}
           <div className="hidden items-center gap-2 md:flex">
             {user ? (
-              <>
-                {user.role === UserRole.CANDIDATE && (
-                  <>
-                    <Link
-                      to="/profile"
-                      className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }))}
-                    >
-                      Mon profil
-                    </Link>
-                    <Link
-                      to="/mes-candidatures"
-                      className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }))}
-                    >
-                      Mes candidatures
-                    </Link>
-                  </>
-                )}
-                {(user.role === UserRole.COMPANY || user.role === UserRole.CFA) && (
-                  <>
-                    <Link
-                      to="/organization"
-                      className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }))}
-                    >
-                      {user.role === UserRole.COMPANY ? 'Mon entreprise' : 'Mon CFA'}
-                    </Link>
-                    <Link
-                      to="/mes-offres"
-                      className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }))}
-                    >
-                      Mes offres
-                    </Link>
-                    <Link
-                      to="/mes-visios"
-                      className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }))}
-                    >
-                      Visio démo
-                    </Link>
-                    <Link
-                      to="/mes-paiements"
-                      className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }))}
-                    >
-                      Paiements
-                    </Link>
-                  </>
-                )}
-                {user.role === UserRole.ADMIN && (
-                  <Link
-                    to="/admin"
-                    className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }))}
-                  >
-                    Administration
-                  </Link>
-                )}
-                <Link
-                  to="/mon-compte/confidentialite"
-                  className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }))}
-                >
-                  Confidentialité
-                </Link>
-                <span className="hidden font-inter text-sm text-muted-foreground lg:inline">
-                  {user.email}
-                </span>
-                <Button variant="outline" size="sm" onClick={handleLogout}>
-                  Se déconnecter
-                </Button>
-              </>
+              <UserMenu email={user.email} role={user.role} onLogout={handleLogout} />
             ) : (
               <>
                 <Link
@@ -285,83 +240,54 @@ export function Navbar() {
               </div>
             ))}
 
+            <Link
+              to="/a-propos"
+              onClick={closeMobileMenu}
+              className="block rounded-md px-3 py-2 font-inter text-sm font-medium text-foreground/80 transition-colors hover:bg-accent hover:text-foreground"
+            >
+              À propos
+            </Link>
+
             <div className="my-2 border-t border-border" />
 
             {user ? (
               <>
-                {user.role === UserRole.CANDIDATE && (
-                  <>
-                    <Link
-                      to="/profile"
-                      onClick={closeMobileMenu}
-                      className="rounded-md px-3 py-2 font-inter text-sm font-medium text-foreground/80 transition-colors hover:bg-accent hover:text-foreground"
-                    >
-                      Mon profil
-                    </Link>
-                    <Link
-                      to="/mes-candidatures"
-                      onClick={closeMobileMenu}
-                      className="rounded-md px-3 py-2 font-inter text-sm font-medium text-foreground/80 transition-colors hover:bg-accent hover:text-foreground"
-                    >
-                      Mes candidatures
-                    </Link>
-                  </>
-                )}
-                {(user.role === UserRole.COMPANY || user.role === UserRole.CFA) && (
-                  <>
-                    <Link
-                      to="/organization"
-                      onClick={closeMobileMenu}
-                      className="rounded-md px-3 py-2 font-inter text-sm font-medium text-foreground/80 transition-colors hover:bg-accent hover:text-foreground"
-                    >
-                      {user.role === UserRole.COMPANY ? 'Mon entreprise' : 'Mon CFA'}
-                    </Link>
-                    <Link
-                      to="/mes-offres"
-                      onClick={closeMobileMenu}
-                      className="rounded-md px-3 py-2 font-inter text-sm font-medium text-foreground/80 transition-colors hover:bg-accent hover:text-foreground"
-                    >
-                      Mes offres
-                    </Link>
-                    <Link
-                      to="/mes-visios"
-                      onClick={closeMobileMenu}
-                      className="rounded-md px-3 py-2 font-inter text-sm font-medium text-foreground/80 transition-colors hover:bg-accent hover:text-foreground"
-                    >
-                      Visio démo
-                    </Link>
-                    <Link
-                      to="/mes-paiements"
-                      onClick={closeMobileMenu}
-                      className="rounded-md px-3 py-2 font-inter text-sm font-medium text-foreground/80 transition-colors hover:bg-accent hover:text-foreground"
-                    >
-                      Paiements
-                    </Link>
-                  </>
-                )}
-                {user.role === UserRole.ADMIN && (
-                  <Link
-                    to="/admin"
-                    onClick={closeMobileMenu}
-                    className="rounded-md px-3 py-2 font-inter text-sm font-medium text-foreground/80 transition-colors hover:bg-accent hover:text-foreground"
+                {/* Meme liste que le menu profil desktop (accountLinksFor) :
+                    une seule source, pas de risque d'oublier un lien d'un
+                    cote lors d'un futur ajout. */}
+                <div className="mb-1 flex items-center gap-2.5 px-3 py-2">
+                  <span
+                    aria-hidden="true"
+                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-jeuncy-gradient font-poppins text-xs font-bold text-white"
                   >
-                    Administration
+                    {initialsFromEmail(user.email)}
+                  </span>
+                  <div className="min-w-0">
+                    <p className="truncate font-inter text-sm font-medium text-foreground">
+                      {user.email}
+                    </p>
+                    <p className="font-inter text-xs text-muted-foreground">
+                      {roleLabel(user.role)}
+                    </p>
+                  </div>
+                </div>
+
+                {accountLinksFor(user.role).map((link) => (
+                  <Link
+                    key={link.to}
+                    to={link.to}
+                    onClick={closeMobileMenu}
+                    className="flex items-center gap-2.5 rounded-md px-3 py-2 font-inter text-sm font-medium text-foreground/80 transition-colors hover:bg-accent hover:text-foreground"
+                  >
+                    <link.icon className="h-4 w-4 shrink-0" aria-hidden="true" />
+                    {link.label}
                   </Link>
-                )}
-                <Link
-                  to="/mon-compte/confidentialite"
-                  onClick={closeMobileMenu}
-                  className="rounded-md px-3 py-2 font-inter text-sm font-medium text-foreground/80 transition-colors hover:bg-accent hover:text-foreground"
-                >
-                  Confidentialité
-                </Link>
-                <p className="px-3 py-1 font-inter text-xs text-muted-foreground">
-                  {user.email}
-                </p>
+                ))}
+
                 <Button
                   variant="outline"
                   size="sm"
-                  className="mx-3 mt-1"
+                  className="mx-3 mt-2"
                   onClick={handleLogout}
                 >
                   Se déconnecter
