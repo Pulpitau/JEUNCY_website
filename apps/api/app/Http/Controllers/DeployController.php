@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Support\Facades\Artisan;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -49,6 +50,81 @@ class DeployController extends Controller
         Artisan::call('optimize:clear');
 
         return response(Artisan::output(), 200, ['Content-Type' => 'text/plain']);
+    }
+
+    // Etat reel des taches planifiees sur le serveur.
+    //
+    // Une tache cassee ne se voit pas : le cron OVH appelle cron-schedule.php
+    // en silence, et si bootstrap/app.php n'a pas ete redeploye (il ne fait
+    // partie d'aucun dossier qu'on envoie habituellement) ou si le fichier de
+    // commande manque, rien ne s'execute et personne ne l'apprend — les
+    // rappels de visio ne partent simplement jamais. Constate le 2026-08-17 :
+    // impossible de savoir de l'exterieur si video-rooms:send-reminders etait
+    // reellement planifie en production.
+    //
+    // Ce endpoint repond a deux questions distinctes, et c'est leur croisement
+    // qui compte : la commande est-elle ENREGISTREE (le fichier existe), et
+    // est-elle PLANIFIEE (bootstrap/app.php a jour) ? Une commande enregistree
+    // mais non planifiee ne tournera jamais ; une commande planifiee mais non
+    // enregistree fait echouer schedule:run en entier, donc aussi les autres
+    // taches.
+    public function scheduler(string $token): Response
+    {
+        $this->assertAuthorized($token);
+
+        // Passer par schedule:list plutot que de lire app(Schedule::class)
+        // directement : withSchedule() s'accroche a Artisan::starting(), donc
+        // le planificateur est VIDE tant que la console n'a pas demarre. Lu
+        // depuis une requete web, il aurait toujours paru vide et ce controle
+        // aurait annonce "non planifiee" meme quand tout fonctionne — piege
+        // rencontre en ecrivant ce endpoint. Artisan::call() demarre la
+        // console, donc declenche le peuplement.
+        Artisan::call('schedule:list');
+        $sortie = Artisan::output();
+
+        $planifiees = collect(explode("\n", $sortie))
+            ->map(fn (string $ligne) => trim($ligne))
+            ->filter()
+            ->all();
+
+        return response()->json([
+            'taches' => self::comparerTaches(array_keys(Artisan::all()), $planifiees),
+            'sortie_brute' => $sortie,
+            'heure_serveur' => now()->toDateTimeString(),
+        ]);
+    }
+
+    // Taches que l'application est censee executer. Toute nouvelle commande
+    // planifiee doit etre ajoutee ici, sinon son absence en production passera
+    // inapercue — c'est exactement le scenario que ce controle previent.
+    public const TACHES_ATTENDUES = [
+        'job-offers:expire',
+        'job-offers:archive-expired-trials',
+        'cvs:archive-inactive',
+        'video-rooms:send-reminders',
+    ];
+
+    // Extrait du controleur pour etre testable sur des entrees choisies : le
+    // planificateur est peuple au demarrage de Laravel et ne peut pas etre vide
+    // proprement depuis un test HTTP, or c'est justement le cas degrade qu'il
+    // faut couvrir.
+    public static function comparerTaches(array $enregistrees, array $planifiees): array
+    {
+        $rapport = [];
+
+        foreach (self::TACHES_ATTENDUES as $commande) {
+            $estEnregistree = in_array($commande, $enregistrees, true);
+            $estPlanifiee = (bool) collect($planifiees)->first(fn (string $c) => str_contains($c, $commande));
+
+            $rapport[$commande] = match (true) {
+                $estEnregistree && $estPlanifiee => 'ok',
+                ! $estEnregistree && $estPlanifiee => 'PLANIFIEE MAIS FICHIER DE COMMANDE ABSENT — casse tout schedule:run',
+                $estEnregistree && ! $estPlanifiee => 'presente mais NON PLANIFIEE — ne tournera jamais (bootstrap/app.php a redeployer)',
+                default => 'ABSENTE des deux cotes',
+            };
+        }
+
+        return $rapport;
     }
 
     // Verifie la presence (pas la valeur) des variables d'environnement dont

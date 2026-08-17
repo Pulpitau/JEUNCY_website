@@ -26,3 +26,4 @@ Route::get('/deploy/{token}/status', [DeployController::class, 'status']);
 Route::get('/deploy/{token}/migrate', [DeployController::class, 'migrate']);
 Route::get('/deploy/{token}/clear-cache', [DeployController::class, 'clearCache']);
 Route::get('/deploy/{token}/env-check', [DeployController::class, 'envCheck']);
+Route::get('/deploy/{token}/scheduler', [DeployController::class, 'scheduler']);
