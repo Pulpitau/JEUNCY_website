@@ -73,7 +73,6 @@ class DeployController extends Controller
             'STRIPE_WEBHOOK_SECRET',
             'STRIPE_COMPANY_OFFER_PRICE_CENTS',
             'STRIPE_CFA_OFFER_PRICE_CENTS',
-            'STRIPE_APPLICATIONS_UNLOCK_PRICE_CENTS',
             'STRIPE_COMPANY_SUBSCRIPTION_PRICE_CENTS',
             'STRIPE_CFA_SUBSCRIPTION_PRICE_CENTS',
             'RESEND_API_KEY',
@@ -83,6 +82,20 @@ class DeployController extends Controller
         $report = collect($keys)
             ->mapWithKeys(fn (string $key) => [$key => filled(env($key)) ? 'ok' : 'MANQUANT'])
             ->all();
+
+        // Les tarifs ne se contentent pas d'etre presents : ils doivent avoir la
+        // BONNE valeur. Un .env de prod reste sur ses anciens montants apres une
+        // hausse de tarif (la valeur par defaut du config n'entre en jeu que si
+        // la ligne est absente, pas si elle est presente et perimee) — c'est
+        // ainsi qu'on facturerait 79€ au lieu de 499€ sans s'en apercevoir.
+        $report['_montants_factures'] = [
+            'abonnement_entreprise' => config('services.stripe.company_subscription_price_cents').' centimes',
+            'abonnement_cfa' => config('services.stripe.cfa_subscription_price_cents').' centimes',
+            'tarif_fondateur' => config('services.stripe.founder_subscription_price_cents').' centimes',
+            'places_fondateur' => config('services.stripe.founder_seats_total'),
+            'offre_entreprise' => config('services.stripe.company_offer_price_cents').' centimes',
+            'offre_cfa' => config('services.stripe.cfa_offer_price_cents').' centimes',
+        ];
 
         return response()->json($report);
     }
