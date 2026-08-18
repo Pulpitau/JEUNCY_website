@@ -110,6 +110,33 @@ class AdminServiceTest extends TestCase
         $this->assertSame(0, $publishedResult->total());
     }
 
+    // L'apercu admin doit rendre un BROUILLON avec exactement les relations
+    // que le rendu public attend (company/cfaOrganization/skills), la ou le
+    // chemin public renvoie 404 pour la meme offre — les deux assertions
+    // ensemble verifient qu'on a ouvert un chemin admin sans elargir le
+    // chemin public.
+    public function test_preview_returns_draft_with_public_payload_relations(): void
+    {
+        $owner = $this->makeCompanyOwner();
+        $offer = $this->app->make(JobOfferService::class)->createForUser($owner, [
+            'title' => 'Développeur web en alternance',
+            'description' => 'Rejoins notre équipe.',
+            'contract_type' => ContractType::ALTERNANCE->value,
+            'skills' => ['React', 'SQL'],
+        ]);
+
+        $preview = $this->service->previewJobOffer($offer->fresh());
+
+        $this->assertSame(JobOfferStatus::DRAFT, $preview->status);
+        $this->assertTrue($preview->relationLoaded('company'));
+        $this->assertTrue($preview->relationLoaded('cfaOrganization'));
+        $this->assertTrue($preview->relationLoaded('skills'));
+        $this->assertSame(['React', 'SQL'], $preview->skills->pluck('name')->sort()->values()->all());
+
+        $this->expectException(ApiException::class);
+        $this->app->make(JobOfferService::class)->findPublished($offer->id);
+    }
+
     public function test_force_archive_job_offer_ignores_ownership(): void
     {
         $owner = $this->makeCompanyOwner();

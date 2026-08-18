@@ -24,6 +24,7 @@ import { MyApplications } from '@/pages/MyApplications';
 import { MyVideoRooms } from '@/pages/MyVideoRooms';
 import { DemoRoom } from '@/pages/DemoRoom';
 import { Admin } from '@/pages/Admin';
+import { AdminJobOfferPreview } from '@/pages/AdminJobOfferPreview';
 import { MyPayments } from '@/pages/MyPayments';
 import { LegalNotice } from '@/pages/LegalNotice';
 import { PrivacyPolicy } from '@/pages/PrivacyPolicy';
@@ -130,6 +131,17 @@ export default function App() {
             element={
               <RequireAuth role={UserRole.ADMIN}>
                 <Admin />
+              </RequireAuth>
+            }
+          />
+          {/* Apercu du rendu public d'une offre, brouillon compris — meme
+              composant de rendu que /offres/:id, garde ADMIN cote client ET
+              cote serveur (routes/api/admin.php). */}
+          <Route
+            path="/admin/offres/:id/apercu"
+            element={
+              <RequireAuth role={UserRole.ADMIN}>
+                <AdminJobOfferPreview />
               </RequireAuth>
             }
           />

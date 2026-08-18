@@ -5,7 +5,7 @@ import type {
   VideoRoomStatus,
 } from '@jeuncy/shared';
 import { apiRequest } from './client';
-import type { Paginated } from './job-offers';
+import type { Paginated, PublicJobOffer } from './job-offers';
 
 export interface AdminStats {
   users: {
@@ -109,6 +109,13 @@ export function listAdminJobOffers(filters: { status?: JobOfferStatus; page?: nu
 
 export function archiveJobOfferAsAdmin(id: number) {
   return apiRequest<AdminJobOffer>(`/admin/job-offers/${id}/archive`, { method: 'POST' });
+}
+
+// Apercu back-office : meme forme de payload que getPublicOffer, mais sans le
+// filtre PUBLISHED — un brouillon est consultable. Reserve au role ADMIN cote
+// serveur (routes/api/admin.php).
+export function previewJobOfferAsAdmin(id: number) {
+  return apiRequest<PublicJobOffer>(`/admin/job-offers/${id}/preview`);
 }
 
 export function listAdminPayments(filters: { status?: PaymentStatus; page?: number }) {

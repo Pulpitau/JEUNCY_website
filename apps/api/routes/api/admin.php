@@ -15,6 +15,10 @@ Route::prefix('admin')->middleware(['auth:api', 'role:ADMIN'])->group(function (
     Route::post('users/{user}/reactivate', [UserController::class, 'reactivate']);
 
     Route::get('job-offers', [JobOfferController::class, 'index']);
+    // Apercu du rendu public d'une offre quel que soit son statut (brouillon
+    // compris) — voir AdminService::previewJobOffer pour pourquoi ce chemin
+    // est distinct de l'endpoint public.
+    Route::get('job-offers/{jobOffer}/preview', [JobOfferController::class, 'preview']);
     Route::post('job-offers/{jobOffer}/archive', [JobOfferController::class, 'archive']);
 
     Route::get('payments', [PaymentController::class, 'index']);

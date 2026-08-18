@@ -87,6 +87,20 @@ class AdminService
         return $query->paginate(20);
     }
 
+    // Apercu back-office d'une offre QUEL QUE SOIT son statut (brouillon
+    // compris) : permet a l'equipe de controler le rendu public exact d'une
+    // offre avant/sans publication. Volontairement separe de
+    // JobOfferService::findPublished, dont le filtre PUBLISHED + 404 est un
+    // invariant anti-fuite verrouille par un test — on ne l'assouplit pas, on
+    // ajoute un chemin admin distinct derriere role:ADMIN. Meme eager-load
+    // que findPublished (skills compris, contrairement a listJobOffers
+    // ci-dessus) pour que le payload ait exactement la forme que le composant
+    // de rendu public attend.
+    public function previewJobOffer(JobOffer $jobOffer): JobOffer
+    {
+        return $jobOffer->load(['company', 'cfaOrganization', 'skills']);
+    }
+
     // Pouvoir de moderation : archive n'importe quelle offre, sans verifier le
     // proprietaire (contrairement a JobOfferService::archiveForUser, reserve au
     // proprietaire lui-meme).
