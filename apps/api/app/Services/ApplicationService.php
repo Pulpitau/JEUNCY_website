@@ -94,7 +94,7 @@ class ApplicationService
         $this->jobOfferService->requireOwnedOffer($user, $jobOffer);
 
         $hasAccess = $jobOffer->applications_unlocked_at !== null
-            || $this->subscriptionService->hasActiveSubscription($user);
+            || $this->subscriptionService->hasPaidAccess($user);
 
         if (! $hasAccess) {
             throw new ApiException(

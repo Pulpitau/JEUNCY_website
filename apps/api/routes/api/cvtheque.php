@@ -9,7 +9,12 @@ use Illuminate\Support\Facades\Route;
 // passe le premier filtre mais pas le second, et le frontend distingue les
 // deux cas pour afficher soit "reserve aux entreprises", soit l'accroche
 // vers l'abonnement.
-Route::prefix('cvtheque')->middleware(['auth:api', 'role:COMPANY,CFA'])->group(function () {
+// ADMIN ajoute au 2026-08-18 : l'equipe Jeuncy doit pouvoir consulter la
+// CVtheque telle que la voit un client abonne, sans souscrire un abonnement
+// de complaisance. Le second filtre le laisse passer via
+// SubscriptionService::hasPaidAccess. Acces interne legitime au sens RGPD :
+// Jeuncy est deja responsable de traitement de ces donnees.
+Route::prefix('cvtheque')->middleware(['auth:api', 'role:COMPANY,CFA,ADMIN'])->group(function () {
     Route::get('access', [CvthequeController::class, 'access']);
     Route::get('/', [CvthequeController::class, 'index']);
     // whereNumber en plus de l'ordre de declaration : ceinture et bretelles

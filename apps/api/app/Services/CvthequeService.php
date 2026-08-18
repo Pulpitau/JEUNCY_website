@@ -38,9 +38,11 @@ class CvthequeService
         'photo_url', 'bio', 'driving_license',
     ];
 
+    // hasPaidAccess et non hasActiveSubscription : un compte ADMIN consulte la
+    // CVtheque sans abonnement, pour voir ce que voit un client qui paie.
     public function hasAccess(User $user): bool
     {
-        return $this->subscriptionService->hasActiveSubscription($user);
+        return $this->subscriptionService->hasPaidAccess($user);
     }
 
     public function requireCvthequeAccess(User $user): void

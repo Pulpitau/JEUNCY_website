@@ -83,11 +83,14 @@ export default function App() {
           />
           {/* CVtheque : RequireAuth ne filtre que le ROLE. La garde
               d'abonnement, elle, est cote serveur (402) et la page affiche
-              alors son ecran d'accroche — voir CvthequeService. */}
+              alors son ecran d'accroche — voir CvthequeService.
+              ADMIN inclus : l'equipe Jeuncy consulte la CVtheque comme un
+              client abonne, sans souscrire d'abonnement (voir
+              SubscriptionService::hasPaidAccess). */}
           <Route
             path="/candidats"
             element={
-              <RequireAuth role={[UserRole.COMPANY, UserRole.CFA]}>
+              <RequireAuth role={[UserRole.COMPANY, UserRole.CFA, UserRole.ADMIN]}>
                 <Cvtheque />
               </RequireAuth>
             }
@@ -95,7 +98,7 @@ export default function App() {
           <Route
             path="/candidats/:id"
             element={
-              <RequireAuth role={[UserRole.COMPANY, UserRole.CFA]}>
+              <RequireAuth role={[UserRole.COMPANY, UserRole.CFA, UserRole.ADMIN]}>
                 <CvthequeCandidate />
               </RequireAuth>
             }

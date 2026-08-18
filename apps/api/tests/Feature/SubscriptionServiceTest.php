@@ -216,4 +216,30 @@ class SubscriptionServiceTest extends TestCase
 
         $this->assertSame(0, Subscription::count());
     }
+
+    // Le point clef de la separation des deux methodes : un ADMIN a le DROIT
+    // d'utiliser les fonctionnalites payantes, mais n'a PAS d'abonnement. Si
+    // hasActiveSubscription se mettait a repondre true pour lui, le
+    // back-office afficherait "abonnement actif" et le chiffre d'affaires
+    // compterait un client fantome.
+    public function test_admin_has_paid_access_but_no_actual_subscription(): void
+    {
+        $admin = User::create([
+            'email' => 'admin@jeuncy.com',
+            'password_hash' => 'x',
+            'role' => UserRole::ADMIN,
+        ]);
+
+        $this->assertTrue($this->service->hasPaidAccess($admin));
+        $this->assertFalse($this->service->hasActiveSubscription($admin));
+        $this->assertNull($this->service->currentFor($admin));
+        $this->assertSame(0, Subscription::count());
+    }
+
+    // Une entreprise sans abonnement ne beneficie evidemment pas de la
+    // derogation admin : la garde reste fermee pour tout le monde d'autre.
+    public function test_company_without_subscription_has_no_paid_access(): void
+    {
+        $this->assertFalse($this->service->hasPaidAccess($this->makeCompanyUser()));
+    }
 }

@@ -209,4 +209,38 @@ class CvthequeServiceTest extends TestCase
         $this->assertSame(2, $this->service->search($subscriber, ['skills' => ['React']])->total());
         $this->assertSame(1, $this->service->search($subscriber, ['skills' => ['React', 'SQL']])->total());
     }
+
+    // L'equipe Jeuncy doit pouvoir consulter ce qu'elle vend sans souscrire un
+    // abonnement de complaisance, qui gonflerait les revenus du back-office.
+    public function test_admin_accesses_cvtheque_without_any_subscription(): void
+    {
+        $candidate = $this->makeCandidate();
+        $admin = User::create([
+            'email' => 'admin@jeuncy.com',
+            'password_hash' => 'x',
+            'role' => UserRole::ADMIN,
+        ]);
+
+        $this->assertTrue($this->service->hasAccess($admin));
+        $this->assertSame(1, $this->service->search($admin, [])->total());
+        $this->assertSame($candidate->id, $this->service->find($admin, $candidate->id)->id);
+    }
+
+    // L'admin voit la CVtheque, mais ne contourne pas le choix RGPD du
+    // candidat : un profil retire de la CVtheque reste invisible pour lui.
+    public function test_admin_does_not_bypass_candidate_opt_out(): void
+    {
+        $hidden = $this->makeCandidate();
+        $hidden->update(['is_visible_in_cvtheque' => false]);
+
+        $admin = User::create([
+            'email' => 'admin@jeuncy.com',
+            'password_hash' => 'x',
+            'role' => UserRole::ADMIN,
+        ]);
+
+        $this->assertSame(0, $this->service->search($admin, [])->total());
+        $this->expectException(ApiException::class);
+        $this->service->find($admin, $hidden->id);
+    }
 }
