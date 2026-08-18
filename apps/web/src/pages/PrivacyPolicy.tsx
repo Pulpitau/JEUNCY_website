@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { ContactEmail } from '@/components/ContactEmail';
 
 const LAST_UPDATED = '17 août 2026';
 
@@ -290,8 +291,7 @@ export function PrivacyPolicy() {
                 Confidentialité et données
               </Link>{' '}
               (export au format JSON, suppression définitive du compte). Pour toute autre
-              demande, contactez-nous à l'adresse{' '}
-              <span className="text-foreground">bonjour@jeuncy.com</span>. Vous disposez
+              demande, contactez-nous à l'adresse <ContactEmail />. Vous disposez
               également du droit d'introduire une réclamation auprès de la Commission
               Nationale de l'Informatique et des Libertés (CNIL), www.cnil.fr.
             </p>

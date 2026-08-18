@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { ContactEmail } from '@/components/ContactEmail';
 
 const LAST_UPDATED = '4 août 2026';
 
@@ -36,7 +37,7 @@ export function LegalNotice() {
               <span className="text-foreground">Patrice Nicolas Juillard</span>, Directeur
               général
               <br />
-              Contact : <span className="text-foreground">bonjour@jeuncy.com</span>
+              Contact : <ContactEmail />
             </p>
           </section>
 
@@ -129,7 +130,7 @@ export function LegalNotice() {
             </h2>
             <p className="mt-3">
               Pour toute question relative au site ou à ces mentions légales :{' '}
-              <span className="text-foreground">bonjour@jeuncy.com</span>
+              <ContactEmail />
             </p>
           </section>
         </div>

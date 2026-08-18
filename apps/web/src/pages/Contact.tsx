@@ -12,8 +12,8 @@ import { FreeForCandidatesBadge } from '@/components/FreeForCandidatesBadge';
 import { getContactDetails, sendContactMessage } from '@/lib/api/contact';
 
 // Objets proposes plutot qu'un champ libre : ils orientent le message vers ce
-// que l'equipe sait traiter, et permettent de trier la boite bonjour@ d'un coup
-// d'oeil sur l'objet.
+// que l'equipe sait traiter, et permettent de trier la boite de contact d'un
+// coup d'oeil sur l'objet.
 const SUBJECTS = [
   'Publier une offre',
   'Découvrir la CVthèque',
@@ -38,9 +38,13 @@ const contactSchema = z.object({
 type ContactValues = z.infer<typeof contactSchema>;
 
 export function Contact() {
+  // Meme cle de cache que useContactEmail (utilise par les pages legales) :
+  // une seule requete pour toute la session. Cette page a besoin du numero de
+  // telephone en plus, d'ou l'appel direct plutot que le hook.
   const detailsQuery = useQuery({
     queryKey: ['contact-details'],
     queryFn: getContactDetails,
+    staleTime: 5 * 60 * 1000,
   });
   const details = detailsQuery.data;
 
@@ -87,8 +91,13 @@ export function Contact() {
               Nous joindre directement
             </h2>
 
+            {/* Pas d'adresse de repli en dur : tant que l'API n'a pas repondu,
+                la carte s'affiche sans lien plutot qu'avec une adresse
+                potentiellement perimee (l'adresse officielle a deja change une
+                fois). href undefined = element non focusable, ce qui est le
+                comportement voulu pendant le chargement. */}
             <a
-              href={`mailto:${details?.email ?? 'bonjour@jeuncy.com'}`}
+              href={details?.email ? `mailto:${details.email}` : undefined}
               className="group flex min-h-[44px] items-center gap-3 rounded-lg border border-border bg-card p-4 transition-all hover:border-primary hover:shadow-md"
             >
               <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-jeuncy-gradient text-white">
@@ -99,7 +108,7 @@ export function Contact() {
                   Par email
                 </span>
                 <span className="block truncate font-inter text-sm text-muted-foreground">
-                  {details?.email ?? 'bonjour@jeuncy.com'}
+                  {details?.email ?? '…'}
                 </span>
               </span>
             </a>
@@ -292,8 +301,11 @@ export function Contact() {
 
                   {mutation.isError && (
                     <p role="alert" className="font-inter text-sm text-destructive">
-                      L'envoi a échoué. Réessayez dans un instant, ou écrivez-nous
-                      directement à {details?.email ?? 'bonjour@jeuncy.com'}.
+                      L'envoi a échoué. Réessayez dans un instant
+                      {details?.email
+                        ? `, ou écrivez-nous directement à ${details.email}`
+                        : ''}
+                      .
                     </p>
                   )}
 
