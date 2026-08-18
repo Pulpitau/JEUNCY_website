@@ -19,6 +19,13 @@ export function AuthCallback() {
         useAuthStore.getState().setAccessToken(accessToken);
         const user = await fetchCurrentUser();
         if (!cancelled) {
+          // Accueil, et pas /profile comme apres une inscription classique :
+          // cette route sert AUSSI aux connexions Google des comptes
+          // existants, qu'on ne va pas renvoyer vers leur profil a chaque
+          // fois. Distinguer creation et connexion demanderait une requete
+          // supplementaire a chaque login. Le candidat sans profil voit de
+          // toute facon le bandeau des l'accueil (CompleteProfileBanner),
+          // qui couvre precisement ce cas.
           useAuthStore.getState().setSession(user, accessToken);
           navigate('/');
         }

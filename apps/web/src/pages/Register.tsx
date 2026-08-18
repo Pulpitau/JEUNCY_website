@@ -3,6 +3,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { UserRole } from '@jeuncy/shared';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { PasswordInput } from '@/components/ui/password-input';
@@ -25,6 +26,23 @@ const ROLE_OPTIONS = [
   { value: 'COMPANY', label: 'Entreprise' },
   { value: 'CFA', label: 'CFA' },
 ] as const;
+
+// S'inscrire ne cree qu'une ligne `users` : la fiche (profil candidat,
+// entreprise, CFA) n'existe qu'une fois le formulaire dedie enregistre. Sans
+// elle, un candidat est invisible dans la CVtheque et une entreprise ne peut
+// rien publier. Renvoyer vers l'accueil apres inscription laissait chacun se
+// debrouiller pour trouver la page ; on l'y amene directement.
+function landingRouteAfterSignup(role: string): string {
+  switch (role) {
+    case UserRole.CANDIDATE:
+      return '/profile';
+    case UserRole.COMPANY:
+    case UserRole.CFA:
+      return '/organization';
+    default:
+      return '/';
+  }
+}
 
 const registerSchema = z.object({
   email: z.string().email('Adresse email invalide.'),
@@ -71,7 +89,7 @@ export function Register() {
     try {
       const { user, accessToken } = await registerRequest(values);
       setSession(user, accessToken);
-      navigate('/');
+      navigate(landingRouteAfterSignup(user.role));
     } catch (error) {
       setServerError(
         error instanceof ApiError ? error.message : 'Une erreur est survenue, réessaie.',
