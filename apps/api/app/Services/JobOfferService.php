@@ -200,8 +200,14 @@ class JobOfferService
     {
         $jobOffer = $this->requirePayableOffer($user, $jobOffer);
 
+        // hasActiveSubscription et NON hasPaidAccess, contrairement aux deux
+        // autres gardes payantes : publier ici ecrit payment_status
+        // SUBSCRIPTION sur l'offre, une donnee de facturation. Un compte ADMIN
+        // n'a pas d'abonnement — le laisser passer inscrirait un revenu
+        // fictif. (Inatteignable aujourd'hui, un admin ne possedant aucune
+        // offre, mais la regle doit tenir si ca change.)
         if (! $this->subscriptionService->hasActiveSubscription($user)) {
-            throw new ApiException('SUBSCRIPTION_NOT_ACTIVE', "Aucun abonnement actif sur ce compte.", 409);
+            throw new ApiException('SUBSCRIPTION_NOT_ACTIVE', 'Aucun abonnement actif sur ce compte.', 409);
         }
 
         $jobOffer->update([

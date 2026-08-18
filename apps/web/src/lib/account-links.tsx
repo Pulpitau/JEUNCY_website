@@ -52,8 +52,17 @@ export function accountLinksFor(role: string): AccountLink[] {
     ];
   }
 
+  // L'admin a acces a la CVtheque comme un client abonne (voir
+  // SubscriptionService::hasPaidAccess) : c'est la fonctionnalite payante
+  // phare, l'equipe doit pouvoir voir exactement ce qu'elle vend.
+  // Pas de "Mes offres" ni "Mes candidatures" ici : un admin n'a ni
+  // entreprise ni CFA rattache, ces pages seraient vides par construction.
   if (role === UserRole.ADMIN) {
-    return [{ to: '/admin', label: 'Administration', icon: LayoutDashboard }, ...common];
+    return [
+      { to: '/admin', label: 'Administration', icon: LayoutDashboard },
+      { to: '/candidats', label: 'Candidats', icon: Search },
+      ...common,
+    ];
   }
 
   return common;

@@ -128,11 +128,29 @@ class SubscriptionService
         return $session->url;
     }
 
+    // Etat REEL de l'abonnement en base. Ne jamais y glisser d'exception :
+    // cette methode sert aussi a l'affichage ("votre abonnement est actif") et
+    // aux decisions de facturation. Pour "cet utilisateur a-t-il le droit
+    // d'utiliser les fonctionnalites payantes", utiliser hasPaidAccess().
     public function hasActiveSubscription(User $user): bool
     {
         return Subscription::where('user_id', $user->id)
             ->where('status', SubscriptionStatus::ACTIVE)
             ->exists();
+    }
+
+    // Droit d'usage des fonctionnalites payantes = abonnement actif, OU compte
+    // ADMIN. L'equipe Jeuncy doit pouvoir consulter ce que voit un client qui
+    // paie 499 EUR/mois sans souscrire un abonnement de complaisance qui
+    // fausserait les statistiques et les revenus du back-office.
+    //
+    // Volontairement separe de hasActiveSubscription() : un admin n'a PAS
+    // d'abonnement, il a un droit d'acces. Les confondre ferait afficher
+    // "abonnement actif" a un compte qui n'a jamais rien paye, et se
+    // propagerait tot ou tard dans une facture ou une stat.
+    public function hasPaidAccess(User $user): bool
+    {
+        return $user->role === UserRole::ADMIN || $this->hasActiveSubscription($user);
     }
 
     // La plus recente en premier : suffisant pour l'affichage (un utilisateur
