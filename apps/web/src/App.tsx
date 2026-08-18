@@ -2,6 +2,7 @@ import { Routes, Route } from 'react-router-dom';
 import { UserRole } from '@jeuncy/shared';
 import { Navbar } from '@/components/Navbar';
 import { Footer } from '@/components/Footer';
+import { CompleteProfileBanner } from '@/components/CompleteProfileBanner';
 import { RequireAuth } from '@/components/RequireAuth';
 import { Home } from '@/pages/Home';
 import { About } from '@/pages/About';
@@ -36,6 +37,10 @@ export default function App() {
   return (
     <div className="flex min-h-screen flex-col">
       <Navbar />
+      {/* Sous la Navbar et hors du sticky : le bandeau defile avec la page
+          plutot que de manger 60px de hauteur utile en permanence sur
+          mobile. Il ne s'affiche que pour un candidat sans profil. */}
+      <CompleteProfileBanner />
       <div className="flex-1">
         <Routes>
           <Route path="/" element={<Home />} />
