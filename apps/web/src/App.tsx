@@ -41,9 +41,10 @@ export default function App() {
           <Route path="/" element={<Home />} />
           <Route path="/a-propos" element={<About />} />
           <Route path="/contact" element={<Contact />} />
-          {/* Route conservee mais volontairement absente de la barre de
-              navigation (voir NAV_LINKS dans Navbar.tsx) : le lien est
-              communique aux prospects apres un premier echange. */}
+          {/* Route publique, mais l'onglet correspondant n'apparait dans la
+              barre que pour une entreprise ou un CFA connecte (voir
+              navLinksFor dans Navbar.tsx) : le lien est communique aux
+              prospects apres un premier echange. */}
           <Route path="/tarifs" element={<Pricing />} />
           <Route path="/offres" element={<JobOffers />} />
           <Route path="/offres/:id" element={<JobOfferDetail />} />
