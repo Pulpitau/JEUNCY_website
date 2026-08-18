@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { JobOfferStatus } from '@jeuncy/shared';
 import { Badge } from '@/components/ui/badge';
@@ -77,6 +78,14 @@ export function AdminJobOffersPanel() {
               </div>
               <div className="flex items-center gap-2">
                 <Badge variant="outline">{offer.status}</Badge>
+                {/* Apercu du rendu public, y compris pour un brouillon :
+                    l'equipe controle une offre avant/sans publication. */}
+                <Link
+                  to={`/admin/offres/${offer.id}/apercu`}
+                  className="inline-flex h-9 items-center rounded-md px-3 font-inter text-sm font-medium text-foreground/80 transition-colors hover:bg-accent hover:text-foreground"
+                >
+                  Aperçu
+                </Link>
                 {offer.status !== JobOfferStatus.ARCHIVED && (
                   <Button
                     type="button"

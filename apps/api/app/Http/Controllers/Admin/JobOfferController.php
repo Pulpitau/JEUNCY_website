@@ -17,6 +17,11 @@ class JobOfferController extends Controller
         return response()->json($this->service->listJobOffers($request->validated()));
     }
 
+    public function preview(JobOffer $jobOffer): JsonResponse
+    {
+        return response()->json($this->service->previewJobOffer($jobOffer));
+    }
+
     public function archive(JobOffer $jobOffer): JsonResponse
     {
         return response()->json($this->service->forceArchiveJobOffer($jobOffer));
