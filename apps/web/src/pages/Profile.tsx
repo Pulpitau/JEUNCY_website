@@ -37,6 +37,7 @@ import {
   importCv,
 } from '@/lib/api/candidate-profile';
 import { ApiError } from '@/lib/api/client';
+import { useStagedProfileSections } from '@/hooks/use-staged-profile-sections';
 
 const PROFILE_QUERY_KEY = ['candidate-profile'];
 const CVS_QUERY_KEY = ['candidate-profile', 'cv'];
@@ -44,6 +45,7 @@ const CVS_QUERY_KEY = ['candidate-profile', 'cv'];
 export function Profile() {
   const queryClient = useQueryClient();
   const [isEditingInfo, setIsEditingInfo] = useState(false);
+  const staged = useStagedProfileSections();
 
   const profileQuery = useQuery({
     queryKey: PROFILE_QUERY_KEY,
@@ -73,8 +75,17 @@ export function Profile() {
     return queryClient.invalidateQueries({ queryKey: PROFILE_QUERY_KEY });
   }
 
+  // Le profil est cree d'abord, puis les elements saisis avant lui sont
+  // envoyes : ils ont besoin de son id. L'invalidation vient apres le flush,
+  // sinon le rechargement renverrait un profil sans ses experiences et
+  // l'ecran clignoterait entre les deux etats.
   const createMutation = useMutation({
-    mutationFn: createProfile,
+    mutationFn: async (values: Parameters<typeof createProfile>[0]) => {
+      const created = await createProfile(values);
+      await staged.flush();
+      staged.clear();
+      return created;
+    },
     onSuccess: () => {
       invalidateProfile();
       setIsEditingInfo(false);
@@ -208,76 +219,115 @@ export function Profile() {
         </CardContent>
       </Card>
 
-      {profile && (
+      {/* Sections toujours affichees, profil enregistre ou non. Avant
+          enregistrement, ce qui est saisi ici est garde cote client puis
+          envoye d'un bloc a la creation du profil (voir
+          useStagedProfileSections) : le candidat remplit sa page dans
+          l'ordre qu'il veut, en un seul passage, au lieu de devoir d'abord
+          valider ses infos de base pour voir le reste apparaitre. */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Expériences</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ExperienceSection
+            experiences={profile ? profile.experiences : staged.experiences}
+            isSubmitting={addExperienceMutation.isPending}
+            onAdd={(values) =>
+              profile
+                ? addExperienceMutation.mutateAsync(values)
+                : staged.addExperience(values)
+            }
+            onDelete={(id) =>
+              profile
+                ? deleteExperienceMutation.mutateAsync(id)
+                : staged.removeExperience(id)
+            }
+          />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Formations</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <EducationSection
+            educations={profile ? profile.educations : staged.educations}
+            isSubmitting={addEducationMutation.isPending}
+            onAdd={(values) =>
+              profile
+                ? addEducationMutation.mutateAsync(values)
+                : staged.addEducation(values)
+            }
+            onDelete={(id) =>
+              profile
+                ? deleteEducationMutation.mutateAsync(id)
+                : staged.removeEducation(id)
+            }
+          />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Langues</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <LanguagesSection
+            languages={profile ? profile.languages : staged.languages}
+            isSubmitting={addLanguageMutation.isPending}
+            onAdd={(values) =>
+              profile
+                ? addLanguageMutation.mutateAsync(values)
+                : staged.addLanguage(values)
+            }
+            onDelete={(id) =>
+              profile ? deleteLanguageMutation.mutateAsync(id) : staged.removeLanguage(id)
+            }
+          />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Compétences</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <SkillsSection
+            skills={profile ? profile.skills : staged.skills}
+            isSubmitting={syncSkillsMutation.isPending}
+            onSync={(names) =>
+              profile ? syncSkillsMutation.mutateAsync(names) : staged.setSkills(names)
+            }
+          />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Logiciels</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <SoftwareSection
+            software={profile ? profile.software : staged.software}
+            isSubmitting={syncSoftwareMutation.isPending}
+            onSync={(names) =>
+              profile
+                ? syncSoftwareMutation.mutateAsync(names)
+                : staged.setSoftware(names)
+            }
+          />
+        </CardContent>
+      </Card>
+
+      {/* Ces deux-la restent conditionnees a un profil enregistre, et pour
+          une bonne raison : le PDF est fabrique par le serveur a partir du
+          profil, et il n'y a rien a rendre visible dans la CVtheque tant
+          qu'il n'existe pas. Un encart explicite le dit plutot que de les
+          faire apparaitre sans prevenir. */}
+      {profile ? (
         <>
-          <Card>
-            <CardHeader>
-              <CardTitle>Expériences</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ExperienceSection
-                experiences={profile.experiences}
-                isSubmitting={addExperienceMutation.isPending}
-                onAdd={(values) => addExperienceMutation.mutateAsync(values)}
-                onDelete={(id) => deleteExperienceMutation.mutateAsync(id)}
-              />
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Formations</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <EducationSection
-                educations={profile.educations}
-                isSubmitting={addEducationMutation.isPending}
-                onAdd={(values) => addEducationMutation.mutateAsync(values)}
-                onDelete={(id) => deleteEducationMutation.mutateAsync(id)}
-              />
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Langues</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <LanguagesSection
-                languages={profile.languages}
-                isSubmitting={addLanguageMutation.isPending}
-                onAdd={(values) => addLanguageMutation.mutateAsync(values)}
-                onDelete={(id) => deleteLanguageMutation.mutateAsync(id)}
-              />
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Compétences</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <SkillsSection
-                skills={profile.skills}
-                isSubmitting={syncSkillsMutation.isPending}
-                onSync={(names) => syncSkillsMutation.mutateAsync(names)}
-              />
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Logiciels</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <SoftwareSection
-                software={profile.software}
-                isSubmitting={syncSoftwareMutation.isPending}
-                onSync={(names) => syncSoftwareMutation.mutateAsync(names)}
-              />
-            </CardContent>
-          </Card>
-
           <Card>
             <CardHeader>
               <CardTitle>Mon CV</CardTitle>
@@ -297,6 +347,16 @@ export function Profile() {
             queryKey={PROFILE_QUERY_KEY}
           />
         </>
+      ) : (
+        <Card>
+          <CardHeader>
+            <CardTitle>Mon CV</CardTitle>
+            <CardDescription>
+              La génération de ton CV et ta visibilité dans la CVthèque s'activent dès que
+              tu enregistres tes informations personnelles.
+            </CardDescription>
+          </CardHeader>
+        </Card>
       )}
     </main>
   );
