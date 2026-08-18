@@ -6,6 +6,7 @@ import { RequireAuth } from '@/components/RequireAuth';
 import { Home } from '@/pages/Home';
 import { About } from '@/pages/About';
 import { Pricing } from '@/pages/Pricing';
+import { Contact } from '@/pages/Contact';
 import { Login } from '@/pages/Login';
 import { Register } from '@/pages/Register';
 import { ForgotPassword } from '@/pages/ForgotPassword';
@@ -39,6 +40,10 @@ export default function App() {
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/a-propos" element={<About />} />
+          <Route path="/contact" element={<Contact />} />
+          {/* Route conservee mais volontairement absente de la barre de
+              navigation (voir NAV_LINKS dans Navbar.tsx) : le lien est
+              communique aux prospects apres un premier echange. */}
           <Route path="/tarifs" element={<Pricing />} />
           <Route path="/offres" element={<JobOffers />} />
           <Route path="/offres/:id" element={<JobOfferDetail />} />

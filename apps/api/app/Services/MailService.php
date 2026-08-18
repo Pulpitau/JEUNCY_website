@@ -111,6 +111,61 @@ class MailService
         $this->send($apiKey, $to, 'Rappel : ta visioconférence Jeuncy approche', $this->wrapEmailHtml('Ta visio approche', $body));
     }
 
+    // Message du formulaire de contact public, transmis a l'equipe Jeuncy.
+    //
+    // reply_to porte l'adresse du VISITEUR : repondre depuis sa boite mail doit
+    // ecrire au prospect, pas a soi-meme. Sans ca, chaque reponse partirait
+    // vers no-reply@jeuncy.com et se perdrait.
+    //
+    // L'expediteur reste l'adresse Resend verifiee du domaine : usurper
+    // l'adresse du visiteur ferait echouer SPF/DKIM et enverrait le message
+    // droit dans les indesirables.
+    public function sendContactMessage(
+        string $fromName,
+        string $fromEmail,
+        string $subject,
+        string $message,
+        ?string $organization = null,
+    ): void {
+        $apiKey = config('services.resend.key');
+        $to = config('services.contact.email');
+
+        if (! $apiKey) {
+            Log::warning("RESEND_API_KEY absent : message de contact de {$fromEmail} non transmis a {$to}");
+
+            return;
+        }
+
+        $safeName = e($fromName);
+        $safeEmail = e($fromEmail);
+        $safeSubject = e($subject);
+        // nl2br sur le message echappe : conserve les sauts de ligne du
+        // visiteur sans laisser passer de HTML.
+        $safeMessage = nl2br(e($message));
+        $orgLine = $organization
+            ? '<p style="margin:0;"><strong>Structure :</strong> '.e($organization).'</p>'
+            : '';
+
+        $body = <<<HTML
+            <p>Nouveau message reçu depuis le formulaire de contact du site.</p>
+            <div style="border-left:3px solid #FF2D55;padding-left:14px;margin:20px 0;">
+                <p style="margin:0;"><strong>De :</strong> {$safeName} &lt;{$safeEmail}&gt;</p>
+                {$orgLine}
+                <p style="margin:0;"><strong>Objet :</strong> {$safeSubject}</p>
+            </div>
+            <p style="white-space:pre-line;">{$safeMessage}</p>
+            <p style="font-size:13px;color:#6b7280;">Réponds directement à cet email pour écrire à {$safeEmail}.</p>
+            HTML;
+
+        $this->send(
+            $apiKey,
+            $to,
+            "[Contact Jeuncy] {$subject}",
+            $this->wrapEmailHtml('Nouveau message de contact', $body),
+            replyTo: $fromEmail,
+        );
+    }
+
     // Envoi centralise : un echec Resend (recipient invalide, quota, panne
     // ponctuelle...) ne doit jamais faire echouer l'action metier qui a
     // declenche l'email (publication d'offre, reinitialisation de mot de
@@ -119,16 +174,27 @@ class MailService
     // requete HTTP entiere remontait en 500 a cause du ->throw() ici, rendant
     // une action reussie visible comme une erreur cote entreprise. On logge
     // l'echec au lieu de le laisser remonter.
-    private function send(string $apiKey, string $to, string $subject, string $html): void
-    {
+    private function send(
+        string $apiKey,
+        string $to,
+        string $subject,
+        string $html,
+        ?string $replyTo = null,
+    ): void {
         try {
+            $payload = [
+                'from' => config('services.resend.from'),
+                'to' => $to,
+                'subject' => $subject,
+                'html' => $html,
+            ];
+
+            if ($replyTo) {
+                $payload['reply_to'] = $replyTo;
+            }
+
             Http::withToken($apiKey)
-                ->post('https://api.resend.com/emails', [
-                    'from' => config('services.resend.from'),
-                    'to' => $to,
-                    'subject' => $subject,
-                    'html' => $html,
-                ])
+                ->post('https://api.resend.com/emails', $payload)
                 ->throw();
         } catch (RequestException|ConnectionException $e) {
             Log::error("Echec d'envoi Resend a {$to} (\"{$subject}\") : {$e->getMessage()}");

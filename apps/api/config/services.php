@@ -55,6 +55,18 @@ return [
         'founder_seats_total' => (int) env('STRIPE_FOUNDER_SEATS_TOTAL', 50),
     ],
 
+    // Coordonnees affichees sur la page Contact et destinataire du formulaire.
+    // En config plutot qu'en dur dans le frontend : changer un numero ne doit
+    // pas obliger a reconstruire et redeployer tout le bundle JavaScript.
+    //
+    // phone volontairement vide par defaut : tant qu'aucun numero reel n'est
+    // fourni, la page n'affiche pas de bloc telephone plutot qu'un placeholder
+    // — un faux numero sur une page de contact est pire que pas de numero.
+    'contact' => [
+        'email' => env('CONTACT_EMAIL', 'bonjour@jeuncy.com'),
+        'phone' => env('CONTACT_PHONE'),
+    ],
+
     'ses' => [
         'key' => env('AWS_ACCESS_KEY_ID'),
         'secret' => env('AWS_SECRET_ACCESS_KEY'),

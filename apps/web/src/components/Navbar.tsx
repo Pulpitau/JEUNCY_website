@@ -15,11 +15,17 @@ import { cn } from '@/lib/utils';
 // "À propos" a ete sorti de la barre (deplace en pied de page) : c'est une
 // page de decouverte, pas un outil de navigation quotidien, et sa presence
 // ici participait a l'encombrement signale.
+// "Tarifs" retire de la barre le 2026-08-17 a la demande de l'equipe
+// commerciale : afficher un prix avant tout echange refroidit un prospect qui
+// n'a pas encore vu la valeur du service. La page /tarifs existe toujours et
+// reste accessible par lien direct — elle est envoyee aux prospects apres un
+// premier contact, et reste liee depuis l'espace connecte (candidatures
+// verrouillees, acces CVtheque) ou l'interlocuteur est deja engage.
 const NAV_LINKS = [
   { label: 'Offres', href: '/offres' },
   { label: 'Entreprises', href: '/entreprises' },
   { label: 'CFA', href: '/cfa' },
-  { label: 'Tarifs', href: '/tarifs' },
+  { label: 'Contact', href: '/contact' },
 ];
 
 // Sous-categories affichees au survol de l'onglet Offres (voir OFFERS_HREF

@@ -44,6 +44,11 @@ export function Footer() {
           <Link to="/confidentialite" className="transition-colors hover:text-foreground">
             Politique de confidentialité
           </Link>
+          {/* Second point d'entree vers le contact : un visiteur qui descend
+              jusqu'au pied de page cherche souvent precisement ca. */}
+          <Link to="/contact" className="transition-colors hover:text-foreground">
+            Contact
+          </Link>
         </nav>
       </div>
     </footer>
