@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { FreeForCandidatesBadge } from '@/components/FreeForCandidatesBadge';
 import { getContactDetails, sendContactMessage } from '@/lib/api/contact';
+import { formatPhoneForDisplay, phoneToTelHref } from '@/lib/format-phone';
 
 // Objets proposes plutot qu'un champ libre : ils orientent le message vers ce
 // que l'equipe sait traiter, et permettent de trier la boite de contact d'un
@@ -118,7 +119,7 @@ export function Contact() {
                 qu'un numero factice sur une page de contact. */}
             {details?.phone && (
               <a
-                href={`tel:${details.phone.replace(/\s/g, '')}`}
+                href={phoneToTelHref(details.phone)}
                 className="group flex min-h-[44px] items-center gap-3 rounded-lg border border-border bg-card p-4 transition-all hover:border-primary hover:shadow-md"
               >
                 <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-jeuncy-gradient text-white">
@@ -128,8 +129,11 @@ export function Contact() {
                   <span className="block font-poppins text-sm font-medium text-foreground">
                     Par téléphone
                   </span>
+                  {/* Espacement ajoute ici et non dans le .env : voir
+                      format-phone.ts, une valeur espacee cote serveur a
+                      deja fait tomber toute l'API. */}
                   <span className="block font-inter text-sm text-muted-foreground">
-                    {details.phone}
+                    {formatPhoneForDisplay(details.phone)}
                   </span>
                 </span>
               </a>
