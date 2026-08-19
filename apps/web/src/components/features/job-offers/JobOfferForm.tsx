@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 import { WORK_MODE_LABELS } from '@/lib/work-mode-labels';
+import { COMPENSATION_PERIOD_OPTIONS } from '@/lib/format-compensation';
 import type { JobOffer, JobOfferInput } from '@/lib/api/job-offers';
 
 export type JobOfferFormVariant = 'COMPANY' | 'CFA';
@@ -49,7 +50,18 @@ const jobOfferSchema = z.object({
   ]),
   city: z.string().optional().or(z.literal('')),
   work_mode: z.union([z.nativeEnum(WorkMode), z.literal('')]).optional(),
-  compensation: z.string().optional().or(z.literal('')),
+  // Saisi en texte (un <input type="number"> renvoie une chaine) puis
+  // converti a la soumission. Le regex refuse tout ce qui n'est pas une
+  // suite de chiffres : « 1 200 » ou « 1200€ » partiraient sinon en base
+  // comme montant illisible.
+  compensation_amount: z
+    .string()
+    .regex(/^\d*$/, 'Indique uniquement un montant en chiffres, sans espace ni symbole.')
+    .optional()
+    .or(z.literal('')),
+  compensation_period: z
+    .union([z.enum(['HOURLY', 'MONTHLY', 'YEARLY']), z.literal('')])
+    .optional(),
   experience_level: z.string().optional().or(z.literal('')),
   benefits: z.string().optional().or(z.literal('')),
   diploma_level: z.string().optional().or(z.literal('')),
@@ -96,7 +108,12 @@ export function JobOfferForm({
       contract_type: offer?.contract_type ?? ContractType.ALTERNANCE,
       city: offer?.city ?? '',
       work_mode: offer?.work_mode ?? '',
-      compensation: offer?.compensation ?? '',
+      compensation_amount: offer?.compensation_amount
+        ? String(offer.compensation_amount)
+        : '',
+      // Mensuel par defaut : c'est la periode de loin la plus courante pour
+      // une alternance, autant epargner un clic dans le cas general.
+      compensation_period: offer?.compensation_period ?? 'MONTHLY',
       experience_level: offer?.experience_level ?? '',
       benefits: offer?.benefits ?? '',
       diploma_level: offer?.diploma_level ?? '',
@@ -125,7 +142,14 @@ export function JobOfferForm({
       contract_type: values.contract_type,
       city: values.city || null,
       work_mode: values.work_mode || null,
-      compensation: values.compensation || null,
+      compensation_amount: values.compensation_amount
+        ? Number(values.compensation_amount)
+        : null,
+      // Pas de periode sans montant : « / mois » seul ne veut rien dire, et
+      // laisserait une donnee incoherente en base.
+      compensation_period: values.compensation_amount
+        ? values.compensation_period || 'MONTHLY'
+        : null,
       experience_level: variant === 'COMPANY' ? values.experience_level || null : null,
       benefits: variant === 'COMPANY' ? values.benefits || null : null,
       diploma_level: variant === 'CFA' ? values.diploma_level || null : null,
@@ -199,13 +223,51 @@ export function JobOfferForm({
             ))}
           </select>
         </div>
+        {/* Montant et periode separes plutot qu'un texte libre : le candidat
+            lisait « 1200 » sans savoir s'il s'agissait d'un mensuel, d'un
+            annuel ou d'un horaire. L'affichage est fabrique par
+            formatCompensation, identique sur toutes les offres. */}
         <div className="flex flex-col gap-2">
-          <Label htmlFor="offer-compensation">Rémunération</Label>
-          <Input
-            id="offer-compensation"
-            placeholder="Ex : 800 € / mois, Selon profil, SMIC…"
-            {...register('compensation')}
-          />
+          <Label htmlFor="offer-compensation-amount">Rémunération brute</Label>
+          <div className="flex gap-2">
+            <div className="relative flex-1">
+              <Input
+                id="offer-compensation-amount"
+                inputMode="numeric"
+                placeholder="Ex : 1200"
+                aria-invalid={!!errors.compensation_amount}
+                className="pr-8"
+                {...register('compensation_amount')}
+              />
+              <span
+                className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 font-inter text-sm text-muted-foreground"
+                aria-hidden="true"
+              >
+                €
+              </span>
+            </div>
+            <select
+              id="offer-compensation-period"
+              aria-label="Périodicité de la rémunération"
+              className="h-10 rounded-md border border-input bg-background px-3 font-inter text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              {...register('compensation_period')}
+            >
+              {COMPENSATION_PERIOD_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          {errors.compensation_amount ? (
+            <p role="alert" className="font-inter text-sm text-destructive">
+              {errors.compensation_amount.message}
+            </p>
+          ) : (
+            <p className="font-inter text-xs text-muted-foreground">
+              Laisse vide si la rémunération n'est pas définie (bénévolat, à négocier…).
+            </p>
+          )}
         </div>
 
         {variant === 'COMPANY' && (

@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Enums\UserRole;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -32,6 +33,27 @@ class User extends Authenticatable
             'is_suspended' => 'boolean',
             'last_login_at' => 'datetime',
         ];
+    }
+
+    // Domaine des emails d'anonymisation. Un compte ayant des paiements ne
+    // peut pas etre supprime (conservation comptable) : AccountService le
+    // reecrit en compte-supprime-{id}@jeuncy.invalid. Le TLD .invalid est
+    // reserve par la RFC 2606 et ne peut donc jamais appartenir a un vrai
+    // utilisateur — c'est ce qui rend ce marqueur fiable.
+    public const DELETED_EMAIL_DOMAIN = '@jeuncy.invalid';
+
+    // Comptes reels, hors vestiges comptables de comptes supprimes. A utiliser
+    // partout ou l'on compte ou liste "les utilisateurs" pour un humain :
+    // sans ca, le back-office affiche des effectifs qui ne correspondent a
+    // aucune personne existante.
+    public function scopeNotDeleted(Builder $query): Builder
+    {
+        return $query->where('email', 'not like', '%'.self::DELETED_EMAIL_DOMAIN);
+    }
+
+    public function isDeletedAccount(): bool
+    {
+        return str_ends_with($this->email, self::DELETED_EMAIL_DOMAIN);
     }
 
     public function candidateProfile(): HasOne

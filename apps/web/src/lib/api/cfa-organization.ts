@@ -17,6 +17,7 @@ export interface CfaOrganization {
   address: string | null;
   city: string | null;
   postal_code: string | null;
+  is_public: boolean;
   trial_started_at: string | null;
   trial_offers_count: number;
 }
@@ -34,6 +35,7 @@ export interface CfaOrganizationInput {
   address?: string | null;
   city?: string | null;
   postal_code?: string | null;
+  is_public?: boolean;
 }
 
 export function getMyCfaOrganization() {

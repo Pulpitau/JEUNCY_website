@@ -19,12 +19,17 @@ class AdminService
     public function stats(): array
     {
         return [
+            // notDeleted() partout : les vestiges comptables de comptes
+            // supprimes ne sont plus des utilisateurs. Sans ce filtre, les
+            // effectifs affiches ne correspondaient pas a la liste juste a
+            // cote, et "suspendus" gonflait a chaque suppression (un compte
+            // anonymise est marque suspendu pour couper ses sessions).
             'users' => [
-                'total' => User::count(),
-                'candidates' => User::where('role', UserRole::CANDIDATE)->count(),
-                'companies' => User::where('role', UserRole::COMPANY)->count(),
-                'cfa_organizations' => User::where('role', UserRole::CFA)->count(),
-                'suspended' => User::where('is_suspended', true)->count(),
+                'total' => User::query()->notDeleted()->count(),
+                'candidates' => User::query()->notDeleted()->where('role', UserRole::CANDIDATE)->count(),
+                'companies' => User::query()->notDeleted()->where('role', UserRole::COMPANY)->count(),
+                'cfa_organizations' => User::query()->notDeleted()->where('role', UserRole::CFA)->count(),
+                'suspended' => User::query()->notDeleted()->where('is_suspended', true)->count(),
             ],
             'job_offers' => [
                 'total' => JobOffer::count(),
@@ -49,7 +54,15 @@ class AdminService
 
     public function listUsers(array $filters): LengthAwarePaginator
     {
-        $query = User::query()->latest();
+        // Les comptes supprimes par leur titulaire sont exclus. Quand un compte
+        // a des paiements, l'obligation de conservation comptable interdit de
+        // supprimer la ligne : AccountService l'anonymise a la place
+        // (email @jeuncy.invalid, mot de passe efface, suspendu). Ce vestige
+        // comptable n'est plus un utilisateur, et l'afficher dans une liste
+        // proposant "Suspendre"/"Reactiver" laissait croire a l'admin que la
+        // suppression avait echoue — alors que toutes les donnees
+        // personnelles avaient bien ete effacees.
+        $query = User::query()->notDeleted()->latest();
 
         if (! empty($filters['role'])) {
             $query->where('role', $filters['role']);

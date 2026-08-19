@@ -18,6 +18,10 @@ class CompanyService
     public function searchPublic(array $filters = []): LengthAwarePaginator
     {
         return Company::query()
+            // Fiches retirees de l'annuaire par leur proprietaire (voir la
+            // migration add_is_public_to_organizations_tables). Leurs offres
+            // publiees restent visibles : c'est ce pour quoi elles ont paye.
+            ->where('is_public', true)
             ->when(
                 $filters['name'] ?? null,
                 fn ($query, $name) => $query->where('name', 'like', '%'.$name.'%'),
@@ -47,7 +51,12 @@ class CompanyService
 
     public function findPublic(int $id): Company
     {
+        // is_public filtre aussi l'acces direct par URL, et pas seulement
+        // l'annuaire : une fiche masquee qui reste consultable en devinant son
+        // id ne serait pas masquee. Son proprietaire continue de la voir et de
+        // la modifier depuis "Mon entreprise".
         $company = Company::query()
+            ->where('is_public', true)
             ->with(['jobOffers' => fn ($query) => $query->where('status', JobOfferStatus::PUBLISHED)])
             ->find($id);
         if (! $company) {

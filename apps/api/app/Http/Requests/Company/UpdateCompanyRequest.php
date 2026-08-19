@@ -17,6 +17,7 @@ class UpdateCompanyRequest extends FormRequest
     {
         return [
             'name' => ['sometimes', 'string', 'max:255'],
+            'is_public' => ['sometimes', 'boolean'],
             'siret' => ['sometimes', 'nullable', 'string', 'size:14', Rule::unique('companies', 'siret')->ignore($this->user()->company?->id)],
             'description' => ['sometimes', 'nullable', 'string', 'max:2000'],
             'website' => ['sometimes', 'nullable', 'url', 'max:255'],

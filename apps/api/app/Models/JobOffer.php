@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\CompensationPeriod;
 use App\Enums\ContractType;
 use App\Enums\JobOfferStatus;
 use App\Enums\PaymentStatus;
@@ -14,6 +15,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 #[Fillable([
     'company_id', 'cfa_organization_id', 'title', 'description', 'contract_type',
     'status', 'payment_status', 'location', 'city', 'work_mode', 'compensation',
+    'compensation_amount', 'compensation_period',
     'experience_level', 'benefits', 'diploma_level', 'training_rhythm', 'published_at',
     'expires_at', 'applications_unlocked_at',
 ])]
@@ -25,6 +27,7 @@ class JobOffer extends Model
     {
         return [
             'contract_type' => ContractType::class,
+            'compensation_period' => CompensationPeriod::class,
             'status' => JobOfferStatus::class,
             'payment_status' => PaymentStatus::class,
             'published_at' => 'datetime',

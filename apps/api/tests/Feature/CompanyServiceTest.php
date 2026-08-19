@@ -160,4 +160,32 @@ class CompanyServiceTest extends TestCase
 
         $this->assertSame('NexaTech', $found->name);
     }
+
+    // Une fiche est dans l'annuaire par defaut : ne rien changer pour les
+    // inscriptions existantes ni les futures.
+    public function test_company_is_listed_in_the_directory_by_default(): void
+    {
+        $this->service->createForUser($this->makeUser(), ['name' => 'NexaTech']);
+
+        $this->assertSame(1, $this->service->searchPublic()->total());
+    }
+
+    public function test_hidden_company_disappears_from_the_directory(): void
+    {
+        $company = $this->service->createForUser($this->makeUser(), ['name' => 'NexaTech']);
+        $company->update(['is_public' => false]);
+
+        $this->assertSame(0, $this->service->searchPublic()->total());
+    }
+
+    // Masquer doit aussi fermer l'acces direct : une fiche retiree de
+    // l'annuaire mais consultable en devinant son id ne serait pas masquee.
+    public function test_hidden_company_is_not_reachable_by_direct_id(): void
+    {
+        $company = $this->service->createForUser($this->makeUser(), ['name' => 'NexaTech']);
+        $company->update(['is_public' => false]);
+
+        $this->expectException(ApiException::class);
+        $this->service->findPublic($company->id);
+    }
 }

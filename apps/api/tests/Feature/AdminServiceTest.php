@@ -197,4 +197,44 @@ class AdminServiceTest extends TestCase
         $this->assertSame(VideoRoomStatus::ENDED, $ended->status);
         $this->assertNotNull($ended->ended_at);
     }
+
+    // Un compte ayant des paiements ne peut pas etre supprime (conservation
+    // comptable) : AccountService l'anonymise. Ce vestige n'est plus un
+    // utilisateur et n'a rien a faire dans une liste qui propose de le
+    // suspendre — l'admin croyait la suppression ratee alors que toutes les
+    // donnees personnelles avaient bien ete effacees.
+    public function test_deleted_accounts_are_hidden_from_the_users_list(): void
+    {
+        $this->makeCompanyOwner();
+        User::create([
+            'email' => 'compte-supprime-42'.User::DELETED_EMAIL_DOMAIN,
+            'password_hash' => 'x',
+            'role' => UserRole::COMPANY,
+            'is_suspended' => true,
+        ]);
+
+        $emails = collect($this->service->listUsers([])->items())->pluck('email');
+
+        $this->assertContains('rh@nexatech.example.com', $emails);
+        $this->assertNotContains('compte-supprime-42'.User::DELETED_EMAIL_DOMAIN, $emails);
+    }
+
+    // Les compteurs doivent coller a la liste juste a cote. Sans ce filtre,
+    // "suspendus" gonflait a chaque suppression de compte, puisque
+    // l'anonymisation marque le compte suspendu pour couper ses sessions.
+    public function test_stats_ignore_deleted_accounts(): void
+    {
+        $this->makeCompanyOwner();
+        User::create([
+            'email' => 'compte-supprime-43'.User::DELETED_EMAIL_DOMAIN,
+            'password_hash' => 'x',
+            'role' => UserRole::COMPANY,
+            'is_suspended' => true,
+        ]);
+
+        $stats = $this->service->stats();
+
+        $this->assertSame(1, $stats['users']['companies']);
+        $this->assertSame(0, $stats['users']['suspended']);
+    }
 }

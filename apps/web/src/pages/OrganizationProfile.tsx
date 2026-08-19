@@ -11,6 +11,7 @@ import {
 } from '@/components/ui/card';
 import { CompanyForm } from '@/components/features/organization/CompanyForm';
 import { CfaForm } from '@/components/features/organization/CfaForm';
+import { DirectoryVisibilitySection } from '@/components/features/organization/DirectoryVisibilitySection';
 import { OrganizationSummary } from '@/components/features/organization/OrganizationSummary';
 import { LogoUpload } from '@/components/features/organization/LogoUpload';
 import {
@@ -227,6 +228,24 @@ export function OrganizationProfile() {
           )}
         </CardContent>
       </Card>
+
+      {/* Apres le formulaire, et seulement une fois la fiche creee : il n'y a
+          rien a montrer ou masquer dans un annuaire tant qu'elle n'existe
+          pas. */}
+      {isCompany && companyQuery.data && (
+        <DirectoryVisibilitySection
+          variant="COMPANY"
+          isPublic={companyQuery.data.is_public}
+          queryKey={COMPANY_QUERY_KEY}
+        />
+      )}
+      {!isCompany && cfaQuery.data && (
+        <DirectoryVisibilitySection
+          variant="CFA"
+          isPublic={cfaQuery.data.is_public}
+          queryKey={CFA_QUERY_KEY}
+        />
+      )}
     </main>
   );
 }

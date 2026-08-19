@@ -18,6 +18,8 @@ class CfaOrganizationService
     public function searchPublic(array $filters = []): LengthAwarePaginator
     {
         return CfaOrganization::query()
+            // Voir CompanyService::searchPublic : meme regle de visibilite.
+            ->where('is_public', true)
             ->when(
                 $filters['name'] ?? null,
                 fn ($query, $name) => $query->where('name', 'like', '%'.$name.'%'),
@@ -40,7 +42,10 @@ class CfaOrganizationService
 
     public function findPublic(int $id): CfaOrganization
     {
+        // Voir CompanyService::findPublic : masquer doit aussi fermer l'acces
+        // direct par id, sinon ce n'est pas masquer.
         $cfaOrganization = CfaOrganization::query()
+            ->where('is_public', true)
             ->with(['jobOffers' => fn ($query) => $query->where('status', JobOfferStatus::PUBLISHED)])
             ->find($id);
         if (! $cfaOrganization) {

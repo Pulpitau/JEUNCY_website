@@ -13,6 +13,7 @@ export interface Company {
   city: string | null;
   postal_code: string | null;
   work_mode: WorkMode | null;
+  is_public: boolean;
   trial_started_at: string | null;
   trial_offers_count: number;
 }
@@ -26,6 +27,7 @@ export interface CompanyInput {
   city?: string | null;
   postal_code?: string | null;
   work_mode?: WorkMode | null;
+  is_public?: boolean;
 }
 
 export function getMyCompany() {
