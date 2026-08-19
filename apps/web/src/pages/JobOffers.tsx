@@ -10,6 +10,7 @@ import { WORK_MODE_LABELS } from '@/lib/work-mode-labels';
 import { searchPublicOffers } from '@/lib/api/job-offers';
 import { PublicJobOfferCard } from '@/components/features/job-offers/PublicJobOfferCard';
 import { FreeForCandidatesBadge } from '@/components/FreeForCandidatesBadge';
+import { usePageMetadata } from '@/hooks/use-page-metadata';
 
 const CONTRACT_TYPE_OPTIONS = [
   { value: '', label: 'Tous les contrats' },
@@ -21,6 +22,11 @@ const CONTRACT_TYPE_OPTIONS = [
 ];
 
 export function JobOffers() {
+  usePageMetadata(
+    "Offres d'alternance et jobs",
+    "Toutes les offres d'alternance, jobs saisonniers, jobs étudiants, stages et missions bénévoles. Filtre par ville et par contrat.",
+    '/offres',
+  );
   const [searchParams, setSearchParams] = useSearchParams();
   const q = searchParams.get('q') ?? '';
   const contractType = searchParams.get('contract_type') ?? '';

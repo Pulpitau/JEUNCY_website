@@ -28,13 +28,13 @@ class Company extends Model
     //
     // Le proprietaire et l'admin les recuperent via makeVisible (voir
     // CompanyService::showForUser et AdminService).
-    protected $hidden = ['user_id', 'siret', 'trial_started_at', 'trial_offers_count'];
+    protected $hidden = ['user_id', 'siret', 'trial_started_at', 'trial_offers_count', 'is_public'];
 
     // Rendus visibles pour le proprietaire de la fiche et pour l'admin :
     // le formulaire "Mon entreprise" doit reafficher le SIRET saisi, et le
     // tableau de bord a besoin de l'etat d'essai pour proposer la
     // publication gratuite.
-    public const OWNER_VISIBLE = ['siret', 'trial_started_at', 'trial_offers_count'];
+    public const OWNER_VISIBLE = ['siret', 'trial_started_at', 'trial_offers_count', 'is_public'];
 
     protected function casts(): array
     {

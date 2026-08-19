@@ -2,19 +2,68 @@
 <html lang="fr">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!-- Le logo Jeuncy comme favicon. Le PNG est declare en premier et
+         l'emporte sur le SVG dans les navigateurs qui suivent l'ordre du
+         document ; le SVG reste en repli pour ceux qui le preferent. -->
+    <link rel="icon" type="image/png" sizes="128x128" href="/logo/logo-light.png" />
+    <link rel="apple-touch-icon" href="/logo/logo-light.png" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+
+    <!-- Titre porteur de mots-cles plutot que la marque seule : personne ne
+         cherche « Jeuncy » tant que la marque est inconnue, on se positionne
+         donc sur ce que les gens tapent reellement. -->
+    <title>Jeuncy — Alternance, jobs saisonniers et étudiants</title>
     <meta
       name="description"
-      content="Jeuncy, la plateforme de recrutement pour alternants, saisonniers et benevoles. Ton alternance commence ici."
+      content="Trouve ton alternance, ton job saisonnier, ton stage ou ta mission bénévole. Jeuncy met en relation les jeunes avec les entreprises et les CFA. Gratuit pour les candidats."
     />
+    <link rel="canonical" href="https://jeuncy.com/" />
+
+    <!-- Aperçu au partage (LinkedIn, WhatsApp, Facebook, X). Sans ces
+         balises, un lien partagé s'affiche sans image ni titre — ce qui
+         réduit fortement les clics, et le partage est le principal levier
+         d'audience tant que le référencement naturel n'a pas démarré. -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Jeuncy" />
+    <meta property="og:locale" content="fr_FR" />
+    <meta property="og:url" content="https://jeuncy.com/" />
+    <meta property="og:title" content="Jeuncy — Alternance, jobs saisonniers et étudiants" />
+    <meta
+      property="og:description"
+      content="Trouve ton alternance, ton job saisonnier, ton stage ou ta mission bénévole. Gratuit pour les candidats."
+    />
+    <meta property="og:image" content="https://jeuncy.com/logo/logo-light.png" />
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="Jeuncy — Alternance, jobs saisonniers et étudiants" />
+    <meta
+      name="twitter:description"
+      content="Trouve ton alternance, ton job saisonnier, ton stage ou ta mission bénévole. Gratuit pour les candidats."
+    />
+    <meta name="twitter:image" content="https://jeuncy.com/logo/logo-light.png" />
+
+    <!-- Donnees structurees : aide Google a rattacher le site a une entite
+         nommee « Jeuncy » et a afficher le logo dans les resultats. -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "Organization",
+        "name": "Jeuncy",
+        "url": "https://jeuncy.com/",
+        "logo": "https://jeuncy.com/logo/logo-light.png",
+        "description": "Plateforme de recrutement pour alternants, saisonniers, étudiants et bénévoles.",
+        "email": "go@jeuncy.com",
+        "areaServed": "FR"
+      }
+    </script>
+
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
       href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700&family=Inter:wght@400;500;600&display=swap"
       rel="stylesheet"
     />
-    <title>Jeuncy</title>
     <script>
       // Applique le theme persiste avant le premier rendu, pour eviter un flash.
       try {

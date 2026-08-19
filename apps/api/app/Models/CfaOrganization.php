@@ -22,9 +22,9 @@ class CfaOrganization extends Model
     // nda_number et qualiopi_number restent VISIBLES : ce sont des
     // certifications qu'un CFA met en avant, elles rassurent le candidat et
     // sont deja publiques par nature (registres officiels).
-    protected $hidden = ['user_id', 'siret', 'trial_started_at', 'trial_offers_count'];
+    protected $hidden = ['user_id', 'siret', 'trial_started_at', 'trial_offers_count', 'is_public'];
 
-    public const OWNER_VISIBLE = ['siret', 'trial_started_at', 'trial_offers_count'];
+    public const OWNER_VISIBLE = ['siret', 'trial_started_at', 'trial_offers_count', 'is_public'];
 
     protected function casts(): array
     {

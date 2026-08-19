@@ -10,6 +10,7 @@ import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/ca
 import { cn } from '@/lib/utils';
 import { WORK_MODE_LABELS } from '@/lib/work-mode-labels';
 import { searchPublicCompanies } from '@/lib/api/companies';
+import { usePageMetadata } from '@/hooks/use-page-metadata';
 
 const CONTRACT_TYPE_OPTIONS = [
   { value: '', label: 'Tous les contrats' },
@@ -21,6 +22,11 @@ const CONTRACT_TYPE_OPTIONS = [
 ];
 
 export function Companies() {
+  usePageMetadata(
+    'Entreprises qui recrutent',
+    'Découvre les entreprises qui recrutent des alternants, saisonniers et étudiants sur Jeuncy.',
+    '/entreprises',
+  );
   const [searchParams, setSearchParams] = useSearchParams();
   const name = searchParams.get('name') ?? '';
   const city = searchParams.get('city') ?? '';

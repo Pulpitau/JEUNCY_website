@@ -1,0 +1,28 @@
+# Jeuncy — https://jeuncy.com
+#
+# Ce fichier n'existait pas : l'URL retombait sur index.html via la reecriture
+# SPA du .htaccess, donc Google recevait une page HTML la ou il attendait des
+# directives. Un robots.txt invalide n'empeche pas l'indexation, mais il prive
+# le moteur du lien vers le sitemap.
+
+User-agent: *
+Allow: /
+
+# Espaces authentifies : aucun interet pour un moteur, et les explorer
+# consomme du budget d'exploration pour rien (ces pages renvoient de toute
+# facon une redirection vers /login cote client).
+Disallow: /admin
+Disallow: /mon-compte
+Disallow: /mes-offres
+Disallow: /mes-candidatures
+Disallow: /mes-paiements
+Disallow: /mes-visios
+Disallow: /candidats
+Disallow: /organization
+Disallow: /profile
+Disallow: /demo/
+Disallow: /auth/
+Disallow: /reset-password
+Disallow: /forgot-password
+
+Sitemap: https://jeuncy.com/sitemap.xml
