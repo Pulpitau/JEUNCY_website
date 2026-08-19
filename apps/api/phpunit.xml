@@ -27,6 +27,20 @@
         <env name="DB_DATABASE" value=":memory:"/>
         <env name="DB_URL" value=""/>
         <env name="MAIL_MAILER" value="array"/>
+        <!-- MAIL_MAILER=array ne suffit pas : MailService n'utilise pas le
+             mailer Laravel, il appelle l'API HTTP de Resend directement. Sans
+             cette ligne, la suite lisait la vraie cle du .env et partait
+             joindre api.resend.com a chaque test touchant un envoi (essai
+             gratuit, candidature, rappel de visio) — appels reseau reels,
+             quota consomme, et risque d'envoi si une adresse de test etait
+             routable. Cle vide = MailService journalise au lieu d'envoyer
+             (voir le garde-fou en tete de chacune de ses methodes). -->
+        <env name="RESEND_API_KEY" value=""/>
+        <!-- Meme logique pour Stripe : aucun test ne doit pouvoir creer une
+             session de paiement reelle. Les services construisent leur client
+             a la demande, un secret vide les fait echouer bruyamment plutot
+             que d'agir sur le vrai compte. -->
+        <env name="STRIPE_SECRET_KEY" value=""/>
         <env name="QUEUE_CONNECTION" value="sync"/>
         <env name="SESSION_DRIVER" value="array"/>
         <env name="PULSE_ENABLED" value="false"/>

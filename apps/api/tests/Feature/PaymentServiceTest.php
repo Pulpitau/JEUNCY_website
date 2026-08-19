@@ -8,11 +8,13 @@ use App\Enums\NotificationType;
 use App\Enums\PaymentStatus;
 use App\Enums\PaymentType;
 use App\Enums\UserRole;
+use App\Exceptions\ApiException;
 use App\Models\Payment;
 use App\Models\User;
 use App\Services\CompanyService;
 use App\Services\JobOfferService;
 use App\Services\PaymentService;
+use App\Services\SubscriptionService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -158,5 +160,108 @@ class PaymentServiceTest extends TestCase
         $this->service->markApplicationsUnlocked('cs_test_unlock456');
 
         $this->assertSame(1, $user->notifications()->where('type', NotificationType::PAYMENT_SUCCEEDED)->count());
+    }
+
+    // Remboursements. Le vrai appel Stripe est substitue : ces tests ne
+    // doivent jamais deplacer d'argent, meme lances par megarde avec une cle
+    // valide dans l'environnement.
+    private function serviceWithFakeStripe(?\Closure $onRefund = null): PaymentService
+    {
+        return new class($this->app->make(JobOfferService::class), $this->app->make(SubscriptionService::class), $onRefund) extends PaymentService
+        {
+            public array $refundedIntents = [];
+
+            public function __construct($jobOfferService, $subscriptionService, private $onRefund)
+            {
+                parent::__construct($jobOfferService, $subscriptionService);
+            }
+
+            protected function performStripeRefund(string $paymentIntentId): void
+            {
+                $this->refundedIntents[] = $paymentIntentId;
+
+                if ($this->onRefund) {
+                    ($this->onRefund)($paymentIntentId);
+                }
+            }
+        };
+    }
+
+    private function succeededPayment(): array
+    {
+        [$user, $offer, $payment] = $this->makeOfferAwaitingPayment();
+        $this->service->markPaymentSucceeded('cs_test_demo123', 'pi_test_demo123');
+
+        return [$user->fresh(), $offer->fresh(), $payment->fresh()];
+    }
+
+    public function test_refund_marks_payment_archives_offer_and_notifies(): void
+    {
+        [$user, $offer, $payment] = $this->succeededPayment();
+
+        $refunded = $this->serviceWithFakeStripe()->refund($payment);
+
+        $this->assertSame(PaymentStatus::REFUNDED, $refunded->status);
+        // L'offre est retiree : rembourser en la laissant en ligne
+        // reviendrait a offrir le service.
+        $this->assertSame(JobOfferStatus::ARCHIVED, $offer->fresh()->status);
+        // ... et redevient payable.
+        $this->assertSame(PaymentStatus::PENDING, $offer->fresh()->payment_status);
+        $this->assertSame(
+            1,
+            $user->notifications()->where('type', NotificationType::PAYMENT_REFUNDED)->count(),
+        );
+    }
+
+    // Garde-fou principal : sans lui, un clic de trop rembourserait deux fois.
+    public function test_refund_is_refused_on_an_already_refunded_payment(): void
+    {
+        [, , $payment] = $this->succeededPayment();
+        $service = $this->serviceWithFakeStripe();
+        $service->refund($payment);
+
+        $this->expectException(ApiException::class);
+        $service->refund($payment->fresh());
+    }
+
+    public function test_refund_is_refused_on_a_pending_payment(): void
+    {
+        [, , $payment] = $this->makeOfferAwaitingPayment();
+
+        $this->expectException(ApiException::class);
+        $this->serviceWithFakeStripe()->refund($payment);
+    }
+
+    // Sans payment_intent, Stripe n'a rien a rembourser : mieux vaut un refus
+    // net qu'un appel qui echoue avec un message obscur.
+    public function test_refund_is_refused_without_a_stripe_payment_intent(): void
+    {
+        [, , $payment] = $this->succeededPayment();
+        $payment->update(['stripe_payment_intent_id' => null]);
+
+        $this->expectException(ApiException::class);
+        $this->serviceWithFakeStripe()->refund($payment->fresh());
+    }
+
+    // La base ne doit etre ecrite QU'APRES l'accord de Stripe : en cas
+    // d'echec, un paiement affiche comme rembourse alors que l'argent n'a pas
+    // bouge serait l'ecart le plus couteux a rattraper.
+    public function test_payment_stays_succeeded_when_stripe_refuses(): void
+    {
+        [, $offer, $payment] = $this->succeededPayment();
+
+        $service = $this->serviceWithFakeStripe(function () {
+            throw new \RuntimeException('Stripe indisponible');
+        });
+
+        try {
+            $service->refund($payment);
+            $this->fail('Un echec Stripe devrait remonter.');
+        } catch (\RuntimeException) {
+            // attendu
+        }
+
+        $this->assertSame(PaymentStatus::SUCCEEDED, $payment->fresh()->status);
+        $this->assertSame(JobOfferStatus::PUBLISHED, $offer->fresh()->status);
     }
 }

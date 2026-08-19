@@ -5,9 +5,11 @@ namespace Tests\Feature;
 use App\Enums\ContractType;
 use App\Enums\JobOfferStatus;
 use App\Enums\PaymentStatus;
+use App\Enums\PaymentType;
+use App\Enums\SubscriptionStatus;
 use App\Enums\UserRole;
 use App\Exceptions\ApiException;
-use App\Enums\SubscriptionStatus;
+use App\Models\Payment;
 use App\Models\Subscription;
 use App\Models\User;
 use App\Services\CfaOrganizationService;
@@ -145,10 +147,10 @@ class JobOfferServiceTest extends TestCase
     {
         $owner = $this->makeCompanyUser();
         $offer = $this->service->createForUser($owner, $this->offerPayload());
-        $payment = \App\Models\Payment::create([
+        $payment = Payment::create([
             'user_id' => $owner->id,
             'job_offer_id' => $offer->id,
-            'type' => \App\Enums\PaymentType::OFFER_PUBLICATION,
+            'type' => PaymentType::OFFER_PUBLICATION,
             'amount_cents' => 999,
             'status' => PaymentStatus::SUCCEEDED,
             'stripe_session_id' => 'cs_test_delete',

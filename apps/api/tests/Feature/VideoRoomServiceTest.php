@@ -111,4 +111,69 @@ class VideoRoomServiceTest extends TestCase
         $this->assertCount(1, $hostRooms);
         $this->assertCount(1, $participantRooms);
     }
+
+    // Le nom de salle est le SEUL controle d'acces de la page publique : sans
+    // echeance, un lien transfere ou retrouve dans un historique restait un
+    // acces permanent.
+    public function test_scheduled_room_link_expires_after_the_grace_period(): void
+    {
+        $room = $this->service->createForUser($this->makeHost(), null, now()->toDateTimeString());
+
+        $this->assertNotNull($room->expires_at);
+        $this->assertEqualsWithDelta(
+            now()->addHours(VideoRoomService::LINK_GRACE_HOURS)->timestamp,
+            $room->expires_at->timestamp,
+            5,
+        );
+    }
+
+    public function test_undated_room_link_gets_the_default_window(): void
+    {
+        $room = $this->service->createForUser($this->makeHost(), null, null);
+
+        $this->assertEqualsWithDelta(
+            now()->addDays(VideoRoomService::LINK_DEFAULT_DAYS)->timestamp,
+            $room->expires_at->timestamp,
+            5,
+        );
+    }
+
+    public function test_expired_link_is_refused_publicly(): void
+    {
+        $room = $this->service->createForUser($this->makeHost(), null, null);
+        $room->update(['expires_at' => now()->subMinute()]);
+
+        try {
+            $this->service->findPublicByRoomName($room->jitsi_room_name);
+            $this->fail('Un lien expire devrait etre refuse.');
+        } catch (ApiException $e) {
+            // 410 et non 404 : le frontend doit pouvoir dire "ce lien a
+            // expire" plutot que "cette salle n'existe pas".
+            $this->assertSame('VIDEO_ROOM_EXPIRED', $e->errorCode);
+            $this->assertSame(410, $e->getStatusCode());
+        }
+    }
+
+    public function test_valid_link_still_works_before_expiry(): void
+    {
+        $room = $this->service->createForUser($this->makeHost(), null, null);
+
+        $this->assertSame(
+            $room->id,
+            $this->service->findPublicByRoomName($room->jitsi_room_name)->id,
+        );
+    }
+
+    // Les salles creees avant l'ajout de l'echeance ont expires_at a NULL :
+    // le deploiement ne doit pas invalider d'un coup des liens deja envoyes.
+    public function test_room_without_expiry_keeps_working(): void
+    {
+        $room = $this->service->createForUser($this->makeHost(), null, null);
+        $room->update(['expires_at' => null]);
+
+        $this->assertSame(
+            $room->id,
+            $this->service->findPublicByRoomName($room->jitsi_room_name)->id,
+        );
+    }
 }

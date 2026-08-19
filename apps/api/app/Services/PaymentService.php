@@ -32,6 +32,15 @@ class PaymentService
         return new StripeClient(config('services.stripe.secret'));
     }
 
+    // Isole le seul appel reseau du remboursement, pour que les tests puissent
+    // eprouver toute la logique de refund() — garde-fous, depublication de
+    // l'offre, notification, et non-ecriture en cas d'echec — sans jamais
+    // emettre de mouvement d'argent reel.
+    protected function performStripeRefund(string $paymentIntentId): void
+    {
+        $this->stripe()->refunds->create(['payment_intent' => $paymentIntentId]);
+    }
+
     public function createCheckoutSessionForOffer(User $user, JobOffer $jobOffer): string
     {
         $jobOffer = $this->jobOfferService->requirePayableOffer($user, $jobOffer);
@@ -163,6 +172,67 @@ class PaymentService
             'message' => "Ton paiement a été validé, l'offre \"{$jobOffer->title}\" est maintenant publiée.",
             'link' => '/mes-offres',
         ]);
+    }
+
+    // Remboursement declenche depuis le back-office admin.
+    //
+    // Trois garde-fous, parce que c'est un mouvement d'argent reel et
+    // irreversible cote Stripe :
+    //
+    // 1. Seul un paiement SUCCEEDED est remboursable. Un PENDING n'a rien
+    //    encaisse, un FAILED non plus, et un REFUNDED le serait deux fois —
+    //    Stripe refuserait, mais autant ne pas l'appeler pour rien.
+    // 2. Le payment_intent est exige. C'est lui que Stripe rembourse ; une
+    //    session sans intent signale un paiement jamais reellement capture,
+    //    et l'appel echouerait avec un message obscur.
+    // 3. La base n'est ecrite QU'APRES l'accord de Stripe. Marquer REFUNDED
+    //    avant l'appel laisserait, en cas d'echec reseau, un paiement affiche
+    //    comme rembourse alors que l'argent n'a pas bouge — l'ecart le plus
+    //    couteux a rattraper ensuite.
+    //
+    // L'offre associee est depubliee : rembourser en laissant l'annonce en
+    // ligne reviendrait a offrir le service. Elle repasse en ARCHIVED plutot
+    // qu'en DRAFT pour rester distincte d'une offre jamais publiee, et
+    // payment_status revient a PENDING pour qu'elle soit de nouveau payable.
+    public function refund(Payment $payment): Payment
+    {
+        if ($payment->status !== PaymentStatus::SUCCEEDED) {
+            throw new ApiException(
+                'PAYMENT_NOT_REFUNDABLE',
+                'Seul un paiement encaissé peut être remboursé.',
+                409,
+            );
+        }
+
+        if (! $payment->stripe_payment_intent_id) {
+            throw new ApiException(
+                'PAYMENT_INTENT_MISSING',
+                "Ce paiement n'a pas de référence Stripe exploitable pour un remboursement.",
+                409,
+            );
+        }
+
+        $this->performStripeRefund($payment->stripe_payment_intent_id);
+
+        $payment->update(['status' => PaymentStatus::REFUNDED]);
+
+        $jobOffer = $payment->jobOffer;
+        if ($jobOffer) {
+            $jobOffer->update([
+                'status' => JobOfferStatus::ARCHIVED,
+                'payment_status' => PaymentStatus::PENDING,
+            ]);
+        }
+
+        $payment->user->notifications()->create([
+            'type' => NotificationType::PAYMENT_REFUNDED,
+            'message' => $jobOffer
+                ? "Ton paiement a été remboursé. L'offre \"{$jobOffer->title}\" a été retirée de la publication."
+                : 'Ton paiement a été remboursé.',
+            'link' => '/mes-paiements',
+        ]);
+
+        return $payment->fresh();
     }
 
     // Meme logique d'idempotence que markPaymentSucceeded, mais met a jour

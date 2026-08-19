@@ -22,6 +22,10 @@ Route::prefix('admin')->middleware(['auth:api', 'role:ADMIN'])->group(function (
     Route::post('job-offers/{jobOffer}/archive', [JobOfferController::class, 'archive']);
 
     Route::get('payments', [PaymentController::class, 'index']);
+    // Mouvement d'argent reel et irreversible cote Stripe : la seule route
+    // admin qui agisse sur le compte bancaire. Garde-fous dans
+    // PaymentService::refund.
+    Route::post('payments/{payment}/refund', [PaymentController::class, 'refund']);
 
     Route::get('video-rooms', [VideoRoomController::class, 'index']);
     Route::post('video-rooms/{videoRoom}/end', [VideoRoomController::class, 'end']);
