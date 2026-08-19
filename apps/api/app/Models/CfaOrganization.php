@@ -15,6 +15,17 @@ class CfaOrganization extends Model
 {
     protected $table = 'cfa_organizations';
 
+    // Meme raisonnement que Company::$hidden (voir le commentaire detaille
+    // la-bas) : fiche servie sur des routes publiques, donc on ne laisse
+    // sortir que ce qui sert a l'affichage.
+    //
+    // nda_number et qualiopi_number restent VISIBLES : ce sont des
+    // certifications qu'un CFA met en avant, elles rassurent le candidat et
+    // sont deja publiques par nature (registres officiels).
+    protected $hidden = ['user_id', 'siret', 'trial_started_at', 'trial_offers_count'];
+
+    public const OWNER_VISIBLE = ['siret', 'trial_started_at', 'trial_offers_count'];
+
     protected function casts(): array
     {
         return [

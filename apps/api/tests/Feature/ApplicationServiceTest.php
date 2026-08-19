@@ -6,19 +6,23 @@ use App\Enums\ApplicationStatus;
 use App\Enums\ContractType;
 use App\Enums\JobOfferStatus;
 use App\Enums\NotificationType;
+use App\Enums\SubscriptionStatus;
 use App\Enums\UserRole;
 use App\Exceptions\ApiException;
 use App\Models\CandidateProfile;
 use App\Models\GeneratedCv;
 use App\Models\JobOffer;
+use App\Models\Subscription;
 use App\Models\User;
 use App\Services\ApplicationService;
 use App\Services\CandidateProfileService;
 use App\Services\CompanyService;
 use App\Services\JobOfferService;
+use App\Services\MailService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
+use Mockery;
 use Tests\TestCase;
 
 class ApplicationServiceTest extends TestCase
@@ -184,9 +188,9 @@ class ApplicationServiceTest extends TestCase
         $this->service->applyForUser($candidate, $offer, null, '0612345678', $cv->id);
 
         $owner = $offer->company->user;
-        \App\Models\Subscription::create([
+        Subscription::create([
             'user_id' => $owner->id,
-            'status' => \App\Enums\SubscriptionStatus::ACTIVE,
+            'status' => SubscriptionStatus::ACTIVE,
             'amount_cents' => 7900,
             'stripe_subscription_id' => 'sub_test_'.$owner->id,
             'stripe_customer_id' => 'cus_test_'.$owner->id,
@@ -321,5 +325,62 @@ class ApplicationServiceTest extends TestCase
 
         $this->expectException(ApiException::class);
         $this->service->updateStatus($intruder->fresh(), $application, ApplicationStatus::SEEN);
+    }
+
+    // Remplace MailService par un mock ET reconstruit le service : ses
+    // dependances sont injectees au constructeur, un binding pose apres coup
+    // n'aurait aucun effet sur une instance deja resolue.
+    private function expectMail(string $method, int $times): void
+    {
+        $mock = Mockery::mock(MailService::class);
+        $mock->shouldReceive($method)->times($times);
+        $mock->shouldIgnoreMissing();
+        $this->app->instance(MailService::class, $mock);
+        $this->service = $this->app->make(ApplicationService::class);
+    }
+
+    // La notification in-app suppose que le recruteur se connecte pour la
+    // voir. L'email est ce qui le fait revenir — sans lui, une candidature
+    // peut dormir des jours.
+    public function test_new_application_emails_the_offer_owner(): void
+    {
+        $offer = $this->makePublishedOffer();
+        $candidate = $this->makeCandidate();
+
+        $this->expectMail('sendNewApplicationEmail', 1);
+
+        $this->service->applyForUser($candidate, $offer, null);
+    }
+
+    public function test_status_change_emails_the_candidate(): void
+    {
+        $offer = $this->makePublishedOffer();
+        $candidate = $this->makeCandidate();
+        $application = $this->service->applyForUser($candidate, $offer, null);
+
+        $this->expectMail('sendApplicationStatusChangedEmail', 1);
+
+        $this->service->updateStatus($offer->company->user, $application, ApplicationStatus::INTERVIEW);
+    }
+
+    // L'email ne doit jamais faire echouer la candidature : c'est un a-cote,
+    // pas une etape du parcours. Si l'envoi casse, la candidature reste
+    // enregistree et la notification in-app joue son role de repli.
+    public function test_application_still_succeeds_when_mail_sending_fails(): void
+    {
+        $offer = $this->makePublishedOffer();
+        $candidate = $this->makeCandidate();
+
+        $mock = Mockery::mock(MailService::class);
+        $mock->shouldReceive('sendNewApplicationEmail')
+            ->andThrow(new \RuntimeException('Resend indisponible'));
+        $mock->shouldIgnoreMissing();
+        $this->app->instance(MailService::class, $mock);
+        $service = $this->app->make(ApplicationService::class);
+
+        $application = $service->applyForUser($candidate, $offer, null);
+
+        $this->assertNotNull($application->id);
+        $this->assertDatabaseHas('applications', ['id' => $application->id]);
     }
 }

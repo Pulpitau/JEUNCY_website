@@ -78,7 +78,7 @@ class AccountService
         if ($user->role === UserRole::ADMIN) {
             throw new ApiException(
                 'ADMIN_SELF_DELETE_FORBIDDEN',
-                "Un compte administrateur ne peut pas être supprimé depuis cette interface. Contacte un autre administrateur.",
+                'Un compte administrateur ne peut pas être supprimé depuis cette interface. Contacte un autre administrateur.',
                 403,
             );
         }

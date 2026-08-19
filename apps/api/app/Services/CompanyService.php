@@ -57,9 +57,18 @@ class CompanyService
         return $company;
     }
 
+    // Company::$hidden masque siret et l'etat d'essai pour le public. Le
+    // proprietaire, lui, doit les recuperer : son formulaire reaffiche le
+    // SIRET saisi et son tableau de bord a besoin de l'essai restant. Toute
+    // methode qui renvoie la fiche a SON proprietaire passe par ici.
+    private function withOwnerFields(Company $company): Company
+    {
+        return $company->makeVisible(Company::OWNER_VISIBLE);
+    }
+
     public function getForUser(User $user): Company
     {
-        return $this->requireCompany($user);
+        return $this->withOwnerFields($this->requireCompany($user));
     }
 
     public function createForUser(User $user, array $data): Company
@@ -68,7 +77,7 @@ class CompanyService
             throw new ApiException('COMPANY_ALREADY_EXISTS', 'Un profil entreprise existe déjà pour ce compte.', 409);
         }
 
-        return $user->company()->create($data);
+        return $this->withOwnerFields($user->company()->create($data));
     }
 
     public function updateForUser(User $user, array $data): Company
@@ -76,7 +85,7 @@ class CompanyService
         $company = $this->requireCompany($user);
         $company->update($data);
 
-        return $company;
+        return $this->withOwnerFields($company);
     }
 
     public function requireCompany(User $user): Company
@@ -104,7 +113,7 @@ class CompanyService
         $path = $file->storeAs('company-logos', $filename, 'public');
         $company->update(['logo_url' => Storage::disk('public')->url($path)]);
 
-        return $company;
+        return $this->withOwnerFields($company);
     }
 
     public function removeLogo(User $user): Company
@@ -116,7 +125,7 @@ class CompanyService
             $company->update(['logo_url' => null]);
         }
 
-        return $company;
+        return $this->withOwnerFields($company);
     }
 
     private function deleteStoredLogo(string $logoUrl): void

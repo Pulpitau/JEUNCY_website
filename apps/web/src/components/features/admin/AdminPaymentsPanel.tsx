@@ -1,9 +1,11 @@
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { PaymentStatus } from '@jeuncy/shared';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { listAdminPayments } from '@/lib/api/admin';
+import { listAdminPayments, refundPayment } from '@/lib/api/admin';
+import { ApiError } from '@/lib/api/client';
 import { AdminPager } from './AdminPager';
 
 const STATUS_OPTIONS = [
@@ -27,11 +29,33 @@ const STATUS_VARIANT: Record<
 export function AdminPaymentsPanel() {
   const [status, setStatus] = useState('');
   const [page, setPage] = useState(1);
+  // Id du paiement dont le remboursement attend confirmation. Une seule
+  // ligne a la fois : un remboursement deplace de l'argent reel et ne se
+  // rattrape pas, il ne doit jamais partir sur un clic unique.
+  const [pendingRefundId, setPendingRefundId] = useState<number | null>(null);
+  const [refundError, setRefundError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
 
   const paymentsQuery = useQuery({
     queryKey: ['admin', 'payments', { status, page }],
     queryFn: () =>
       listAdminPayments({ status: (status as PaymentStatus) || undefined, page }),
+  });
+
+  const refundMutation = useMutation({
+    mutationFn: refundPayment,
+    onSuccess: () => {
+      setPendingRefundId(null);
+      setRefundError(null);
+      return queryClient.invalidateQueries({ queryKey: ['admin', 'payments'] });
+    },
+    onError: (error) => {
+      setRefundError(
+        error instanceof ApiError
+          ? error.message
+          : 'Le remboursement a échoué. Vérifie le tableau de bord Stripe avant de réessayer.',
+      );
+    },
   });
 
   const payments = paymentsQuery.data?.data ?? [];
@@ -80,14 +104,65 @@ export function AdminPaymentsPanel() {
                   {new Date(payment.created_at).toLocaleDateString('fr-FR')}
                 </p>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <span className="font-inter text-sm">
                   {(payment.amount_cents / 100).toFixed(2)} {payment.currency}
                 </span>
                 <Badge variant={STATUS_VARIANT[payment.status] ?? 'outline'}>
                   {payment.status}
                 </Badge>
+
+                {/* Seul un paiement encaisse est remboursable — meme regle
+                    que PaymentService::refund cote serveur. Le bouton est
+                    masque ailleurs plutot que desactive : proposer une
+                    action impossible sur un mouvement d'argent invite a
+                    cliquer pour voir. */}
+                {payment.status === PaymentStatus.SUCCEEDED &&
+                  (pendingRefundId === payment.id ? (
+                    <span className="flex items-center gap-2">
+                      <span className="font-inter text-xs text-muted-foreground">
+                        Rembourser {(payment.amount_cents / 100).toFixed(2)}{' '}
+                        {payment.currency} et retirer l'offre ?
+                      </span>
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        disabled={refundMutation.isPending}
+                        onClick={() => refundMutation.mutate(payment.id)}
+                      >
+                        {refundMutation.isPending ? 'Remboursement…' : 'Confirmer'}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={refundMutation.isPending}
+                        onClick={() => {
+                          setPendingRefundId(null);
+                          setRefundError(null);
+                        }}
+                      >
+                        Annuler
+                      </Button>
+                    </span>
+                  ) : (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        setPendingRefundId(payment.id);
+                        setRefundError(null);
+                      }}
+                    >
+                      Rembourser
+                    </Button>
+                  ))}
               </div>
+
+              {refundError && pendingRefundId === payment.id && (
+                <p role="alert" className="w-full font-inter text-sm text-destructive">
+                  {refundError}
+                </p>
+              )}
             </div>
           ))}
         </div>

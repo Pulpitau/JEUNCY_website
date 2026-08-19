@@ -111,6 +111,84 @@ class MailService
         $this->send($apiKey, $to, 'Rappel : ta visioconférence Jeuncy approche', $this->wrapEmailHtml('Ta visio approche', $body));
     }
 
+    // Prevenu a la reception d'une candidature.
+    //
+    // La notification in-app existait deja, mais elle suppose que le recruteur
+    // se connecte pour la voir. Un candidat qui attend trois jours une reponse
+    // qui ne vient pas parce que personne n'a ouvert le tableau de bord, c'est
+    // une candidature perdue des deux cotes.
+    //
+    // Aucune donnee du candidat au-dela de son nom : le detail de la
+    // candidature se consulte dans l'application, derriere authentification.
+    // Une boite mail se transfere, s'archive et fuit — l'email sert a faire
+    // revenir, pas a transporter le dossier.
+    public function sendNewApplicationEmail(
+        string $to,
+        string $candidateName,
+        string $offerTitle,
+        string $applicationsUrl,
+    ): void {
+        $apiKey = config('services.resend.key');
+
+        if (! $apiKey) {
+            Log::warning("RESEND_API_KEY absent : notification de candidature non envoyee a {$to}");
+
+            return;
+        }
+
+        $safeCandidate = e($candidateName);
+        $safeOffer = e($offerTitle);
+
+        $body = <<<HTML
+            <p>Bonjour,</p>
+            <p><strong>{$safeCandidate}</strong> vient de postuler à votre offre « {$safeOffer} ».</p>
+            <p>Retrouvez son profil et son CV dans votre espace Jeuncy.</p>
+            {$this->ctaButton('Voir la candidature', $applicationsUrl)}
+            HTML;
+
+        $this->send(
+            $apiKey,
+            $to,
+            "Nouvelle candidature : {$offerTitle}",
+            $this->wrapEmailHtml('Une nouvelle candidature', $body),
+        );
+    }
+
+    // Prevenu quand sa candidature change de statut.
+    //
+    // Meme raison en miroir : c'est le moment ou le candidat a le plus besoin
+    // d'etre informe, et celui ou il est le moins susceptible d'etre connecte.
+    public function sendApplicationStatusChangedEmail(
+        string $to,
+        string $offerTitle,
+        string $statusLabel,
+        string $applicationsUrl,
+    ): void {
+        $apiKey = config('services.resend.key');
+
+        if (! $apiKey) {
+            Log::warning("RESEND_API_KEY absent : changement de statut non envoye a {$to}");
+
+            return;
+        }
+
+        $safeOffer = e($offerTitle);
+        $safeStatus = e($statusLabel);
+
+        $body = <<<HTML
+            <p>Bonjour,</p>
+            <p>Ta candidature à l'offre « {$safeOffer} » vient de passer au statut <strong>{$safeStatus}</strong>.</p>
+            {$this->ctaButton('Suivre ma candidature', $applicationsUrl)}
+            HTML;
+
+        $this->send(
+            $apiKey,
+            $to,
+            "Ta candidature a évolué : {$offerTitle}",
+            $this->wrapEmailHtml('Ta candidature a évolué', $body),
+        );
+    }
+
     // Message du formulaire de contact public, transmis a l'equipe Jeuncy.
     //
     // reply_to porte l'adresse du VISITEUR : repondre depuis sa boite mail doit

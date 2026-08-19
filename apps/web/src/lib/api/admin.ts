@@ -129,6 +129,13 @@ export function listAdminPayments(filters: { status?: PaymentStatus; page?: numb
   );
 }
 
+// Rembourse reellement chez Stripe et depublie l'offre associee (voir
+// PaymentService::refund cote backend). Irreversible : l'appelant doit
+// confirmer avant d'appeler.
+export function refundPayment(id: number) {
+  return apiRequest<AdminPayment>(`/admin/payments/${id}/refund`, { method: 'POST' });
+}
+
 export function listAdminVideoRooms(filters: {
   status?: VideoRoomStatus;
   page?: number;

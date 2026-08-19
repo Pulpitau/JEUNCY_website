@@ -13,6 +13,7 @@ use App\Models\JobOffer;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
@@ -22,6 +23,7 @@ class ApplicationService
         private readonly CandidateProfileService $candidateProfileService,
         private readonly JobOfferService $jobOfferService,
         private readonly SubscriptionService $subscriptionService,
+        private readonly MailService $mailService,
     ) {}
 
     public function applyForUser(
@@ -70,6 +72,20 @@ class ApplicationService
             'message' => "{$profile->first_name} {$profile->last_name} a postulé à ton offre \"{$jobOffer->title}\".",
             'link' => '/mes-offres',
         ]);
+
+        // Email en PLUS de la notification in-app, pas a la place : celle-ci
+        // n'est vue que si le recruteur se connecte.
+        if ($owner?->email) {
+            $this->sendWithoutBreakingTheFlow(
+                fn () => $this->mailService->sendNewApplicationEmail(
+                    to: $owner->email,
+                    candidateName: "{$profile->first_name} {$profile->last_name}",
+                    offerTitle: $jobOffer->title,
+                    applicationsUrl: rtrim((string) config('app.frontend_url'), '/').'/mes-offres',
+                ),
+                "notification de candidature a {$owner->email}",
+            );
+        }
 
         return $application;
     }
@@ -187,7 +203,36 @@ class ApplicationService
             'link' => '/mes-candidatures',
         ]);
 
+        if ($candidateUser->email) {
+            $this->sendWithoutBreakingTheFlow(
+                fn () => $this->mailService->sendApplicationStatusChangedEmail(
+                    to: $candidateUser->email,
+                    offerTitle: $jobOffer->title,
+                    statusLabel: $this->statusLabel($status),
+                    applicationsUrl: rtrim((string) config('app.frontend_url'), '/').'/mes-candidatures',
+                ),
+                "changement de statut a {$candidateUser->email}",
+            );
+        }
+
         return $application;
+    }
+
+    // L'email est un a-cote, jamais une etape du parcours : la candidature est
+    // deja enregistree et la notification in-app deja creee quand on arrive
+    // ici. Laisser remonter une exception d'envoi afficherait un echec au
+    // candidat pour une action qui a pourtant reussi — et, l'action n'etant
+    // pas rejouable (doublon refuse), il resterait bloque.
+    //
+    // MailService::send() avale deja ses propres erreurs reseau ; ce filet
+    // couvre tout le reste (configuration, DNS, panne du fournisseur).
+    private function sendWithoutBreakingTheFlow(callable $send, string $context): void
+    {
+        try {
+            $send();
+        } catch (\Throwable $e) {
+            Log::error("Echec d'envoi ({$context}) : {$e->getMessage()}");
+        }
     }
 
     private function statusLabel(ApplicationStatus $status): string

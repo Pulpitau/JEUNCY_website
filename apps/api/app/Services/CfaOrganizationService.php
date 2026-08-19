@@ -50,9 +50,16 @@ class CfaOrganizationService
         return $cfaOrganization;
     }
 
+    // Voir CompanyService::withOwnerFields : les champs masques au public
+    // (siret, etat d'essai) doivent revenir au proprietaire de la fiche.
+    private function withOwnerFields(CfaOrganization $cfaOrganization): CfaOrganization
+    {
+        return $cfaOrganization->makeVisible(CfaOrganization::OWNER_VISIBLE);
+    }
+
     public function getForUser(User $user): CfaOrganization
     {
-        return $this->requireCfaOrganization($user);
+        return $this->withOwnerFields($this->requireCfaOrganization($user));
     }
 
     public function createForUser(User $user, array $data): CfaOrganization
@@ -61,7 +68,7 @@ class CfaOrganizationService
             throw new ApiException('CFA_ORGANIZATION_ALREADY_EXISTS', 'Un profil CFA existe déjà pour ce compte.', 409);
         }
 
-        return $user->cfaOrganization()->create($data);
+        return $this->withOwnerFields($user->cfaOrganization()->create($data));
     }
 
     public function updateForUser(User $user, array $data): CfaOrganization
@@ -69,7 +76,7 @@ class CfaOrganizationService
         $cfaOrganization = $this->requireCfaOrganization($user);
         $cfaOrganization->update($data);
 
-        return $cfaOrganization;
+        return $this->withOwnerFields($cfaOrganization);
     }
 
     public function requireCfaOrganization(User $user): CfaOrganization
@@ -94,7 +101,7 @@ class CfaOrganizationService
         $path = $file->storeAs('cfa-logos', $filename, 'public');
         $cfaOrganization->update(['logo_url' => Storage::disk('public')->url($path)]);
 
-        return $cfaOrganization;
+        return $this->withOwnerFields($cfaOrganization);
     }
 
     public function removeLogo(User $user): CfaOrganization
@@ -106,7 +113,7 @@ class CfaOrganizationService
             $cfaOrganization->update(['logo_url' => null]);
         }
 
-        return $cfaOrganization;
+        return $this->withOwnerFields($cfaOrganization);
     }
 
     private function deleteStoredLogo(string $logoUrl): void

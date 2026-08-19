@@ -32,9 +32,20 @@ export function DemoRoom() {
         ? roomQuery.error.message
         : 'Cette salle est introuvable.';
 
+    // Un lien perime et un lien errone n'appellent pas la meme reaction : le
+    // premier se resout en redemandant un lien, le second en verifiant ce
+    // qu'on a colle. Afficher "Salle introuvable" dans les deux cas laissait
+    // un invite persuade de s'etre trompe alors que son lien avait simplement
+    // vieilli (voir VideoRoomService::findPublicByRoomName, 410).
+    const isExpired =
+      roomQuery.error instanceof ApiError &&
+      roomQuery.error.code === 'VIDEO_ROOM_EXPIRED';
+
     return (
       <main className="mx-auto max-w-4xl px-4 py-12 text-center">
-        <h1 className="font-poppins text-2xl font-bold">Salle introuvable</h1>
+        <h1 className="font-poppins text-2xl font-bold">
+          {isExpired ? 'Lien expiré' : 'Salle introuvable'}
+        </h1>
         <p className="mt-2 font-inter text-muted-foreground">{message}</p>
       </main>
     );
