@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 // trial_started_at et trial_offers_count sont volontairement absents de ce
 // tableau : geres uniquement par JobOfferService::publishViaTrialForUser
 // (affectation directe, jamais via mass-assignment depuis une requete cliente).
-#[Fillable(['user_id', 'name', 'siret', 'nda_number', 'qualiopi_number', 'description', 'diplomas_offered', 'diploma_level', 'training_mode', 'logo_url', 'website', 'address', 'city', 'postal_code'])]
+#[Fillable(['user_id', 'name', 'siret', 'nda_number', 'qualiopi_number', 'description', 'diplomas_offered', 'diploma_level', 'training_mode', 'logo_url', 'website', 'address', 'city', 'postal_code', 'is_public'])]
 class CfaOrganization extends Model
 {
     protected $table = 'cfa_organizations';
@@ -30,6 +30,7 @@ class CfaOrganization extends Model
     {
         return [
             'trial_started_at' => 'datetime',
+            'is_public' => 'boolean',
         ];
     }
 

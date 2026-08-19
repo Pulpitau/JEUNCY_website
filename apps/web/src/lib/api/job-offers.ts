@@ -1,3 +1,4 @@
+import type { CompensationPeriod } from '@/lib/format-compensation';
 import type {
   ContractType,
   JobOfferStatus,
@@ -19,7 +20,12 @@ export interface JobOffer {
   location: string | null;
   city: string | null;
   work_mode: WorkMode | null;
+  // Ancien champ texte libre, conserve en base pour ne rien perdre mais plus
+  // ni saisi ni affiche : voir compensation_amount/compensation_period et
+  // formatCompensation.
   compensation: string | null;
+  compensation_amount: number | null;
+  compensation_period: CompensationPeriod | null;
   experience_level: string | null;
   benefits: string | null;
   diploma_level: string | null;
@@ -66,7 +72,8 @@ export interface JobOfferInput {
   location?: string | null;
   city?: string | null;
   work_mode?: WorkMode | null;
-  compensation?: string | null;
+  compensation_amount?: number | null;
+  compensation_period?: CompensationPeriod | null;
   experience_level?: string | null;
   benefits?: string | null;
   diploma_level?: string | null;

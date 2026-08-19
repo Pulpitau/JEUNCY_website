@@ -11,6 +11,7 @@ import {
 } from '@/components/ui/card';
 import { WORK_MODE_LABELS } from '@/lib/work-mode-labels';
 import type { PublicJobOffer } from '@/lib/api/job-offers';
+import { formatCompensation } from '@/lib/format-compensation';
 
 const CONTRACT_TYPE_LABELS: Record<string, string> = {
   [ContractType.ALTERNANCE]: 'Alternance',
@@ -67,9 +68,17 @@ export function PublicJobOfferCard({ offer }: { offer: PublicJobOffer }) {
           </div>
         </CardHeader>
         <CardContent>
-          {offer.compensation && (
+          {formatCompensation(
+            offer.compensation_amount,
+            offer.compensation_period,
+            offer.compensation,
+          ) && (
             <p className="mb-1 font-inter text-sm font-medium text-foreground">
-              {offer.compensation}
+              {formatCompensation(
+                offer.compensation_amount,
+                offer.compensation_period,
+                offer.compensation,
+              )}
             </p>
           )}
           <p className="line-clamp-3 font-inter text-sm text-muted-foreground">

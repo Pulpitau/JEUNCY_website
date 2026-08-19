@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\JobOffer;
 
+use App\Enums\CompensationPeriod;
 use App\Enums\ContractType;
 use App\Enums\WorkMode;
 use Illuminate\Foundation\Http\FormRequest;
@@ -23,7 +24,8 @@ class UpdateJobOfferRequest extends FormRequest
             'location' => ['sometimes', 'nullable', 'string', 'max:255'],
             'city' => ['sometimes', 'nullable', 'string', 'max:255'],
             'work_mode' => ['sometimes', 'nullable', Rule::enum(WorkMode::class)],
-            'compensation' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'compensation_amount' => ['sometimes', 'nullable', 'integer', 'min:1', 'max:999999'],
+            'compensation_period' => ['sometimes', 'nullable', Rule::enum(CompensationPeriod::class)],
             'experience_level' => ['sometimes', 'nullable', 'string', 'max:100'],
             'benefits' => ['sometimes', 'nullable', 'string', 'max:2000'],
             'diploma_level' => ['sometimes', 'nullable', 'string', 'max:100'],

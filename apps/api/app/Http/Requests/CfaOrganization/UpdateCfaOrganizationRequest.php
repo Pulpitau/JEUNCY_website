@@ -17,6 +17,7 @@ class UpdateCfaOrganizationRequest extends FormRequest
     {
         return [
             'name' => ['sometimes', 'string', 'max:255'],
+            'is_public' => ['sometimes', 'boolean'],
             'siret' => ['sometimes', 'nullable', 'string', 'size:14', Rule::unique('cfa_organizations', 'siret')->ignore($this->user()->cfaOrganization?->id)],
             'nda_number' => ['sometimes', 'nullable', 'string', 'max:50'],
             'qualiopi_number' => ['sometimes', 'nullable', 'string', 'max:50'],

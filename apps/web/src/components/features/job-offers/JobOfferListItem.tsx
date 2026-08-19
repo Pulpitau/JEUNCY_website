@@ -8,6 +8,7 @@ import { ApplicationsForOfferSection } from '@/components/features/job-offers/Ap
 import { ApiError } from '@/lib/api/client';
 import { WORK_MODE_LABELS } from '@/lib/work-mode-labels';
 import { offerPriceLabel, type JobOffer, type JobOfferInput } from '@/lib/api/job-offers';
+import { formatCompensation } from '@/lib/format-compensation';
 
 const STATUS_LABELS: Record<string, string> = {
   [JobOfferStatus.DRAFT]: 'Brouillon',
@@ -99,7 +100,13 @@ export function JobOfferListItem({
             {CONTRACT_TYPE_LABELS[offer.contract_type]}
             {offer.city ? ` · ${offer.city}` : ''}
             {offer.work_mode ? ` · ${WORK_MODE_LABELS[offer.work_mode]}` : ''}
-            {offer.compensation ? ` · ${offer.compensation}` : ''}
+            {formatCompensation(
+              offer.compensation_amount,
+              offer.compensation_period,
+              offer.compensation,
+            )
+              ? ` · ${formatCompensation(offer.compensation_amount, offer.compensation_period, offer.compensation)}`
+              : ''}
           </p>
         </div>
         <div className="flex flex-col items-end gap-1">

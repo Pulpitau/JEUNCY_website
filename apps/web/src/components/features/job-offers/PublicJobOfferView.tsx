@@ -11,6 +11,7 @@ import {
 } from '@/components/ui/card';
 import type { PublicJobOffer } from '@/lib/api/job-offers';
 import { WORK_MODE_LABELS } from '@/lib/work-mode-labels';
+import { formatCompensation } from '@/lib/format-compensation';
 
 const CONTRACT_TYPE_LABELS: Record<string, string> = {
   [ContractType.ALTERNANCE]: 'Alternance',
@@ -72,10 +73,20 @@ export function PublicJobOfferView({ offer, footer }: PublicJobOfferViewProps) {
               <dd className="inline">{WORK_MODE_LABELS[offer.work_mode]}</dd>
             </div>
           )}
-          {offer.compensation && (
+          {formatCompensation(
+            offer.compensation_amount,
+            offer.compensation_period,
+            offer.compensation,
+          ) && (
             <div>
               <dt className="inline text-muted-foreground">Rémunération : </dt>
-              <dd className="inline">{offer.compensation}</dd>
+              <dd className="inline">
+                {formatCompensation(
+                  offer.compensation_amount,
+                  offer.compensation_period,
+                  offer.compensation,
+                )}
+              </dd>
             </div>
           )}
           {!isCfaOffer && offer.experience_level && (
