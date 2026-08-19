@@ -13,6 +13,7 @@ import {
   FOUNDER_SUBSCRIPTION_PRICE_LABEL,
 } from '@/lib/api/subscriptions';
 import { useAuthStore } from '@/store/auth-store';
+import { usePageMetadata } from '@/hooks/use-page-metadata';
 
 // Tout illimite : c'est le seul chemin vers les candidatures et la CVtheque
 // depuis le 2026-08-17 (le deblocage a l'offre n'existe plus).
@@ -75,6 +76,11 @@ const WHY_JEUNCY = [
 ];
 
 export function Pricing() {
+  usePageMetadata(
+    'Tarifs entreprises et CFA',
+    "Publication d'offres et accès à la CVthèque : les tarifs Jeuncy pour les entreprises et les CFA.",
+    '/tarifs',
+  );
   const user = useAuthStore((state) => state.user);
   const isOrganization = user?.role === UserRole.COMPANY || user?.role === UserRole.CFA;
 

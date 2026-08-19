@@ -12,6 +12,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { usePageMetadata } from '@/hooks/use-page-metadata';
 
 const BRAND_VALUES = [
   {
@@ -102,6 +103,11 @@ const AUDIENCE_SECTIONS = [
 ] as const;
 
 export function About() {
+  usePageMetadata(
+    'À propos',
+    'Jeuncy, agence de recrutement nouvelle génération pour les alternants, saisonniers et bénévoles.',
+    '/a-propos',
+  );
   const location = useLocation();
 
   useEffect(() => {

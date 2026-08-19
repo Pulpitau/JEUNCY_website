@@ -11,6 +11,7 @@ import {
   CardContent,
 } from '@/components/ui/card';
 import { FreeForCandidatesBadge } from '@/components/FreeForCandidatesBadge';
+import { usePageMetadata } from '@/hooks/use-page-metadata';
 
 const AUDIENCES = [
   {
@@ -36,6 +37,11 @@ const AUDIENCES = [
 ];
 
 export function Home() {
+  usePageMetadata(
+    'Alternance, jobs saisonniers et étudiants',
+    'Trouve ton alternance, ton job saisonnier, ton stage ou ta mission bénévole. Gratuit pour les candidats.',
+    '/',
+  );
   const navigate = useNavigate();
   const [query, setQuery] = useState('');
 

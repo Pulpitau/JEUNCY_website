@@ -10,8 +10,14 @@ import { cn } from '@/lib/utils';
 import { WORK_MODE_LABELS } from '@/lib/work-mode-labels';
 import { DIPLOMA_LEVEL_OPTIONS } from '@/lib/diploma-level-options';
 import { searchPublicCfaOrganizations } from '@/lib/api/cfa-organizations';
+import { usePageMetadata } from '@/hooks/use-page-metadata';
 
 export function CfaOrganizations() {
+  usePageMetadata(
+    'CFA et centres de formation',
+    'Trouve le CFA ou le centre de formation qui propose ton alternance.',
+    '/cfa',
+  );
   const [searchParams, setSearchParams] = useSearchParams();
   const name = searchParams.get('name') ?? '';
   const city = searchParams.get('city') ?? '';
