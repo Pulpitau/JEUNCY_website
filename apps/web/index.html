@@ -4,12 +4,15 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-    <!-- Le logo Jeuncy comme favicon. Le PNG est declare en premier et
-         l'emporte sur le SVG dans les navigateurs qui suivent l'ordre du
-         document ; le SVG reste en repli pour ceux qui le preferent. -->
+    <!-- Le logo Jeuncy comme favicon.
+         AUCUN <link> vers un SVG ici, volontairement : Chrome privilegie un
+         favicon SVG des qu'il en trouve un declare, quel que soit l'ordre des
+         balises. Laisser l'ancien favicon.svg en repli suffisait donc a ce
+         qu'il continue de s'afficher a la place du logo. Le fichier reste
+         dans public/ (rien ne le reference) plutot que d'etre supprime : des
+         onglets et des marque-pages pointent peut-etre encore dessus. -->
     <link rel="icon" type="image/png" sizes="128x128" href="/logo/logo-light.png" />
     <link rel="apple-touch-icon" href="/logo/logo-light.png" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 
     <!-- Titre porteur de mots-cles plutot que la marque seule : personne ne
          cherche « Jeuncy » tant que la marque est inconnue, on se positionne
