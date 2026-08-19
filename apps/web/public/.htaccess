@@ -1,13 +1,46 @@
-# React Router (SPA) : toute URL qui ne correspond pas a un vrai fichier/dossier
-# doit retomber sur index.html pour que le routing cote client prenne le relais.
-# Sans ca, un lien profond (ex: /auth/callback apres Google OAuth, ou tout
-# lien partage/rafraichi) renvoie un 404 Apache au lieu de charger l'app.
-#
 # Ce fichier est copie tel quel dans dist/ a chaque build (voir vite.config.ts,
 # publicDir par defaut = public/) : il est donc automatiquement present a
 # chaque redeploiement, contrairement au Basic Auth de staging (.htpasswd) qui
 # lui doit rester ajoute a la main sur le serveur (specifique a staging, ne
 # doit pas se retrouver dans le build de production).
+
+# --- Forcer HTTPS ---------------------------------------------------------
+# Le site repondait en clair sur http://jeuncy.com sans rediriger : un
+# visiteur tapant "jeuncy.com" pouvait saisir son mot de passe sur une page
+# non chiffree, et Google risquait d'indexer une version HTTP en double.
+#
+# DEUX conditions, et non une seule : selon la configuration du proxy OVH,
+# c'est %{HTTPS} ou l'en-tete X-Forwarded-Proto qui porte l'information. En
+# n'agissant que si les DEUX indiquent une requete non chiffree, on ne peut
+# pas boucler — si l'une des deux dit "https", aucune redirection.
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteCond %{HTTPS} !=on
+  RewriteCond %{HTTP:X-Forwarded-Proto} !=https
+  RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [R=301,L]
+</IfModule>
+
+# --- En-tetes de securite -------------------------------------------------
+<IfModule mod_headers.c>
+  # Impose HTTPS pendant 6 mois apres la premiere visite : le navigateur
+  # n'essaiera meme plus le HTTP. Duree volontairement pas maximale et sans
+  # "preload" : ces deux options sont difficiles a annuler si un probleme de
+  # certificat survenait.
+  Header always set Strict-Transport-Security "max-age=15768000"
+
+  # Empeche le navigateur de "deviner" un type de fichier : une image piegee
+  # ne peut pas etre interpretee comme du script.
+  Header always set X-Content-Type-Options "nosniff"
+
+  # Empeche l'affichage du site dans une iframe tierce (clickjacking : un
+  # faux site superpose des boutons invisibles sur le vrai).
+  Header always set X-Frame-Options "SAMEORIGIN"
+
+  # Ne transmet pas l'URL complete aux sites externes, seulement le domaine.
+  Header always set Referrer-Policy "strict-origin-when-cross-origin"
+</IfModule>
+
+# --- Routage de l'application monopage ------------------------------------
 <IfModule mod_rewrite.c>
   RewriteEngine On
   RewriteBase /
