@@ -211,6 +211,7 @@ class AdminServiceTest extends TestCase
             'password_hash' => 'x',
             'role' => UserRole::COMPANY,
             'is_suspended' => true,
+            'deleted_account_at' => now(),
         ]);
 
         $emails = collect($this->service->listUsers([])->items())->pluck('email');
@@ -230,6 +231,7 @@ class AdminServiceTest extends TestCase
             'password_hash' => 'x',
             'role' => UserRole::COMPANY,
             'is_suspended' => true,
+            'deleted_account_at' => now(),
         ]);
 
         $stats = $this->service->stats();

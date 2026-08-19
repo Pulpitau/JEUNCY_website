@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 
-#[Fillable(['email', 'password_hash', 'google_id', 'role', 'is_suspended', 'last_login_at'])]
+#[Fillable(['email', 'password_hash', 'google_id', 'role', 'is_suspended', 'last_login_at', 'deleted_account_at'])]
 #[Hidden(['password_hash'])]
 class User extends Authenticatable
 {
@@ -32,14 +32,19 @@ class User extends Authenticatable
             'role' => UserRole::class,
             'is_suspended' => 'boolean',
             'last_login_at' => 'datetime',
+            'deleted_account_at' => 'datetime',
         ];
     }
 
-    // Domaine des emails d'anonymisation. Un compte ayant des paiements ne
-    // peut pas etre supprime (conservation comptable) : AccountService le
-    // reecrit en compte-supprime-{id}@jeuncy.invalid. Le TLD .invalid est
-    // reserve par la RFC 2606 et ne peut donc jamais appartenir a un vrai
-    // utilisateur — c'est ce qui rend ce marqueur fiable.
+    // Domaine reserve aux adresses d'anonymisation (voir
+    // AccountService::deleteAccount). Interdit a l'inscription : sans cette
+    // reserve, un tiers pouvait s'inscrire avec une telle adresse.
+    //
+    // Ce domaine ne sert PLUS a determiner si un compte est supprime — c'est
+    // deleted_account_at qui porte cet etat. Deduire un etat d'une chaine que
+    // l'utilisateur controle etait la cause de deux failles (compte invisible
+    // de la moderation, et suppression RGPD bloquable par pre-enregistrement
+    // de l'adresse previsible).
     public const DELETED_EMAIL_DOMAIN = '@jeuncy.invalid';
 
     // Comptes reels, hors vestiges comptables de comptes supprimes. A utiliser
@@ -48,12 +53,12 @@ class User extends Authenticatable
     // aucune personne existante.
     public function scopeNotDeleted(Builder $query): Builder
     {
-        return $query->where('email', 'not like', '%'.self::DELETED_EMAIL_DOMAIN);
+        return $query->whereNull('deleted_account_at');
     }
 
     public function isDeletedAccount(): bool
     {
-        return str_ends_with($this->email, self::DELETED_EMAIL_DOMAIN);
+        return $this->deleted_account_at !== null;
     }
 
     public function candidateProfile(): HasOne

@@ -73,11 +73,19 @@ export function PublicJobOfferView({ offer, footer }: PublicJobOfferViewProps) {
               <dd className="inline">{WORK_MODE_LABELS[offer.work_mode]}</dd>
             </div>
           )}
-          {formatCompensation(offer.compensation_amount, offer.compensation_period) && (
+          {formatCompensation(
+            offer.compensation_amount,
+            offer.compensation_period,
+            offer.compensation,
+          ) && (
             <div>
               <dt className="inline text-muted-foreground">Rémunération : </dt>
               <dd className="inline">
-                {formatCompensation(offer.compensation_amount, offer.compensation_period)}
+                {formatCompensation(
+                  offer.compensation_amount,
+                  offer.compensation_period,
+                  offer.compensation,
+                )}
               </dd>
             </div>
           )}

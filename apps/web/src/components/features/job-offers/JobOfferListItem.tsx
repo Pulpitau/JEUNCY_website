@@ -100,8 +100,12 @@ export function JobOfferListItem({
             {CONTRACT_TYPE_LABELS[offer.contract_type]}
             {offer.city ? ` · ${offer.city}` : ''}
             {offer.work_mode ? ` · ${WORK_MODE_LABELS[offer.work_mode]}` : ''}
-            {formatCompensation(offer.compensation_amount, offer.compensation_period)
-              ? ` · ${formatCompensation(offer.compensation_amount, offer.compensation_period)}`
+            {formatCompensation(
+              offer.compensation_amount,
+              offer.compensation_period,
+              offer.compensation,
+            )
+              ? ` · ${formatCompensation(offer.compensation_amount, offer.compensation_period, offer.compensation)}`
               : ''}
           </p>
         </div>

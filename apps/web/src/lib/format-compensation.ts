@@ -20,12 +20,19 @@ export const COMPENSATION_PERIOD_OPTIONS: {
 //
 // « brut » est explicite : c'est ce qui est demande a l'entreprise, et un
 // candidat qui lit un salaire sans cette mention suppose souvent du net.
+// `legacyText` est l'ancien champ texte libre. La migration ne convertit que
+// ce qu'elle lit sans ambiguite ; tout le reste (« SMIC + primes », « Selon
+// profil », « 800 € / mois + tickets restaurant ») garde son texte et
+// continue de s'afficher ainsi. Sans ce repli, ces offres — publiees et
+// payees — n'afficheraient plus aucune remuneration, et leur proprietaire ne
+// pourrait meme pas la ressaisir : une offre publiee n'est plus modifiable.
 export function formatCompensation(
   amount: number | null | undefined,
   period: CompensationPeriod | null | undefined,
+  legacyText?: string | null,
 ): string | null {
   if (amount === null || amount === undefined || amount <= 0) {
-    return null;
+    return legacyText?.trim() || null;
   }
 
   // fr-FR insere une espace insecable etroite entre les milliers et avant le

@@ -54,9 +54,21 @@ const jobOfferSchema = z.object({
   // converti a la soumission. Le regex refuse tout ce qui n'est pas une
   // suite de chiffres : « 1 200 » ou « 1200€ » partiraient sinon en base
   // comme montant illisible.
+  // Les bornes reproduisent celles du serveur (min:1, max:999999) : sans
+  // elles, « 0 » ou un montant a sept chiffres passaient la validation client
+  // puis revenaient en 400, avec un message d'erreur generique que
+  // l'entreprise ne pouvait rattacher a aucun champ.
   compensation_amount: z
     .string()
     .regex(/^\d*$/, 'Indique uniquement un montant en chiffres, sans espace ni symbole.')
+    .refine(
+      (value) => value === '' || Number(value) >= 1,
+      'Indique un montant supérieur à 0.',
+    )
+    .refine(
+      (value) => value === '' || Number(value) <= 999999,
+      'Ce montant dépasse la limite autorisée.',
+    )
     .optional()
     .or(z.literal('')),
   compensation_period: z
@@ -142,12 +154,13 @@ export function JobOfferForm({
       contract_type: values.contract_type,
       city: values.city || null,
       work_mode: values.work_mode || null,
-      compensation_amount: values.compensation_amount
-        ? Number(values.compensation_amount)
-        : null,
+      // Number() avant le test, et non la chaine : « 0 » est une chaine
+      // truthy en JS, donc le garde « vide -> null » le laissait passer et le
+      // serveur le refusait ensuite (min:1).
+      compensation_amount: Number(values.compensation_amount) || null,
       // Pas de periode sans montant : « / mois » seul ne veut rien dire, et
       // laisserait une donnee incoherente en base.
-      compensation_period: values.compensation_amount
+      compensation_period: Number(values.compensation_amount)
         ? values.compensation_period || 'MONTHLY'
         : null,
       experience_level: variant === 'COMPANY' ? values.experience_level || null : null,

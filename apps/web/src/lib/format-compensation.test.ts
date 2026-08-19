@@ -35,4 +35,25 @@ describe('formatCompensation', () => {
   it('n affiche pas de centimes', () => {
     expect(normalize(formatCompensation(1200, 'MONTHLY'))).not.toContain(',');
   });
+
+  // La migration ne convertit que ce qu'elle lit sans ambiguite. Les offres
+  // deja publiees dont le texte n'etait pas convertible (« SMIC + primes »,
+  // « Selon profil ») doivent continuer d'afficher ce texte : sans ce repli
+  // elles n'afficheraient plus aucune remuneration, et leur proprietaire ne
+  // pourrait pas la ressaisir puisqu'une offre publiee n'est plus modifiable.
+  it('retombe sur l ancien texte quand aucun montant n a pu etre repris', () => {
+    expect(formatCompensation(null, null, 'SMIC + primes')).toBe('SMIC + primes');
+    expect(formatCompensation(null, null, 'Selon profil')).toBe('Selon profil');
+  });
+
+  it('prefere toujours le montant structure a l ancien texte', () => {
+    expect(normalize(formatCompensation(1200, 'MONTHLY', 'ancienne valeur'))).toBe(
+      '1 200 € brut / mois',
+    );
+  });
+
+  it('ignore un ancien texte vide plutot que d afficher du blanc', () => {
+    expect(formatCompensation(null, null, '   ')).toBeNull();
+    expect(formatCompensation(null, null, '')).toBeNull();
+  });
 });

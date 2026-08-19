@@ -68,9 +68,17 @@ export function PublicJobOfferCard({ offer }: { offer: PublicJobOffer }) {
           </div>
         </CardHeader>
         <CardContent>
-          {formatCompensation(offer.compensation_amount, offer.compensation_period) && (
+          {formatCompensation(
+            offer.compensation_amount,
+            offer.compensation_period,
+            offer.compensation,
+          ) && (
             <p className="mb-1 font-inter text-sm font-medium text-foreground">
-              {formatCompensation(offer.compensation_amount, offer.compensation_period)}
+              {formatCompensation(
+                offer.compensation_amount,
+                offer.compensation_period,
+                offer.compensation,
+              )}
             </p>
           )}
           <p className="line-clamp-3 font-inter text-sm text-muted-foreground">
