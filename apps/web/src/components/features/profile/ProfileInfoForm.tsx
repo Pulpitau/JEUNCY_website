@@ -160,8 +160,20 @@ export function ProfileInfoForm({
           />
         </div>
         <div className="flex flex-col gap-2 sm:col-span-2">
-          <Label htmlFor="address">Adresse</Label>
-          <Input id="address" autoComplete="street-address" {...register('address')} />
+          {/* « Adresse postale » et non « Adresse » : en francais, « ton
+              adresse » designe couramment un email. Un premier candidat a
+              effectivement saisi son adresse email ici. Le placeholder leve
+              le doute meme pour qui ne lit pas le libelle en entier. */}
+          <Label htmlFor="address">Adresse postale</Label>
+          <Input
+            id="address"
+            placeholder="Ex : 12 rue des Écoles"
+            autoComplete="street-address"
+            {...register('address')}
+          />
+          <p className="font-inter text-xs text-muted-foreground">
+            Facultatif. Ton email est celui de ton compte, tu n'as pas à le saisir ici.
+          </p>
         </div>
         <div className="flex flex-col gap-2">
           <Label htmlFor="city">Ville</Label>
