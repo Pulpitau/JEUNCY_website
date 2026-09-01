@@ -1,6 +1,8 @@
 import { Link } from 'react-router-dom';
 import { ArrowRight } from 'lucide-react';
 
+import { SocialLinks } from '@/components/SocialLinks';
+
 export function Footer() {
   return (
     <footer className="border-t border-border bg-background">
@@ -31,25 +33,40 @@ export function Footer() {
           </p>
         </div>
 
-        <nav
-          className="flex gap-4 font-inter text-xs text-muted-foreground"
-          aria-label="Liens légaux"
-        >
-          <Link
-            to="/mentions-legales"
-            className="transition-colors hover:text-foreground"
+        {/* Reseaux sociaux puis liens legaux : le visiteur qui descend
+            jusqu'ici cherche soit a nous suivre, soit a lire les mentions.
+            Les icones passent en premier, elles sont le geste actif. */}
+        <div className="flex flex-col gap-3 sm:items-end">
+          {/* -ml-3 (et -mr-3 en desktop) rattrape le padding des cibles
+              tactiles pour que la rangee d'icones reste alignee sur les
+              liens legaux en dessous. */}
+          <div className="-ml-3 sm:ml-0 sm:-mr-3">
+            <SocialLinks />
+          </div>
+
+          <nav
+            className="flex flex-wrap gap-4 font-inter text-xs text-muted-foreground"
+            aria-label="Liens légaux"
           >
-            Mentions légales
-          </Link>
-          <Link to="/confidentialite" className="transition-colors hover:text-foreground">
-            Politique de confidentialité
-          </Link>
-          {/* Second point d'entree vers le contact : un visiteur qui descend
-              jusqu'au pied de page cherche souvent precisement ca. */}
-          <Link to="/contact" className="transition-colors hover:text-foreground">
-            Contact
-          </Link>
-        </nav>
+            <Link
+              to="/mentions-legales"
+              className="transition-colors hover:text-foreground"
+            >
+              Mentions légales
+            </Link>
+            <Link
+              to="/confidentialite"
+              className="transition-colors hover:text-foreground"
+            >
+              Politique de confidentialité
+            </Link>
+            {/* Second point d'entree vers le contact : un visiteur qui descend
+                jusqu'au pied de page cherche souvent precisement ca. */}
+            <Link to="/contact" className="transition-colors hover:text-foreground">
+              Contact
+            </Link>
+          </nav>
+        </div>
       </div>
     </footer>
   );
