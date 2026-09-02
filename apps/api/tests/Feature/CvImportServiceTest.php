@@ -217,6 +217,51 @@ class CvImportServiceTest extends TestCase
         $this->assertSame('2022-06-01', $result['experiences'][1]['start_date']);
     }
 
+    // Deuxieme disposition, tres repandue (gabarits Canva, CV mis en page a
+    // l'etranger) : la date OUVRE l'entree, et l'extraction PDF colle le nom de
+    // l'entreprise en capitales au poste qui suit. Reproduit ici tel que
+    // smalot/pdfparser le restitue sur un vrai CV — sans ce traitement,
+    // AUCUNE des trois experiences n'etait reconnue.
+    public function test_parse_reads_entries_where_the_date_opens_and_the_company_is_glued(): void
+    {
+        $file = $this->makePdfUpload(
+            '<p>PARCOURS PROFESSIONNEL</p>'
+            .'<p>JUN 2025- Act</p>'
+            .'<p>SURPRISE ROSESetter commercial/ Madrid freelance</p>'
+            .'<p>Prise de contact et qualification des prospects</p>'
+            .'<p>Suivi des clients et relance commerciale JUI 2024- NOV 2024</p>'
+            .'<p>LOVISAResponsable de Magasin/ Quito Equateur</p>'
+            .'<p>Gestion des stocks et des inventaires</p>',
+        );
+
+        $result = $this->service->parse($file);
+
+        $this->assertCount(2, $result['experiences']);
+
+        $this->assertSame('Setter commercial', $result['experiences'][0]['title']);
+        $this->assertSame('SURPRISE ROSE', $result['experiences'][0]['company']);
+        $this->assertSame('2025-06-01', $result['experiences'][0]['start_date']);
+        $this->assertNull($result['experiences'][0]['end_date']);
+
+        $this->assertSame('Responsable de Magasin', $result['experiences'][1]['title']);
+        $this->assertSame('LOVISA', $result['experiences'][1]['company']);
+        $this->assertSame('2024-11-30', $result['experiences'][1]['end_date']);
+    }
+
+    // "JUI" est ambigu (juin ou juillet). Juin par defaut : se tromper d'un
+    // mois est sans consequence, retomber sur janvier fausse la chronologie.
+    public function test_parse_reads_an_ambiguous_month_abbreviation(): void
+    {
+        $file = $this->makePdfUpload(
+            '<p>EXPÉRIENCES</p><p>Vendeur</p><p>Decathlon</p><p>JUI 2023 - AOU 2023</p>',
+        );
+
+        $result = $this->service->parse($file);
+
+        $this->assertCount(1, $result['experiences']);
+        $this->assertSame('2023-06-01', $result['experiences'][0]['start_date']);
+    }
+
     public function test_parse_extracts_educations_with_dates(): void
     {
         $result = $this->service->parse($this->makeRealisticCv());

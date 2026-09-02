@@ -37,7 +37,7 @@ class CvImportService
     // "Depuis 2023", "2023 - aujourd'hui", "sept. 2023 - present".
     // Mois francais ET anglais : beaucoup de CV utilisent des gabarits
     // anglophones (Canva, LinkedIn) qui laissent "JUN 2025" tel quel.
-    private const MONTHS = 'janvier|janv|jan|fevrier|fev|feb|mars|mar|avril|avr|apr|mai|may|juin|jun|juillet|juil|jul|aout|aug|septembre|sept|sep|octobre|oct|novembre|nov|decembre|dec';
+    private const MONTHS = 'janvier|janv|jan|fevrier|fev|feb|mars|mar|avril|avr|apr|mai|may|juillet|juil|juin|jui|jun|jul|aout|aou|aug|septembre|sept|sep|octobre|oct|novembre|nov|decembre|dec';
 
     public function parse(UploadedFile $file): array
     {
@@ -154,13 +154,23 @@ class CvImportService
         return $sections;
     }
 
-    // Une entree = une plage de dates, plus les lignes qui l'entourent.
-    // La ligne de dates sert d'ancre : ce qui la precede immediatement (et qui
-    // n'appartient pas a l'entree precedente) donne l'intitule et
-    // l'organisation, ce qui la suit donne la description.
+    // Une entree = une plage de dates, plus la ligne qui porte l'identite du
+    // poste ou du diplome. Deux dispositions coexistent dans les vrais CV, et
+    // il faut savoir les distinguer :
+    //
+    //  - classique : intitule, organisation, puis dates ;
+    //  - gabarits type Canva : la date d'abord, l'identite juste apres, avec
+    //    l'entreprise EN CAPITALES collee au poste par l'extraction PDF
+    //    ("SURPRISE ROSESetter commercial/ Madrid freelance ...").
+    //
+    // L'entreprise en capitales collee au poste est le signal le plus fiable :
+    // quand une ligne candidate en contient une, c'est elle l'identite, ou
+    // qu'elle se trouve. A defaut on retombe sur la disposition classique (ce
+    // qui precede la date), puis sur ce qui la suit.
     private function extractEntries(string $sectionText, string $type): array
     {
         $lines = $this->toLines($sectionText);
+
         $anchors = [];
         foreach ($lines as $i => $line) {
             $dates = $this->extractDateRange($line);
@@ -171,43 +181,24 @@ class CvImportService
 
         $entries = [];
         foreach ($anchors as $n => $anchor) {
-            $previousAnchor = $n > 0 ? $anchors[$n - 1]['index'] : -1;
-            $nextAnchor = $anchors[$n + 1]['index'] ?? count($lines);
+            $previous = $n > 0 ? $anchors[$n - 1]['index'] : -1;
+            $next = $anchors[$n + 1]['index'] ?? count($lines);
 
-            // Titres : les lignes entre l'ancre precedente et celle-ci. On en
-            // garde au plus deux (intitule + organisation), les CV placent
-            // rarement plus haut ce qui identifie l'entree.
-            $before = array_slice($lines, $previousAnchor + 1, $anchor['index'] - $previousAnchor - 1);
-            $before = array_values(array_filter($before, fn ($l) => $this->extractDateRange($l) === null));
-            $heads = array_slice($before, -2);
-
-            // Si la ligne de dates porte aussi du texte (format
-            // "Vendeuse - Decathlon - 2023"), il fait partie de l'intitule.
+            // La ligne de dates porte parfois l'identite ("Vendeuse - Decathlon
+            // - 2023"), parfois la fin de la description de l'entree
+            // precedente : on la nettoie et on la traite comme une candidate
+            // parmi d'autres plutot que de lui faire confiance d'emblee.
             $inline = trim(preg_replace($this->dateRangeRegex(), '', $anchor['line']) ?? '');
-            $inline = trim($inline, " \t·|,-–—");
-            if ($inline !== '' && mb_strlen($inline) > 2) {
-                array_unshift($heads, $inline);
-            }
+            $inline = trim($inline, " \t·|,-–—:");
 
-            $after = array_slice($lines, $anchor['index'] + 1, $nextAnchor - $anchor['index'] - 1);
-            // Les lignes qui suivent appartiennent a cette entree, sauf les
-            // deux dernieres qui introduisent la suivante (deja traitees
-            // ci-dessus comme ses intitules).
-            if ($nextAnchor < count($lines)) {
-                $after = array_slice($after, 0, max(0, count($after) - 2));
-            }
+            $before = array_values(array_filter(
+                array_slice($lines, $previous + 1, $anchor['index'] - $previous - 1),
+                fn ($l) => $this->extractDateRange($l) === null,
+            ));
+            $after = array_slice($lines, $anchor['index'] + 1, $next - $anchor['index'] - 1);
 
-            // Deuxieme disposition courante, tres frequente sur les gabarits
-            // anglophones : la date vient EN PREMIER, l'intitule juste apres
-            // ("JUN 2025 - Act" puis "Setter commercial"). Sans ce repli,
-            // toutes ces entrees etaient perdues — constate sur de vrais CV.
-            $description = $after;
-            if ($heads === []) {
-                $heads = array_slice($after, 0, 2);
-                $description = array_slice($after, 2);
-            }
-
-            if ($heads === [] || ! $this->looksLikeATitle($heads[0])) {
+            $identity = $this->pickIdentity($inline, $after, $before);
+            if ($identity === null) {
                 continue;
             }
 
@@ -217,12 +208,12 @@ class CvImportService
             ];
 
             if ($type === 'experience') {
-                $entry['title'] = $this->shorten($heads[0]);
-                $entry['company'] = isset($heads[1]) ? $this->shorten($heads[1]) : null;
-                $entry['description'] = $description === [] ? null : implode("\n", $description);
+                $entry['title'] = $identity['title'];
+                $entry['company'] = $identity['organisation'];
+                $entry['description'] = $identity['description'];
             } else {
-                $entry['degree'] = $this->shorten($heads[0]);
-                $entry['school'] = isset($heads[1]) ? $this->shorten($heads[1]) : null;
+                $entry['degree'] = $identity['title'];
+                $entry['school'] = $identity['organisation'];
             }
 
             $entries[] = $entry;
@@ -231,38 +222,132 @@ class CvImportService
         return $entries;
     }
 
+    // Choisit, parmi les lignes qui entourent une date, celle qui identifie
+    // l'entree, et en tire intitule, organisation et description.
+    //
+    // @return array{title: string, organisation: ?string, description: ?string}|null
+    private function pickIdentity(string $inline, array $after, array $before): ?array
+    {
+        $lastBefore = $before === [] ? '' : $before[count($before) - 1];
+
+        // 1. Une entreprise en capitales tranche immediatement, ou qu'elle soit.
+        $candidats = [
+            [$inline, $after],
+            [$after[0] ?? '', array_slice($after, 1)],
+            [$lastBefore, $after],
+        ];
+
+        foreach ($candidats as [$ligne, $reste]) {
+            if ($ligne === '') {
+                continue;
+            }
+            $parsed = $this->splitCapitalisedOrganisation($ligne);
+            if ($parsed !== null && $this->looksLikeATitle($parsed['title'])) {
+                return $parsed + ['description' => $this->joinDescription($reste)];
+            }
+        }
+
+        // 2. Disposition classique : intitule puis organisation AVANT la date.
+        if ($before !== []) {
+            $heads = array_slice($before, -2);
+            $title = $this->shorten($heads[0]);
+            if ($this->looksLikeATitle($title)) {
+                return [
+                    'title' => $title,
+                    'organisation' => isset($heads[1]) ? $this->shorten($heads[1]) : null,
+                    'description' => $this->joinDescription($after),
+                ];
+            }
+        }
+
+        // 3. La date ouvre l'entree : l'identite suit.
+        if ($inline !== '' && $this->looksLikeATitle($this->shorten($inline))) {
+            return [
+                'title' => $this->shorten($inline),
+                'organisation' => isset($after[0]) ? $this->shorten($after[0]) : null,
+                'description' => $this->joinDescription(array_slice($after, 1)),
+            ];
+        }
+
+        if ($after !== [] && $this->looksLikeATitle($this->shorten($after[0]))) {
+            return [
+                'title' => $this->shorten($after[0]),
+                'organisation' => isset($after[1]) ? $this->shorten($after[1]) : null,
+                'description' => $this->joinDescription(array_slice($after, 2)),
+            ];
+        }
+
+        return null;
+    }
+
+    // "SURPRISE ROSESetter commercial/ Madrid freelance Gestion des messages"
+    // devient organisation "SURPRISE ROSE", intitule "Setter commercial".
+    //
+    // L'extraction PDF colle l'entreprise (en capitales) au poste : la
+    // frontiere est le passage d'une suite de capitales a une capitale suivie
+    // d'une minuscule. Le poste s'arrete ensuite au premier separateur, ce qui
+    // suit etant le lieu puis la description.
+    //
+    // @return array{title: string, organisation: string}|null
+    private function splitCapitalisedOrganisation(string $line): ?array
+    {
+        if (! preg_match('/^([\p{Lu}][\p{Lu}\s&\'.\-]{2,58}?)(?=\p{Lu}\p{Ll})(.+)$/u', $line, $m)) {
+            return null;
+        }
+
+        $organisation = trim($m[1], " \t.-'&");
+        $rest = trim($m[2]);
+
+        $title = preg_split('#\s*(?:[/·|]|\s-\s)\s*#u', $rest)[0] ?? $rest;
+
+        if (mb_strlen($organisation) < 3 || trim((string) $title) === '') {
+            return null;
+        }
+
+        return [
+            'title' => $this->shorten((string) $title),
+            'organisation' => $this->shorten($organisation),
+        ];
+    }
+
+    private function joinDescription(array $lines): ?string
+    {
+        $lines = array_values(array_filter(
+            array_map('trim', $lines),
+            fn ($l) => $l !== '',
+        ));
+
+        return $lines === [] ? null : implode("\n", $lines);
+    }
+
     // Filtre de vraisemblance. Sur un CV a colonnes, l'extraction PDF rend un
     // texte melange d'ou l'on ne peut tirer que des phrases de description
-    // prises pour des intitules ("Conseil personnalise afin d'orienter les
-    // clients vers..."). Proposer ces entrees est PIRE que n'en proposer
-    // aucune : le candidat doit alors les supprimer une par une avant de
-    // ressaisir les vraies. On ne retient donc que ce qui ressemble a un
-    // intitule de poste ou de diplome : court, sans ponctuation de phrase.
+    // prises pour des intitules. Proposer ces entrees est PIRE que n'en
+    // proposer aucune : le candidat doit alors les supprimer une par une avant
+    // de ressaisir les vraies.
     private function looksLikeATitle(string $value): bool
     {
         $value = trim($value);
 
-        if (mb_strlen($value) < 3 || mb_strlen($value) > 70) {
+        if (mb_strlen($value) < 3 || mb_strlen($value) > 80) {
             return false;
         }
 
-        // Une phrase se termine par un point ou contient une virgule suivie
-        // d'un verbe conjugue ; un intitule, non.
         if (preg_match('/[.…]$/u', $value)) {
             return false;
         }
 
-        // Au-dela de huit mots, ce n'est plus un intitule mais une phrase.
-        return str_word_count(Str::ascii($value), 0) <= 8;
+        // Dix mots et non huit : des intitules reels comme "Community Manager
+        // et creatrice de contenu" depassent huit mots.
+        return str_word_count(Str::ascii($value), 0) <= 10;
     }
 
     // L'extraction PDF colle regulierement plusieurs elements sur une meme
-    // ligne ("SURPRISE ROSESetter commercial/ Madrid freelance Gestion des
-    // messages..."). On tronque plutot que de refuser l'entree : le candidat
-    // corrige un intitule trop long bien plus vite qu'il ne ressaisit tout.
+    // ligne. On tronque plutot que de refuser l'entree : le candidat corrige
+    // un intitule trop long bien plus vite qu'il ne ressaisit tout.
     private function shorten(string $value): string
     {
-        return Str::limit(trim($value, " \t·|,-–—:"), 90, '');
+        return Str::limit(trim($value, " \t·|,-–—:"), 80, '');
     }
 
     private function dateRangeRegex(): string
@@ -326,7 +411,12 @@ class CvImportService
         'janv' => 1, 'jan' => 1, 'fevr' => 2, 'fev' => 2, 'feb' => 2,
         'mars' => 3, 'mar' => 3, 'avr' => 4, 'apr' => 4, 'mai' => 5, 'may' => 5,
         'juin' => 6, 'jun' => 6, 'juil' => 7, 'jul' => 7,
-        'aout' => 8, 'aug' => 8, 'sept' => 9, 'sep' => 9,
+        // 'jui' seul est ambigu (juin ou juillet) et frequent sur les CV
+        // mis en page a l'etranger. Juin plutot que janvier par defaut : se
+        // tromper d'un mois est sans consequence, se tromper de semestre
+        // fausse la chronologie du parcours.
+        'jui' => 6,
+        'aout' => 8, 'aou' => 8, 'aug' => 8, 'sept' => 9, 'sep' => 9,
         'octo' => 10, 'oct' => 10, 'nov' => 11, 'dec' => 12,
     ];
 
