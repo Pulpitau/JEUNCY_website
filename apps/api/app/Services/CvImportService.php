@@ -36,17 +36,17 @@ class CvImportService
     // ordre, "jui" avale "juillet" et "aug" avale "august", le reste du mot
     // empeche alors la date de matcher et l'entree disparait entierement.
     private const MONTHS = 'janvier|january|janv|jan'
-        .'|fevrier|february|fevr|fev|feb'
+        .'|f[eé]vrier|february|f[eé]vr|f[eé]v|feb'
         .'|mars|march|mar'
         .'|avril|april|avr|apr'
         .'|mai|may'
         .'|juillet|july|juil|jul'
         .'|juin|june|jui|jun'
-        .'|aout|august|aou|aug'
+        .'|ao[uû]t|august|ao[uû]|aug'
         .'|septembre|september|sept|sep'
         .'|octobre|october|octo|oct'
         .'|novembre|november|nov'
-        .'|decembre|december|dec';
+        .'|d[eé]cembre|december|d[eé]c';
 
     // Mots qui designent une fin ouverte. "current" et "ongoing" sont produits
     // tels quels par l'editeur Europass en ligne.
@@ -479,9 +479,14 @@ class CvImportService
         // Les CV placent tantot l'intitule avant l'organisation, tantot
         // l'inverse. Une ligne entierement en capitales, ou qui nomme un
         // etablissement, est l'organisation.
+        // Deux indices, du plus sur au moins sur : la seconde ligne nomme un
+        // poste alors que la premiere non ; ou la premiere ligne est une
+        // organisation manifeste (capitales, etablissement scolaire).
         $premierEstOrganisation = $second !== null
-            && $this->looksLikeOrganisation($first)
-            && ! $this->looksLikeOrganisation($second);
+            && (
+                ($this->looksLikeAJob($second) && ! $this->looksLikeAJob($first))
+                || ($this->looksLikeOrganisation($first) && ! $this->looksLikeOrganisation($second))
+            );
 
         return [
             'title' => $premierEstOrganisation ? $second : $first,
@@ -513,6 +518,22 @@ class CvImportService
         }
 
         return ! $this->looksLikeSectionHeading($line);
+    }
+
+    // Vocabulaire des postes qu'occupent reellement les candidats de Jeuncy.
+    // Sert a savoir laquelle des deux lignes est l'intitule quand le CV les
+    // presente dans l'ordre inverse (organisation puis poste) : sans cela,
+    // "Transdev / Agent d'exploitation" donnait entreprise "Agent
+    // d'exploitation" et poste "Transdev".
+    private const JOB_HINTS = 'agent|employ[ée]|vendeu|serveu|assistant|charg[ée]|responsable'
+        .'|technicien|stagiaire|alternant|apprenti|animateur|animatrice|caissi'
+        .'|livreur|manutention|commercial|conseill|h[ôo]te|h[ôo]tesse|equipier|[ée]quipier'
+        .'|preparateur|pr[ée]parateur|ouvrier|b[ée]n[ée]vole|volontaire|stage|job'
+        .'|manager|developp|d[ée]velopp|community|secr[ée]taire|barman|cuisinier|plongeur';
+
+    private function looksLikeAJob(string $value): bool
+    {
+        return (bool) preg_match('/\b(?:'.self::JOB_HINTS.')/iu', $value);
     }
 
     private function looksLikeOrganisation(string $value): bool
@@ -676,7 +697,13 @@ class CvImportService
         }
 
         if (preg_match($this->singleDateRegex(), $normalized, $m)) {
-            return ['start' => $this->toDate($m[1], false), 'end' => null];
+            // Fin calculee sur la MEME periode, jamais laissee ouverte : un
+            // "Job d'ete — juillet 2023" s'affichait "en cours", ce qui est
+            // faux et donne au recruteur une image erronee du parcours.
+            return [
+                'start' => $this->toDate($m[1], false),
+                'end' => $this->toDate($m[1], true),
+            ];
         }
 
         return null;
