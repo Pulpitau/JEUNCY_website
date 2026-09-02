@@ -310,6 +310,13 @@ class CvImportService
         ];
     }
 
+    // 2000 caracteres : la limite exacte acceptee par le profil
+    // (StoreExperienceRequest). Sur un CV a colonnes, l extraction agrege
+    // parfois plusieurs blocs dans une meme description et depassait cette
+    // limite — l API refusait alors l entree, et le candidat ne voyait qu un
+    // echec sans cause. On tronque plutot que de perdre l experience entiere.
+    private const MAX_DESCRIPTION_LENGTH = 2000;
+
     private function joinDescription(array $lines): ?string
     {
         $lines = array_values(array_filter(
@@ -317,7 +324,12 @@ class CvImportService
             fn ($l) => $l !== '',
         ));
 
-        return $lines === [] ? null : implode("\n", $lines);
+        if ($lines === []) {
+            return null;
+        }
+
+        return Str::limit(implode('
+', $lines), self::MAX_DESCRIPTION_LENGTH, '');
     }
 
     // Filtre de vraisemblance. Sur un CV a colonnes, l'extraction PDF rend un
@@ -376,10 +388,19 @@ class CvImportService
         $end = $m[3] ?? '';
         $isOngoing = (bool) preg_match('/aujourd|present|actuel|en cours|a ce jour/u', $end);
 
-        return [
-            'start' => $this->toDate($m[2] ?? '', false),
-            'end' => $isOngoing ? null : $this->toDate($end, true),
-        ];
+        $startDate = $this->toDate($m[2] ?? '', false);
+        $endDate = $isOngoing ? null : $this->toDate($end, true);
+
+        // Le profil exige une date de fin posterieure au debut
+        // (after_or_equal:start_date). Sur un texte melange, l extraction peut
+        // apparier deux dates qui n appartiennent pas a la meme entree et
+        // produire une plage inversee : l API refusait alors l entree entiere.
+        // Mieux vaut une date de fin inconnue qu une experience perdue.
+        if ($startDate !== null && $endDate !== null && $endDate < $startDate) {
+            $endDate = null;
+        }
+
+        return ['start' => $startDate, 'end' => $endDate];
     }
 
     // Normalise en date SQL. Un CV donne rarement le jour : on retient le 1er

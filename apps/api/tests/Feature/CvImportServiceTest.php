@@ -289,6 +289,57 @@ class CvImportServiceTest extends TestCase
         $this->assertNull($result['experiences'][0]['end_date']);
     }
 
+    // --- Garde-fous : ce qui sort d'ici doit etre acceptable par le profil ---
+
+    // Le profil refuse une description de plus de 2000 caracteres. Sur un CV a
+    // colonnes, l'extraction agrege parfois plusieurs blocs : sans plafond,
+    // l'API rejetait l'experience entiere et le candidat ne voyait qu'un echec
+    // sans cause.
+    public function test_parse_caps_a_description_at_the_profile_limit(): void
+    {
+        $longue = str_repeat('Ligne de description tres longue. ', 200);
+        $file = $this->makePdfUpload(
+            '<p>EXPÉRIENCES</p><p>Vendeur</p><p>Decathlon</p><p>2022 - 2023</p><p>'.$longue.'</p>',
+        );
+
+        $result = $this->service->parse($file);
+
+        $this->assertCount(1, $result['experiences']);
+        $this->assertLessThanOrEqual(2000, mb_strlen($result['experiences'][0]['description']));
+    }
+
+    // Le profil exige end_date >= start_date. Un texte melange peut apparier
+    // deux dates qui n'appartiennent pas a la meme entree : on prefere une date
+    // de fin inconnue a une entree refusee par l'API.
+    public function test_parse_drops_an_end_date_that_precedes_the_start(): void
+    {
+        $file = $this->makePdfUpload(
+            '<p>EXPÉRIENCES</p><p>Vendeur</p><p>Decathlon</p><p>nov. 2024 - juin 2024</p>',
+        );
+
+        $result = $this->service->parse($file);
+
+        $this->assertCount(1, $result['experiences']);
+        $this->assertSame('2024-11-01', $result['experiences'][0]['start_date']);
+        $this->assertNull($result['experiences'][0]['end_date']);
+    }
+
+    // Les intitules sont bornes bien en dessous de la limite du profil (255).
+    public function test_parse_keeps_titles_within_the_profile_limits(): void
+    {
+        $file = $this->makePdfUpload(
+            '<p>EXPÉRIENCES</p><p>'.str_repeat('Intitule interminable ', 30).'</p>'
+            .'<p>Decathlon</p><p>2022 - 2023</p>',
+        );
+
+        $result = $this->service->parse($file);
+
+        foreach ($result['experiences'] as $experience) {
+            $this->assertLessThanOrEqual(255, mb_strlen($experience['title']));
+            $this->assertLessThanOrEqual(255, mb_strlen((string) $experience['company']));
+        }
+    }
+
     // Sans date reconnaissable, on ne propose rien plutot que d'inventer une
     // entree que le candidat devrait ensuite traquer et corriger.
     public function test_parse_ignores_entries_without_a_recognisable_date(): void

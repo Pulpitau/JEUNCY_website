@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
+import { ApiError } from '@/lib/api/client';
 import type {
   EducationInput,
   ExperienceInput,
@@ -91,7 +92,23 @@ export function ImportCvSection({
     setIsWorking(true);
 
     try {
-      const result = await onImport(file);
+      // Deux etapes, deux causes d'echec tres differentes : un PDF illisible
+      // (le candidat doit fournir un autre fichier) et un enregistrement qui
+      // echoue (le PDF etait bon, c'est le profil qui n'a pas pu etre mis a
+      // jour). Les confondre derriere un seul message generique empechait de
+      // savoir quoi faire, et cachait la vraie cause au diagnostic.
+      let result: ImportedCvData;
+      try {
+        result = await onImport(file);
+      } catch (caught) {
+        setError(
+          caught instanceof ApiError
+            ? caught.message
+            : "Le PDF n'a pas pu être lu. Vérifie ta connexion et réessaie.",
+        );
+        return;
+      }
+
       setRawText(result.raw_text);
 
       // L'API renvoie-t-elle bien la forme attendue ? Un serveur qui n'a pas
@@ -183,8 +200,16 @@ export function ImportCvSection({
         software: newSoftware.length,
         info: Object.values(info).filter(Boolean).length,
       });
-    } catch {
-      setError("La lecture du CV a échoué. Vérifie que le fichier n'est pas protégé.");
+    } catch (caught) {
+      // Le PDF a bien ete lu : l'echec vient de l'enregistrement dans le
+      // profil. On remonte le message exact de l'API plutot qu'un texte
+      // generique, sinon la cause reste invisible cote utilisateur comme
+      // cote support.
+      setError(
+        caught instanceof ApiError
+          ? `Le CV a été lu, mais son enregistrement a échoué : ${caught.message}`
+          : 'Le CV a été lu, mais son enregistrement dans ton profil a échoué. Réessaie dans un instant.',
+      );
     } finally {
       setIsWorking(false);
     }
