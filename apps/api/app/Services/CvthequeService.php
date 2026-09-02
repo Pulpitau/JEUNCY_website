@@ -199,23 +199,19 @@ class CvthequeService
             }
         }
 
-        // archived_at : ArchiveInactiveCvs supprime le fichier du disque et
-        // ne garde que la ligne. Servir un CV archive donnerait un PDF vide.
-        $generated = $profile->generatedCvs()
-            ->whereNull('archived_at')
-            ->latest('generated_at')
-            ->first();
-
-        if ($generated) {
-            $path = Storage::disk('public')->path($this->relativeStoragePath($generated->file_url));
-            if (is_file($path)) {
-                $contents = file_get_contents($path);
-                if ($contents !== false) {
-                    return [CvSource::GENERATED, $contents];
-                }
-            }
-        }
-
+        // Le CV genere et stocke n'est deliberement PAS servi ici. Deux
+        // raisons, la seconde ayant coute cher :
+        //
+        //  1. Produit : un fichier stocke est une photographie du profil au
+        //     jour de sa generation. Le recruteur doit voir le profil TEL
+        //     QU'IL EST, pas tel qu'il etait il y a trois mois.
+        //  2. Exploitation : tant qu'un vieux fichier reste sur le disque il
+        //     est servi indefiniment. Une correction du gabarit ne se voit
+        //     alors jamais cote recruteur, et on croit la correction
+        //     inefficace alors qu'elle n'est simplement jamais executee.
+        //
+        // Le rendu a la demande coute environ une seconde, largement
+        // acceptable pour un telechargement declenche par un humain.
         return [CvSource::ON_THE_FLY, $this->cvService->renderPdfFor($profile)];
     }
 

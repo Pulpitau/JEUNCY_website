@@ -44,8 +44,11 @@ class CvImportService
         $text = (new Parser)->parseFile($file->getRealPath())->getText();
 
         $sections = $this->splitIntoSections($text);
+        $name = $this->extractName($text);
 
         return [
+            'first_name' => $name['first'],
+            'last_name' => $name['last'],
             'email' => $this->extractEmail($text),
             'phone' => $this->extractPhone($text),
             'postal_code' => $this->extractPostalCode($text),
@@ -338,6 +341,67 @@ class CvImportService
         }
 
         return 1;
+    }
+
+    // Nom et prenom, lus en tete de CV. C'est ce qui permet a l'import de
+    // CREER le profil d'un candidat qui vient d'arriver, au lieu de lui
+    // demander de saisir ses infos avant de pouvoir importer quoi que ce soit.
+    //
+    // Les CV placent quasi systematiquement l'identite sur les toutes
+    // premieres lignes, souvent en capitales, et parfois coupee en deux
+    // ("ALEXANDRE" puis "LEYVA" — constate sur un vrai CV). On agrege donc les
+    // premieres lignes qui ressemblent a un nom, puis on coupe : premier mot =
+    // prenom, le reste = nom. Convention imparfaite pour un prenom compose,
+    // mais le candidat relit et corrige, et c'est infiniment moins couteux que
+    // de tout ressaisir.
+    //
+    // @return array{first: ?string, last: ?string}
+    private function extractName(string $text): array
+    {
+        $words = [];
+
+        foreach (array_slice($this->toLines($text), 0, 5) as $line) {
+            // Une ligne d'identite ne contient que des lettres, espaces, tirets
+            // et apostrophes : ni chiffre, ni @, ni ponctuation de phrase.
+            if (! preg_match("/^[\p{L}][\p{L}\-' ]{1,60}$/u", $line)) {
+                break;
+            }
+            // Un intitule de rubrique en tete de page n'est pas un nom.
+            if ($this->looksLikeSectionHeading($line)) {
+                break;
+            }
+
+            $words = array_merge($words, preg_split('/\s+/u', trim($line)));
+
+            // Deux lignes suffisent (nom coupe en deux), et au-dela de quatre
+            // mots on ramasse un titre de poste plutot qu'une identite.
+            if (count($words) >= 2) {
+                break;
+            }
+        }
+
+        $words = array_values(array_filter($words, fn ($w) => $w !== ''));
+        if (count($words) < 2 || count($words) > 4) {
+            return ['first' => null, 'last' => null];
+        }
+
+        $normalize = fn (string $w) => Str::title(Str::lower($w));
+
+        return [
+            'first' => $normalize($words[0]),
+            'last' => implode(' ', array_map($normalize, array_slice($words, 1))),
+        ];
+    }
+
+    private function looksLikeSectionHeading(string $line): bool
+    {
+        foreach (self::SECTION_HEADINGS as $pattern) {
+            if (preg_match('/^(?:'.$pattern.')$/iu', trim($line))) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function extractEmail(string $text): ?string

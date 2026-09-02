@@ -9,6 +9,9 @@ import type {
 } from '@/lib/api/candidate-profile';
 
 export interface ImportedCvApplyPayload {
+  // Nom et prenom lus dans le CV. Servent a CREER le profil quand il n'existe
+  // pas encore : c'est le parcours d'entree d'un nouveau candidat.
+  identity: { first_name: string; last_name: string };
   info: {
     phone?: string;
     postal_code?: string;
@@ -26,7 +29,9 @@ interface ImportCvSectionProps {
   onImport: (file: File) => Promise<ImportedCvData>;
   // Absent tant que le profil n'existe pas : il n'y a rien a completer avant
   // sa creation.
-  onApply?: (payload: ImportedCvApplyPayload) => Promise<unknown>;
+  onApply: (payload: ImportedCvApplyPayload) => Promise<unknown>;
+  // Le profil existe-t-il deja ? Change le message de fin, pas le traitement.
+  hasProfile: boolean;
   existingSkills?: string[];
   existingSoftware?: string[];
   existingLanguages?: string[];
@@ -38,6 +43,7 @@ interface ImportCvSectionProps {
 const DEFAULT_LANGUAGE_LEVEL = 'A2';
 
 interface Added {
+  profilCree: boolean;
   experiences: number;
   educations: number;
   languages: number;
@@ -62,6 +68,7 @@ function summarize(added: Added): string[] {
 export function ImportCvSection({
   onImport,
   onApply,
+  hasProfile,
   existingSkills = [],
   existingSoftware = [],
   existingLanguages = [],
@@ -87,9 +94,11 @@ export function ImportCvSection({
       const result = await onImport(file);
       setRawText(result.raw_text);
 
-      if (!onApply) {
+      // Sans profil existant, le nom est indispensable : c'est le seul champ
+      // que la creation d'un profil exige et qu'on ne peut pas deviner.
+      if (!hasProfile && (!result.first_name || !result.last_name)) {
         setError(
-          'Enregistre d’abord tes informations personnelles, en haut de la page, puis relance l’import.',
+          "Je n'ai pas réussi à lire ton nom dans ce PDF. Renseigne ton prénom et ton nom en haut de la page, enregistre, puis relance l'import : le reste sera repris automatiquement.",
         );
         return;
       }
@@ -123,6 +132,10 @@ export function ImportCvSection({
       };
 
       await onApply({
+        identity: {
+          first_name: result.first_name ?? '',
+          last_name: result.last_name ?? '',
+        },
         info,
         // Fusion, jamais remplacement : ce que le candidat a saisi lui-meme
         // prime toujours sur ce qu'on a lu dans son PDF.
@@ -148,6 +161,7 @@ export function ImportCvSection({
       });
 
       setAdded({
+        profilCree: !hasProfile,
         experiences: experiences.length,
         educations: educations.length,
         languages: newLanguages.length,
@@ -167,9 +181,9 @@ export function ImportCvSection({
   return (
     <div className="flex flex-col gap-4">
       <p className="font-inter text-sm text-muted-foreground">
-        Tu as déjà un CV ? Importe-le en PDF : Jeuncy le lit et remplit directement ton
-        profil — expériences, formations, langues, compétences et coordonnées. Tu relis et
-        tu corriges ensuite, rien n'est définitif.
+        {hasProfile
+          ? "Importe ton CV en PDF : Jeuncy le lit et complète directement ton profil — expériences, formations, langues, compétences et coordonnées. Tu relis et tu corriges ensuite, rien n'est définitif."
+          : "Importe ton CV en PDF et Jeuncy crée ton profil pour toi : nom, coordonnées, expériences, formations, langues et compétences. Tu relis et tu corriges ensuite, rien n'est définitif."}
       </p>
 
       <Button
@@ -179,7 +193,11 @@ export function ImportCvSection({
         onClick={() => inputRef.current?.click()}
         disabled={isWorking}
       >
-        {isWorking ? 'Lecture du CV…' : 'Remplir mon profil depuis un CV (PDF)'}
+        {isWorking
+          ? 'Lecture du CV…'
+          : hasProfile
+            ? 'Compléter depuis mon CV (PDF)'
+            : 'Créer mon profil depuis mon CV (PDF)'}
       </Button>
       <input
         ref={inputRef}
@@ -199,7 +217,9 @@ export function ImportCvSection({
         <div className="flex flex-col gap-3 rounded-lg border border-border p-4">
           {summary.length > 0 ? (
             <p className="font-inter text-sm">
-              <span className="font-poppins font-semibold">Profil complété :</span>{' '}
+              <span className="font-poppins font-semibold">
+                {added.profilCree ? 'Profil créé :' : 'Profil complété :'}
+              </span>{' '}
               {summary.join(', ')}. Relis les rubriques ci-dessous et corrige ce qui ne va
               pas.
             </p>

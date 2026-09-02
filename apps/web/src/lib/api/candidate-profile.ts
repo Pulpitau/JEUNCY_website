@@ -84,6 +84,10 @@ export interface GeneratedCv {
 // noms deja connus de Jeuncy (competences, logiciels) sont proposes — voir
 // CvImportService cote serveur. Le candidat relit et applique.
 export interface ImportedCvData {
+  // Lus en tete de CV : permettent de creer le profil d'un nouveau candidat
+  // directement depuis son PDF, sans saisie prealable.
+  first_name: string | null;
+  last_name: string | null;
   email: string | null;
   phone: string | null;
   postal_code: string | null;

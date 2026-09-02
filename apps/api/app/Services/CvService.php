@@ -46,14 +46,108 @@ class CvService
     {
         $profile->loadMissing(['user', 'experiences', 'educations', 'skills', 'languages', 'software']);
 
-        $airy = $this->contentScales($profile);
+        $last = null;
+
+        // Deux leviers, dans cet ordre : d'abord comprimer la mise en page
+        // sans rien perdre, et seulement si ca ne suffit pas, alleger le
+        // contenu. Un CV de 15 postes detailles ne rentre sur une page a
+        // aucune echelle lisible — a ce stade, mieux vaut un CV court et net
+        // qu'un pave illisible ou un document de quatre pages.
+        foreach (self::CONTENT_BUDGETS as $index => $budget) {
+            $candidate = $this->applyBudget($profile, $budget);
+
+            // Le premier budget explore toutes les echelles, y compris la mise
+            // en page aeree. Les suivants n'ont plus rien a aerer : on repart
+            // directement compact, sinon on paierait des rendus inutiles.
+            $steps = $index === 0 ? self::FIT_STEPS : self::COMPACT_STEPS;
+            $result = $this->fitToOnePage($candidate, $steps, $index === 0);
+
+            if ($result['pages'] <= 1) {
+                return $result['content'];
+            }
+
+            $last = $result;
+        }
+
+        // Tous les leviers epuises : on rend la version la plus compacte
+        // plutot que d'echouer. En pratique inatteignable avec les budgets
+        // ci-dessus, mais on ne renvoie jamais une erreur a un recruteur.
+        return $last['content'];
+    }
+
+    // Allegements successifs du contenu, appliques seulement quand la
+    // compression de la mise en page ne suffit plus. Un CV est un resume :
+    // aucun recruteur ne lit quinze postes detailles, et le profil complet
+    // reste consultable sur Jeuncy.
+    private const CONTENT_BUDGETS = [
+        ['lignes' => null, 'experiences' => null, 'formations' => null],
+        ['lignes' => 3, 'experiences' => null, 'formations' => null],
+        ['lignes' => 1, 'experiences' => 10, 'formations' => 6],
+        ['lignes' => 0, 'experiences' => 6, 'formations' => 4],
+    ];
+
+    // Applique un budget sans jamais toucher a la base : on clone le modele et
+    // on remplace ses relations en memoire. Le profil du candidat reste
+    // evidemment intact, seul le PDF est allege.
+    private function applyBudget(CandidateProfile $profile, array $budget): CandidateProfile
+    {
+        if ($budget['lignes'] === null && $budget['experiences'] === null) {
+            return $profile;
+        }
+
+        $clone = clone $profile;
+
+        $experiences = $profile->experiences;
+        if ($budget['experiences'] !== null) {
+            // Les plus recentes d'abord : c'est ce qu'un recruteur regarde.
+            $experiences = $experiences->sortByDesc('start_date')->take($budget['experiences']);
+        }
+
+        $clone->setRelation('experiences', $experiences->map(function ($experience) use ($budget) {
+            $copy = clone $experience;
+            $copy->description = $this->trimLines($experience->description, $budget['lignes']);
+
+            return $copy;
+        })->values());
+
+        if ($budget['formations'] !== null) {
+            $clone->setRelation(
+                'educations',
+                $profile->educations->sortByDesc('start_date')->take($budget['formations'])->values(),
+            );
+        }
+
+        return $clone;
+    }
+
+    private function trimLines(?string $text, ?int $max): ?string
+    {
+        if ($text === null || $max === null) {
+            return $text;
+        }
+        if ($max === 0) {
+            return null;
+        }
+
+        $lines = array_filter(preg_split('/\r\n|\r|\n/', $text) ?: []);
+
+        return implode("\n", array_slice($lines, 0, $max)) ?: null;
+    }
+
+    /** @return array{content: string, pages: int} */
+    private function fitToOnePage(CandidateProfile $profile, array $steps, bool $allowAiry): array
+    {
+        $airy = $allowAiry ? $this->contentScales($profile) : null;
         $pdf = null;
         $alreadyTried = [];
 
-        foreach (self::FIT_STEPS as $step) {
+        foreach ($steps as $step) {
             // Premiere passe : la mise en page aeree calculee pour ce profil.
             // Passes suivantes : on revient a l'echelle de reference (1.0,
             // calibree pour un profil dense) puis on comprime sous 1.0.
+            if ($step === null && $airy === null) {
+                continue;
+            }
             $scales = $step === null
                 ? $airy
                 : ['section' => $step, 'item' => $step, 'font' => $step];
@@ -70,15 +164,11 @@ class CvService
             $pdf = $this->renderAtScales($profile, $scales);
 
             if ($pdf['pages'] <= 1) {
-                return $pdf['content'];
+                return $pdf;
             }
         }
 
-        // Aucune echelle n'a suffi : on rend la plus compacte plutot que
-        // d'echouer. Un CV tres charge peut legitimement deborder, mais c'est
-        // devenu assez rare pour ne pas justifier de tronquer du contenu —
-        // tronquer serait pire, le candidat ne comprendrait pas ce qui manque.
-        return $pdf['content'];
+        return $pdf;
     }
 
     // Echelles essayees dans l'ordre jusqu'a ce que le PDF tienne sur une page.
@@ -94,6 +184,19 @@ class CvService
     // ce que produisait l'arret a 0.58 sur les profils les plus fournis.
     private const FIT_STEPS = [null, 1.0, 0.92, 0.84, 0.76, 0.68, 0.60, 0.54, 0.48, 0.44, 0.40];
 
+    // Utilisees quand le contenu a deja ete allege : inutile de reessayer les
+    // grandes echelles, le profil est par definition trop fourni.
+    private const COMPACT_STEPS = [0.76, 0.60, 0.48, 0.40];
+
+    // Version du moteur de mise en page, ecrite dans les metadonnees de chaque
+    // PDF (voir renderAtScales). Elle sert a repondre en une seconde a la seule
+    // question qui compte quand un CV sort sur deux pages : "le correctif
+    // s'execute-t-il vraiment sur le serveur ?" Sans elle, on ne peut pas
+    // distinguer un correctif inefficace d'un correctif jamais deploye — ce
+    // doute a coute deux allers-retours de deploiement.
+    // A incrementer a chaque changement du moteur ou du gabarit.
+    public const LAYOUT_VERSION = 'cv-layout-4';
+
     private function renderAtScales(CandidateProfile $profile, array $scales): array
     {
         $pdf = Pdf::loadView('cv.template', [
@@ -104,6 +207,13 @@ class CvService
             'scales' => $scales,
             'palette' => $this->palette($profile),
         ])->setPaper('a4');
+
+        // Ecrit AVANT output() : dompdf fige ses metadonnees au rendu.
+        // Invisible pour le recruteur, lisible avec n'importe quel outil PDF.
+        $pdf->getDomPDF()->add_info(
+            'Keywords',
+            self::LAYOUT_VERSION.' scale='.implode('/', $scales),
+        );
 
         $content = $pdf->output();
 

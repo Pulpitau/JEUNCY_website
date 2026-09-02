@@ -167,12 +167,30 @@ export function Profile() {
   // paralleles pour que le profil ne soit invalide qu'une fois, a la fin —
   // sinon l'ecran clignoterait entre chaque ajout.
   async function applyImportedCv(payload: ImportedCvApplyPayload) {
-    const { info, skills, software, experiences, educations, languages } = payload;
+    const { identity, info, skills, software, experiences, educations, languages } =
+      payload;
 
     const filledInfo = Object.fromEntries(
       Object.entries(info).filter(([, value]) => value !== undefined),
     );
-    if (Object.keys(filledInfo).length > 0) {
+
+    // Le candidat qui vient d'arriver n'a pas encore de profil : l'import le
+    // CREE, avec le nom lu dans le CV. C'est le parcours d'entree principal —
+    // lui demander de saisir ses informations avant de pouvoir importer son CV
+    // revient a lui faire faire deux fois le meme travail.
+    if (!profile) {
+      await createProfile({
+        first_name: identity.first_name,
+        last_name: identity.last_name,
+        ...filledInfo,
+      });
+      // Ce que le candidat avait deja saisi avant d'importer est envoye ici :
+      // ces elements attendaient un profil pour exister (voir
+      // useStagedProfileSections). Sans ce flush, importer un CV apres avoir
+      // saisi une experience a la main la ferait disparaitre.
+      await staged.flush();
+      staged.clear();
+    } else if (Object.keys(filledInfo).length > 0) {
       await updateProfile(filledInfo);
     }
     if (skills) {
@@ -259,7 +277,12 @@ export function Profile() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Importer un CV existant</CardTitle>
+          <CardTitle>{profile ? 'Compléter depuis un CV' : 'Partir de mon CV'}</CardTitle>
+          <CardDescription>
+            {profile
+              ? 'Ajoute en une fois ce qui manque à ton profil.'
+              : 'Le plus rapide pour créer ton profil : importe ton CV, Jeuncy le remplit pour toi.'}
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <ImportCvSection
@@ -267,9 +290,10 @@ export function Profile() {
             existingSkills={profile?.skills.map((s) => s.name) ?? []}
             existingSoftware={profile?.software.map((s) => s.name) ?? []}
             existingLanguages={profile?.languages.map((l) => l.name) ?? []}
-            // Absent tant que le profil n'existe pas : il n'y a rien a mettre
-            // a jour, le candidat cree d'abord ses informations de base.
-            onApply={profile ? applyImportedCv : undefined}
+            // Toujours actif, profil existant ou non : sans profil, l'import
+            // le cree a partir du CV.
+            onApply={applyImportedCv}
+            hasProfile={!!profile}
           />
         </CardContent>
       </Card>

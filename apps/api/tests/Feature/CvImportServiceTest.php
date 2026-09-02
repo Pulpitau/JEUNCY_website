@@ -122,6 +122,50 @@ class CvImportServiceTest extends TestCase
         $this->assertContains(['name' => 'Espagnol', 'level' => 'C1'], $result['languages']);
     }
 
+    // --- Identite (permet de creer le profil depuis le CV) ---
+
+    public function test_parse_extracts_first_and_last_name(): void
+    {
+        $result = $this->service->parse(
+            $this->makePdfUpload('<p>ALEXANDRE LEYVA</p><p>Conseiller Commercial</p>'),
+        );
+
+        $this->assertSame('Alexandre', $result['first_name']);
+        $this->assertSame('Leyva', $result['last_name']);
+    }
+
+    // Cas reel : beaucoup de gabarits coupent le nom sur deux lignes.
+    public function test_parse_extracts_a_name_split_over_two_lines(): void
+    {
+        $result = $this->service->parse(
+            $this->makePdfUpload('<p>ALEXANDRE</p><p>LEYVA</p><p>Conseiller Commercial</p>'),
+        );
+
+        $this->assertSame('Alexandre', $result['first_name']);
+        $this->assertSame('Leyva', $result['last_name']);
+    }
+
+    public function test_parse_keeps_a_compound_last_name(): void
+    {
+        $result = $this->service->parse(
+            $this->makePdfUpload('<p>INAYA BEN ABDESLEM</p><p>Bac Pro Vente</p>'),
+        );
+
+        $this->assertSame('Inaya', $result['first_name']);
+        $this->assertSame('Ben Abdeslem', $result['last_name']);
+    }
+
+    // Sans nom lisible, on ne renvoie rien : le frontend demande alors au
+    // candidat de le saisir plutot que de creer un profil bancal.
+    public function test_parse_returns_no_name_when_the_header_is_not_one(): void
+    {
+        $result = $this->service->parse(
+            $this->makePdfUpload('<p>contact@exemple.fr</p><p>06 00 00 00 00</p>'),
+        );
+
+        $this->assertNull($result['first_name']);
+        $this->assertNull($result['last_name']);
+    }
     // --- Rubriques (experiences / formations) ---
 
     private function makeRealisticCv(): UploadedFile

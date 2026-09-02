@@ -94,18 +94,23 @@ class CvthequeDownloadTest extends TestCase
         $this->assertSame('Mon CV Canva.pdf', $result['filename']);
     }
 
-    public function test_generated_cv_is_served_when_no_uploaded_one(): void
+    // Un CV genere et stocke n'est deliberement PLUS servi : le recruteur doit
+    // voir le profil tel qu'il est aujourd'hui, et un vieux fichier sur le
+    // disque masquerait indefiniment toute correction du gabarit — c'est ce qui
+    // a fait croire a deux reprises qu'un correctif du CV etait inefficace.
+    public function test_stored_generated_cv_is_never_served(): void
     {
         $candidate = $this->makeCandidate();
-        Storage::disk('public')->put('generated-cvs/y.pdf', '%PDF-genere');
+        Storage::disk('public')->put('generated-cvs/y.pdf', '%PDF-perime');
         $candidate->generatedCvs()->create([
             'file_url' => Storage::disk('public')->url('generated-cvs/y.pdf'),
         ]);
 
         $result = $this->service->downloadCv($this->makeSubscriber(), $candidate->id);
 
-        $this->assertSame(CvSource::GENERATED, CvDownload::first()->source);
-        $this->assertSame('%PDF-genere', $result['contents']);
+        $this->assertSame(CvSource::ON_THE_FLY, CvDownload::first()->source);
+        $this->assertNotSame('%PDF-perime', $result['contents']);
+        $this->assertStringStartsWith('%PDF', $result['contents']);
     }
 
     // Le cas majoritaire au demarrage : les profils deja en base n'ont jamais
@@ -122,9 +127,9 @@ class CvthequeDownloadTest extends TestCase
         $this->assertSame('CV-lea-girard.pdf', $result['filename']);
     }
 
-    // Un CV genere puis archive a vu son fichier supprime du disque
-    // (ArchiveInactiveCvs) : le servir donnerait un PDF vide.
-    public function test_archived_generated_cv_falls_back_to_on_the_fly(): void
+    // Meme resultat pour un CV archive (fichier supprime du disque par
+    // ArchiveInactiveCvs) : le rendu a la demande couvre tous les cas.
+    public function test_archived_generated_cv_also_renders_on_the_fly(): void
     {
         $candidate = $this->makeCandidate();
         $candidate->generatedCvs()->create([
