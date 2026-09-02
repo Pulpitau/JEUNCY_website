@@ -85,10 +85,14 @@ class CvService
     // null = la mise en page aeree propre au profil (contentScales), qui
     // convient a la grande majorite des cas et evite une 2e passe. Les valeurs
     // suivantes compriment progressivement : 1.0 est la reference calibree en
-    // phase 2 pour un profil dense, en dessous on resserre polices et espaces.
-    // Bornee a 0.58 : plus petit, le CV devient penible a lire, et mieux vaut
-    // deux pages lisibles qu'une page illisible.
-    private const FIT_STEPS = [null, 1.0, 0.9, 0.8, 0.7, 0.64, 0.58];
+    // phase 2 pour un profil dense, en dessous on resserre polices, espaces et
+    // en-tete (voir $ph dans le gabarit).
+    //
+    // La descente va jusqu'a 0.40. C'est petit, mais un CV sur une page dense
+    // reste exploitable par un recruteur, alors qu'un CV dont la premiere page
+    // est vide et le contenu rejete en page 2 ne l'est pas — c'est exactement
+    // ce que produisait l'arret a 0.58 sur les profils les plus fournis.
+    private const FIT_STEPS = [null, 1.0, 0.92, 0.84, 0.76, 0.68, 0.60, 0.54, 0.48, 0.44, 0.40];
 
     private function renderAtScales(CandidateProfile $profile, array $scales): array
     {

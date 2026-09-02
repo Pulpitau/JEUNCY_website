@@ -14,6 +14,13 @@
         $sec = fn (float $base) => round($base * $scales['section']);
         $it = fn (float $base) => round($base * $scales['item']);
         $fs = fn (float $base) => round($base * $scales['font'], 1);
+        // $ph : l'en-tete (photo, logo, nom). Il ne GROSSIT jamais — un profil
+        // peu fourni doit s'aerer, pas afficher une photo geante — mais il se
+        // reduit avec le reste quand il faut faire rentrer le CV sur une page.
+        // C'est ce qui debloque le cas "premiere page presque vide" : le corps
+        // du CV est une ligne de table insecable sous dompdf, chaque pixel
+        // repris a l'en-tete lui profite directement.
+        $ph = fn (float $base) => round($base * min(1.0, $scales['font']));
         // Accent propre au candidat, echantillonne dans le degrade signature
         // Jeuncy (voir CvService::palette) — reste dans la charte graphique
         // tout en variant d'un CV genere a l'autre.
@@ -31,35 +38,41 @@
            gabarit n'a plus besoin du hack "sidebar-backdrop" positionne en
            absolu puisqu'aucune zone ne doit plus s'etendre sur toute la
            hauteur de la page. */
+        /* L'en-tete se reduit avec le reste. Il coute ~190px de hauteur fixe,
+           et le corps du CV est une table dont la ligne est INSECABLE sous
+           dompdf : si elle ne tient pas dans ce qui reste sous l'en-tete, elle
+           bascule entiere en page 2 et le CV fait deux pages avec une premiere
+           page presque vide (constate en production). Reduire l'en-tete rend
+           donc directement de la place au contenu. */
         .header { display: table; width: 100%; table-layout: fixed; margin-bottom: {{ $sec(18) }}px; }
-        .header-photo { display: table-cell; width: 180px; vertical-align: top; }
+        .header-photo { display: table-cell; width: {{ $ph(180) }}px; vertical-align: top; }
         .header-info { display: table-cell; vertical-align: top; padding-left: 22px; }
-        .header-logo { display: table-cell; width: 180px; vertical-align: top; text-align: right; }
+        .header-logo { display: table-cell; width: {{ $ph(180) }}px; vertical-align: top; text-align: right; }
         /* Meme taille que la photo de profil (demande explicite). */
-        .header-logo-img { width: 170px; height: auto; }
+        .header-logo-img { width: {{ $ph(170) }}px; height: auto; }
 
         .avatar-img {
-            width: 170px;
-            height: 170px;
+            width: {{ $ph(170) }}px;
+            height: {{ $ph(170) }}px;
             border-radius: 50%;
             object-fit: cover;
             border: 3px solid {{ $accent }};
         }
         .avatar-fallback {
             display: inline-block;
-            width: 170px;
-            height: 170px;
+            width: {{ $ph(170) }}px;
+            height: {{ $ph(170) }}px;
             border-radius: 50%;
             background-color: {{ $accent }};
             color: #ffffff;
-            font-size: 52px;
+            font-size: {{ $ph(52) }}px;
             font-weight: bold;
             text-align: center;
-            line-height: 170px;
+            line-height: {{ $ph(170) }}px;
         }
 
-        .name { font-size: 23px; font-weight: bold; color: {{ $primary }}; margin: 0 0 3px; text-transform: uppercase; }
-        .headline { font-size: 14px; color: #444444; margin: 0 0 8px; }
+        .name { font-size: {{ $ph(23) }}px; font-weight: bold; color: {{ $primary }}; margin: 0 0 3px; text-transform: uppercase; }
+        .headline { font-size: {{ $ph(14) }}px; color: #444444; margin: 0 0 8px; }
         .contact-row { font-size: 11px; color: #333333; margin: 0 0 4px; }
         .contact-row span { margin-right: 4px; }
         .meta-row { font-size: 10.5px; color: #777777; margin: 0; }
