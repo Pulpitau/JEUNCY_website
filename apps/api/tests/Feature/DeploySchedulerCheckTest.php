@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Http\Controllers\DeployController;
+use App\Services\CvService;
 use Illuminate\Support\Facades\Config;
 use Tests\TestCase;
 
@@ -20,6 +21,44 @@ class DeploySchedulerCheckTest extends TestCase
         Config::set('app.deploy_token', null);
 
         $this->get('/deploy/anything/scheduler')->assertNotFound();
+    }
+
+    // Le vidage de cache est l'outil dont on se sert pour REPARER un
+    // deploiement : il ne doit jamais tomber, quelle que soit la configuration
+    // de l'hebergeur. Une premiere version appelait opcache_reset() sans filet
+    // et repondait 500 quand l'API OPcache etait restreinte — l'outil de
+    // reparation cassait au pire moment (2026-09-02).
+    public function test_clear_cache_never_fails(): void
+    {
+        Config::set('app.deploy_token', 'secret-token');
+
+        $response = $this->get('/deploy/secret-token/clear-cache');
+
+        $response->assertOk();
+        $response->assertSee('OPcache', false);
+    }
+
+    // Le rapport de version permet de comparer le serveur au depot sans acces
+    // SSH : sans lui, impossible de distinguer un correctif inefficace d'un
+    // correctif jamais deploye.
+    public function test_version_reports_the_deployed_files(): void
+    {
+        Config::set('app.deploy_token', 'secret-token');
+
+        $response = $this->get('/deploy/secret-token/version');
+
+        $response->assertOk();
+        $response->assertJsonPath('version_moteur_cv', CvService::LAYOUT_VERSION);
+        $response->assertJsonStructure([
+            'fichiers' => ['app/Services/CvService.php' => ['empreinte', 'modifie_le', 'octets']],
+        ]);
+    }
+
+    public function test_version_requires_a_valid_deploy_token(): void
+    {
+        Config::set('app.deploy_token', 'secret-token');
+
+        $this->get('/deploy/wrong-token/version')->assertNotFound();
     }
 
     // Le cas nominal : chaque tache attendue est enregistree ET planifiee.

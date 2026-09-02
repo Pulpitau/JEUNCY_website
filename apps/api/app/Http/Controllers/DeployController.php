@@ -51,24 +51,30 @@ class DeployController extends Controller
         Artisan::call('optimize:clear');
         $sortie = Artisan::output();
 
-        // OPcache garde en memoire le BYTECODE des fichiers PHP. optimize:clear
-        // ne le touche pas : il ne vide que les caches applicatifs de Laravel.
-        // Sur un hebergement ou la revalidation des dates de modification est
-        // desactivee ou espacee, un fichier fraichement televerse continue donc
-        // d'etre execute dans son ancienne version, parfois longtemps.
+        // OPcache garde en memoire le bytecode des fichiers PHP et
+        // optimize:clear n'y touche pas : sur un hebergement qui ne revalide
+        // pas les dates de modification, du code fraichement televerse peut
+        // continuer d'etre execute dans son ancienne version. Le vider ici est
+        // sans effet quand l'extension est absente — c'est le cas sur
+        // l'hebergement actuel — mais reste une precaution utile ailleurs.
         //
-        // C'est exactement ce qui s'est produit le 2026-09-02 : trois
-        // deploiements successifs d'un correctif du CV sont restes sans effet,
-        // le serveur executant toujours l'ancien code malgre des fichiers a
-        // jour et un cache Laravel vide. Diagnostique en lisant la date de
-        // creation d'un PDF telecharge (veille du deploiement).
+        // ENTIEREMENT PROTEGE, et ce n'est pas de la prudence de principe :
+        // la premiere version de ce bloc appelait opcache_reset() sans filet.
+        // Quand l'API OPcache est restreinte par l'hebergeur, l'appel emet un
+        // avertissement que Laravel transforme en exception, et le vidage de
+        // cache entier repondait 500 — cassant l'outil dont on se sert
+        // justement pour reparer un deploiement. Constate le 2026-09-02.
         $sortie .= PHP_EOL.'OPcache : ';
-        if (! function_exists('opcache_reset')) {
-            $sortie .= 'extension absente, rien a faire';
-        } elseif (opcache_reset()) {
-            $sortie .= 'vide (le code PHP fraichement televerse est desormais actif)';
-        } else {
-            $sortie .= "reinitialisation refusee — l'ancien code peut rester actif";
+        try {
+            if (! function_exists('opcache_reset')) {
+                $sortie .= 'extension absente sur cet hebergement, rien a vider';
+            } elseif (@opcache_reset()) {
+                $sortie .= 'vide (le code PHP fraichement televerse est desormais actif)';
+            } else {
+                $sortie .= 'non vide : API restreinte par l\'hebergeur';
+            }
+        } catch (\Throwable $e) {
+            $sortie .= 'indisponible ('.$e->getMessage().')';
         }
 
         return response($sortie.PHP_EOL, 200, ['Content-Type' => 'text/plain']);
