@@ -208,7 +208,10 @@ class CvImportServiceTest extends TestCase
 
         $first = $result['experiences'][0];
         $this->assertSame('Conseiller de vente', $first['title']);
-        $this->assertSame('Boulanger, Perpignan', $first['company']);
+        // Le lieu est desormais separe du nom de l entreprise : "Boulanger,
+        // Perpignan" donne bien "Boulanger", la ville n ayant rien a faire
+        // dans le champ entreprise du profil.
+        $this->assertSame('Boulanger', $first['company']);
         $this->assertSame('2023-09-01', $first['start_date']);
         $this->assertSame('2024-06-30', $first['end_date']);
         $this->assertStringContainsString('Accueil et conseil', $first['description']);

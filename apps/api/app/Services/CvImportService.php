@@ -8,36 +8,50 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Str;
 use Smalot\PdfParser\Parser;
 
-// Lecture d'un CV PDF pour pre-remplir le profil du candidat.
+// Lecture d'un CV PDF pour remplir le profil du candidat.
 //
-// Aucune IA n'est disponible dans cet environnement (meme limitation que
-// Stripe/Google OAuth dans CLAUDE.md), l'extraction est donc structurelle :
-// on repere les intitules de rubriques ("EXPERIENCES", "FORMATION",
-// "LANGUES"...) puis, dans chaque rubrique, les entrees sont delimitees par
-// les plages de dates — c'est le seul repere fiable et commun a tous les
-// gabarits de CV.
+// C'est le parcours d'entree principal : le candidat importe le CV qu'il a
+// fait AILLEURS (Canva, Word, LinkedIn, Europass). L'extraction doit donc
+// tenir sur des mises en page qu'on ne choisit pas, et dans les deux langues.
 //
-// Ce que ce service NE fait pas, volontairement : deviner. Une entree sans
-// date reconnaissable n'est pas proposee, un mot absent du referentiel n'est
-// pas transforme en competence. Mieux vaut proposer trois experiences justes
-// que six dont deux inventees, que le candidat devra traquer et corriger.
+// Aucune IA n'est disponible ici (meme limitation que Stripe/Google OAuth dans
+// CLAUDE.md) : l'extraction est structurelle. Une entree est ancree par sa
+// DATE — le seul repere commun a tous les gabarits — et son identite est lue
+// autour de cette ancre, dans l'ordre ou le CV la presente.
 //
-// Limite connue : sur un CV a mise en page multi-colonnes, le texte extrait
-// melange l'ordre de lecture des colonnes et les entrees peuvent se retrouver
-// tronquees ou melangees. C'est pourquoi le resultat est presente au candidat
-// comme des suggestions a relire, jamais applique automatiquement.
+// Principe directeur : ne jamais inventer. Une entree douteuse n'est pas
+// proposee. Le candidat corrige plus vite trois entrees justes qu'il ne
+// supprime six entrees dont deux sont fausses.
 class CvImportService
 {
     private const MIN_REFERENTIAL_LENGTH = 3;
 
     private const MAX_SUGGESTIONS = 25;
 
-    // Une entree de CV est ancree par sa plage de dates. Couvre les formes
-    // courantes : "2020 - 2022", "janv. 2020 - dec. 2021", "01/2020 - 06/2022",
-    // "Depuis 2023", "2023 - aujourd'hui", "sept. 2023 - present".
-    // Mois francais ET anglais : beaucoup de CV utilisent des gabarits
-    // anglophones (Canva, LinkedIn) qui laissent "JUN 2025" tel quel.
-    private const MONTHS = 'janvier|janv|jan|fevrier|fev|feb|mars|mar|avril|avr|apr|mai|may|juillet|juil|juin|jui|jun|jul|aout|aou|aug|septembre|sept|sep|octobre|oct|novembre|nov|decembre|dec';
+    // Limite exacte acceptee par le profil (StoreExperienceRequest) : une
+    // description plus longue faisait rejeter l'entree entiere par l'API.
+    private const MAX_DESCRIPTION_LENGTH = 2000;
+
+    // Mois francais ET anglais, formes longues AVANT les courtes : sans cet
+    // ordre, "jui" avale "juillet" et "aug" avale "august", le reste du mot
+    // empeche alors la date de matcher et l'entree disparait entierement.
+    private const MONTHS = 'janvier|january|janv|jan'
+        .'|fevrier|february|fevr|fev|feb'
+        .'|mars|march|mar'
+        .'|avril|april|avr|apr'
+        .'|mai|may'
+        .'|juillet|july|juil|jul'
+        .'|juin|june|jui|jun'
+        .'|aout|august|aou|aug'
+        .'|septembre|september|sept|sep'
+        .'|octobre|october|octo|oct'
+        .'|novembre|november|nov'
+        .'|decembre|december|dec';
+
+    // Mots qui designent une fin ouverte. "current" et "ongoing" sont produits
+    // tels quels par l'editeur Europass en ligne.
+    private const ONGOING = "aujourd'hui|aujourdhui|a ce jour|en cours|actuel(?:lement)?|act"
+        .'|present(?:ly)?|current(?:ly)?|ongoing|now|today';
 
     public function parse(UploadedFile $file): array
     {
@@ -57,8 +71,8 @@ class CvImportService
             'skills' => $this->matchReferential($text, Skill::query()->pluck('name')->all()),
             'software' => $this->matchReferential($text, Software::query()->pluck('name')->all()),
             'languages' => $this->extractLanguages($text),
-            'experiences' => $this->extractEntries($sections['experiences'] ?? '', 'experience'),
-            'educations' => $this->extractEntries($sections['educations'] ?? '', 'education'),
+            'experiences' => $this->collectEntries($sections, $text, 'experience'),
+            'educations' => $this->collectEntries($sections, $text, 'education'),
             'raw_text' => trim($text),
         ];
     }
@@ -74,65 +88,62 @@ class CvImportService
         ));
     }
 
-    // Decoupe le CV en rubriques a partir de ses intitules. Tout ce qui
-    // precede la premiere rubrique reconnue est l'en-tete (nom, coordonnees),
-    // deja traite par les extracteurs par expression reguliere.
-    // Variantes accentuees ecrites explicitement : le motif est applique au
-    // texte d'origine pour preserver les positions (voir splitIntoSections).
+    // --- Rubriques --------------------------------------------------------
+
+    // "stages" et "alternances" ne figurent volontairement PAS seuls : un
+    // intitule de poste commencant par "Stage chez..." etait pris pour un
+    // titre de rubrique, ce qui decoupait le CV au mauvais endroit.
     private const SECTION_HEADINGS = [
-        'experiences' => 'exp[ée]riences?(?: professionnelles?| pro)?|parcours professionnel|emplois?|stages?',
-        'educations' => 'formations?|dipl[ôo]mes?|[ée]tudes|scolarit[ée]|cursus',
-        'languages' => 'langues?',
-        'skills' => 'comp[ée]tences?|savoir[- ]faire|qualit[ée]s?',
-        'software' => 'logiciels?|outils?|informatique',
-        'hobbies' => "centres? d'int[ée]r[êe]ts?|loisirs|int[ée]r[êe]ts?|hobbies",
+        'experiences' => 'exp[ée]riences?(?: professionnelles?| pro| et stages?)?'
+            .'|parcours(?: professionnel)?|carri[èe]re|emplois'
+            .'|work experience|professional experience|employment(?: history)?|career',
+        'educations' => 'formations?|dipl[ôo]mes?|[ée]tudes|scolarit[ée]|cursus'
+            .'|education|academic background|qualifications',
+        'languages' => 'langues?|languages?',
+        'skills' => 'comp[ée]tences?|savoir[- ]faire|savoir[- ][êe]tre|qualit[ée]s?|skills',
+        'software' => 'logiciels?|outils?|informatique|software|tools',
+        'hobbies' => "centres? d'int[ée]r[êe]ts?|loisirs|int[ée]r[êe]ts?|hobbies|interests",
     ];
 
-    // Decoupage par POSITION dans le texte, et non ligne par ligne : sur un
-    // vrai CV, l'extraction PDF colle souvent l'intitule au contenu qui suit
-    // ("PARCOURS PROFESSIONNELJUN 2025 - Act"), et un decoupage par lignes ne
-    // reconnait alors plus aucune rubrique. Constate sur de vrais CV.
-    //
-    // @return array<string, string> texte de chaque rubrique
+    // Mots qui designent un DIPLOME. Testes en priorite sur l'intitule : c'est
+    // lui qui dit si l'entree est une formation, pas l'organisation. Un
+    // service civique effectue dans un lycee reste une experience.
+    private const DIPLOMA_HINTS = 'bts|but|dut|cap|bep|bac(?:calaur[ée]at)?|licence|master|mast[èe]re'
+        .'|bachelor|doctorat|dipl[ôo]me|titre pro(?:fessionnel)?|brevet|mention compl[ée]mentaire'
+        .'|degree|certificate|formation';
+
+    // Mots qui designent un ETABLISSEMENT. Indice plus faible : utilise
+    // seulement quand l'intitule ne tranche pas.
+    private const SCHOOL_HINTS = 'lyc[ée]e|coll[èe]ge|universit[ée]|[ée]cole|institut|iut|cfa|greta|afpa'
+        .'|academy|university|school|college|campus';
+
     private function splitIntoSections(string $text): array
     {
         // Recherche dans le texte d'origine, accents inclus dans les motifs :
         // passer par une version sans accents decalerait toutes les positions
-        // (un caractere accente occupe 2 octets en UTF-8, son equivalent
-        // ASCII un seul), et les rubriques seraient tronquees de travers.
+        // (un caractere accente occupe 2 octets en UTF-8).
         $marks = [];
+
         foreach (self::SECTION_HEADINGS as $key => $pattern) {
-            // Strictement en debut de ligne. Sans cette contrainte, le mot
-            // "experience" d'une phrase de presentation ("je souhaite mettre a
-            // profit mon experience en vente") etait pris pour l'intitule de
-            // la rubrique, qui commencait alors au mauvais endroit — constate
-            // sur un vrai CV.
-            // Pas de \b apres l'intitule : l'extraction PDF colle souvent la
-            // suite au titre ("PARCOURS PROFESSIONNELJUN 2025"), et entre "L"
-            // et "J" il n'y a justement aucune frontiere de mot. On exige a la
-            // place que la suite ne soit pas une minuscule, ce qui distingue
-            // un titre suivi de son contenu d'un simple debut de mot.
-            // (?-i) desactive l'insensibilite a la casse dans ce seul
-            // lookahead : sans lui, le drapeau /i du motif global rend aussi
-            // [a-z] insensible, une majuscule est alors consideree comme une
-            // minuscule et le titre colle a la suite ne matche jamais.
+            // Un intitule occupe SA ligne, ou est colle a son contenu par
+            // l'extraction PDF ("PARCOURS PROFESSIONNELJUN 2025"). D'ou
+            // l'absence de \b final et l'exigence d'une suite non minuscule.
+            // (?-i) neutralise le drapeau /i dans ce seul lookahead : sinon
+            // [a-z] accepte aussi les majuscules et le test ne filtre plus rien.
             $notLowercase = '(?!(?-i)[a-zàâäçéèêëîïôöûùüÿñæœ])';
             if (! preg_match_all('/(?:^|\n)[ \t]*('.$pattern.')'.$notLowercase.'[ \t]*:?/iu', $text, $all, PREG_OFFSET_CAPTURE | PREG_SET_ORDER)) {
                 continue;
             }
 
             // A egalite, l'intitule en majuscules l'emporte : c'est la mise en
-            // forme quasi systematique des titres de rubrique sur un CV, et
-            // elle distingue le vrai titre d'une occurrence en prose.
+            // forme quasi systematique des titres de rubrique, et elle
+            // distingue le vrai titre d'une occurrence en prose.
             $best = null;
             foreach ($all as $match) {
                 $word = $match[1][0];
                 $isUpper = $word === mb_strtoupper($word);
                 if ($best === null || ($isUpper && ! $best['upper'])) {
-                    $best = [
-                        'upper' => $isUpper,
-                        'start' => $match[0][1] + strlen($match[0][0]),
-                    ];
+                    $best = ['upper' => $isUpper, 'start' => $match[0][1] + strlen($match[0][0])];
                 }
             }
 
@@ -145,7 +156,10 @@ class CvImportService
 
         usort($marks, fn ($a, $b) => $a['start'] <=> $b['start']);
 
-        $sections = [];
+        // Position de fin de l'en-tete : tout ce qui precede la premiere
+        // rubrique. Sert a exclure nom, email et telephone du balayage global.
+        $sections = ['__header_end' => (string) $marks[0]['start']];
+
         foreach ($marks as $i => $mark) {
             $end = $marks[$i + 1]['start'] ?? strlen($text);
             $sections[$mark['key']] = substr($text, $mark['start'], $end - $mark['start']);
@@ -154,19 +168,100 @@ class CvImportService
         return $sections;
     }
 
-    // Une entree = une plage de dates, plus la ligne qui porte l'identite du
-    // poste ou du diplome. Deux dispositions coexistent dans les vrais CV, et
-    // il faut savoir les distinguer :
+    // --- Collecte des entrees ---------------------------------------------
+
+    // Les deux sources sont exploitees puis fusionnees.
     //
-    //  - classique : intitule, organisation, puis dates ;
-    //  - gabarits type Canva : la date d'abord, l'identite juste apres, avec
-    //    l'entreprise EN CAPITALES collee au poste par l'extraction PDF
-    //    ("SURPRISE ROSESetter commercial/ Madrid freelance ...").
+    // La rubrique seule ne suffit pas : sur un CV a deux colonnes,
+    // l'extraction melange l'ordre de lecture et l'intitule se retrouve
+    // parfois APRES son contenu, d'ou des frontieres fausses. Sur un vrai CV,
+    // la rubrique ne contenait que 3 des 5 experiences pourtant toutes
+    // presentes avec leurs dates.
     //
-    // L'entreprise en capitales collee au poste est le signal le plus fiable :
-    // quand une ligne candidate en contient une, c'est elle l'identite, ou
-    // qu'elle se trouve. A defaut on retombe sur la disposition classique (ce
-    // qui precede la date), puis sur ce qui la suit.
+    // Le balayage global seul ne suffit pas non plus : il classe par
+    // mots-cles, moins sur que de savoir sous quel intitule l'entree figurait.
+    // La rubrique passe donc en premier et gagne au dedoublonnage.
+    private function collectEntries(array $sections, string $text, string $type): array
+    {
+        $key = $type === 'experience' ? 'experiences' : 'educations';
+
+        return $this->mergeEntries(
+            $this->extractEntries($sections[$key] ?? '', $type),
+            $this->extractEntriesWithoutSections($sections, $text, $type),
+        );
+    }
+
+    // Balayage du document entier, sans s'appuyer sur les intitules.
+    //
+    // L'EN-TETE est retire avant balayage : il contient le nom, l'email, le
+    // telephone et parfois une date de naissance, dont le service fabriquait
+    // des experiences fantomes ("Curriculum Vitae", une adresse email en
+    // guise d'intitule). Constate sur 4 CV sur 5.
+    private function extractEntriesWithoutSections(array $sections, string $text, string $type): array
+    {
+        $headerEnd = (int) ($sections['__header_end'] ?? 0);
+        $body = $headerEnd > 0 ? substr($text, $headerEnd) : $text;
+
+        return array_values(array_filter(
+            $this->extractEntries($body, $type),
+            function (array $entry) use ($type) {
+                $intitule = $entry['title'] ?? $entry['degree'] ?? '';
+                $organisation = (string) ($entry['company'] ?? $entry['school'] ?? '');
+                $estFormation = $this->looksLikeEducation($intitule, $organisation);
+
+                return $type === 'education' ? $estFormation : ! $estFormation;
+            },
+        ));
+    }
+
+    // L'INTITULE tranche en premier. Un "Service civique" effectue dans un
+    // lycee est une experience, pas une formation : classer sur
+    // l'organisation seule faisait disparaitre ces emplois des experiences.
+    private function looksLikeEducation(string $intitule, string $organisation): bool
+    {
+        if (preg_match('/\b(?:'.self::DIPLOMA_HINTS.')/iu', $intitule)) {
+            return true;
+        }
+
+        return (bool) preg_match('/\b(?:'.self::SCHOOL_HINTS.')/iu', $organisation);
+    }
+
+    // Deux entrees sont identiques si elles partagent la date de debut et un
+    // intitule qui commence pareil : l'extraction produit parfois la meme
+    // entree tronquee differemment selon la source.
+    private function mergeEntries(array $prioritaires, array $complements): array
+    {
+        $signature = function (array $entry): string {
+            $intitule = $entry['title'] ?? $entry['degree'] ?? '';
+
+            return ($entry['start_date'] ?? '').'|'.Str::lower(Str::limit(Str::ascii($intitule), 25, ''));
+        };
+
+        $vues = [];
+        $resultat = [];
+
+        foreach ([$prioritaires, $complements] as $liste) {
+            foreach ($liste as $entry) {
+                $cle = $signature($entry);
+                if (isset($vues[$cle])) {
+                    continue;
+                }
+                $vues[$cle] = true;
+                $resultat[] = $entry;
+            }
+        }
+
+        return $resultat;
+    }
+
+    // --- Decoupage en entrees ---------------------------------------------
+
+    // Une entree = une date, plus l'identite qui l'accompagne. L'identite peut
+    // se trouver AVANT la date (disposition francaise classique), APRES
+    // (gabarits Canva et anglophones), ou SUR la meme ligne. Le service
+    // determine l'orientation entree par entree au lieu de la supposer :
+    // supposer "avant" decalait systematiquement chaque entree d'un cran sur
+    // les CV date-en-tete, chacune recevant l'identite de la precedente.
     private function extractEntries(string $sectionText, string $type): array
     {
         $lines = $this->toLines($sectionText);
@@ -179,27 +274,39 @@ class CvImportService
             }
         }
 
+        $orientation = $this->detectOrientation($lines, $anchors);
+
         $entries = [];
+        $consumed = [];
+
         foreach ($anchors as $n => $anchor) {
             $previous = $n > 0 ? $anchors[$n - 1]['index'] : -1;
             $next = $anchors[$n + 1]['index'] ?? count($lines);
 
-            // La ligne de dates porte parfois l'identite ("Vendeuse - Decathlon
-            // - 2023"), parfois la fin de la description de l'entree
-            // precedente : on la nettoie et on la traite comme une candidate
-            // parmi d'autres plutot que de lui faire confiance d'emblee.
-            $inline = trim(preg_replace($this->dateRangeRegex(), '', $anchor['line']) ?? '');
-            $inline = trim($inline, " \t·|,-–—:");
+            $inline = $this->stripDates($anchor['line']);
 
-            $before = array_values(array_filter(
-                array_slice($lines, $previous + 1, $anchor['index'] - $previous - 1),
-                fn ($l) => $this->extractDateRange($l) === null,
-            ));
-            $after = array_slice($lines, $anchor['index'] + 1, $next - $anchor['index'] - 1);
+            // Une ligne deja utilisee comme identite par l'entree precedente
+            // ne peut pas resservir : sans cela, deux entrees consecutives
+            // recevaient le meme intitule.
+            $before = [];
+            for ($i = $previous + 1; $i < $anchor['index']; $i++) {
+                if (! isset($consumed[$i]) && $this->extractDateRange($lines[$i]) === null) {
+                    $before[] = ['index' => $i, 'text' => $lines[$i]];
+                }
+            }
 
-            $identity = $this->pickIdentity($inline, $after, $before);
+            $after = [];
+            for ($i = $anchor['index'] + 1; $i < $next; $i++) {
+                $after[] = ['index' => $i, 'text' => $lines[$i]];
+            }
+
+            $identity = $this->pickIdentity($inline, $after, $before, $orientation);
             if ($identity === null) {
                 continue;
+            }
+
+            foreach ($identity['used'] as $index) {
+                $consumed[$index] = true;
             }
 
             $entry = [
@@ -222,121 +329,262 @@ class CvImportService
         return $entries;
     }
 
-    // Choisit, parmi les lignes qui entourent une date, celle qui identifie
-    // l'entree, et en tire intitule, organisation et description.
+    // Choisit l'identite de l'entree parmi ce qui entoure la date.
     //
-    // @return array{title: string, organisation: ?string, description: ?string}|null
-    private function pickIdentity(string $inline, array $after, array $before): ?array
+    // @param  array<int, array{index:int, text:string}>  $after
+    // @param  array<int, array{index:int, text:string}>  $before
+    // @return array{title:string, organisation:?string, description:?string, used:int[]}|null
+    // Un CV emploie UNE disposition, pas une par entree. La deviner a chaque
+    // fois faisait donner a chaque entree l'identite de la precedente sur les
+    // gabarits date-en-tete : les lignes qui precedent la date y sont la
+    // description de l'entree d'avant, et elles ressemblent assez a un
+    // intitule pour l'emporter.
+    //
+    // Signal decisif et stable : la PREMIERE entree. Sur un CV date-en-tete,
+    // la rubrique s'ouvre par la date, il n'y a donc rien d'exploitable avant
+    // elle. Sur un CV classique, l'intitule et l'organisation la precedent.
+    //
+    // @param  string[]  $lines
+    // @param  array<int, array{index:int}>  $anchors
+    private function detectOrientation(array $lines, array $anchors): string
     {
-        $lastBefore = $before === [] ? '' : $before[count($before) - 1];
+        if ($anchors === []) {
+            return 'before';
+        }
 
-        // 1. Une entreprise en capitales tranche immediatement, ou qu'elle soit.
-        $candidats = [
-            [$inline, $after],
-            [$after[0] ?? '', array_slice($after, 1)],
-            [$lastBefore, $after],
-        ];
-
-        foreach ($candidats as [$ligne, $reste]) {
-            if ($ligne === '') {
-                continue;
-            }
-            $parsed = $this->splitCapitalisedOrganisation($ligne);
-            if ($parsed !== null && $this->looksLikeATitle($parsed['title'])) {
-                return $parsed + ['description' => $this->joinDescription($reste)];
+        for ($i = $anchors[0]['index'] - 1; $i >= 0; $i--) {
+            if ($this->couldBeIdentity($lines[$i]) && $this->looksLikeATitle($this->shorten($lines[$i]))) {
+                return 'before';
             }
         }
 
-        // 2. Disposition classique : intitule puis organisation AVANT la date.
-        if ($before !== []) {
-            $heads = array_slice($before, -2);
-            $title = $this->shorten($heads[0]);
-            if ($this->looksLikeATitle($title)) {
+        return 'after';
+    }
+
+    private function pickIdentity(string $inline, array $after, array $before, string $orientation = 'before'): ?array
+    {
+        // 1. La ligne de dates porte elle-meme l'identite ("Livreur - La Poste
+        //    - 12/2025"). On la decoupe sur ses separateurs : sans ce
+        //    decoupage, l'intitule recevait la ligne entiere et depassait le
+        //    filtre de vraisemblance, l'entree etant alors abandonnee.
+        $aucuneEntrepriseCollee = $this->splitGluedOrganisation($after[0]['text'] ?? '') === null
+            && $this->splitGluedOrganisation($before[count($before) - 1]['text'] ?? '') === null;
+
+        if ($inline !== '' && $aucuneEntrepriseCollee && $this->couldBeIdentity($inline)) {
+            $parts = $this->splitOnSeparators($inline);
+            if ($parts !== [] && $this->looksLikeATitle($parts[0])) {
                 return [
-                    'title' => $title,
-                    'organisation' => isset($heads[1]) ? $this->shorten($heads[1]) : null,
-                    'description' => $this->joinDescription($after),
+                    'title' => $this->shorten($parts[0]),
+                    'organisation' => isset($parts[1]) ? $this->shorten($parts[1]) : null,
+                    'description' => $this->joinDescription($this->texts($after)),
+                    'used' => [],
                 ];
             }
         }
 
-        // 3. La date ouvre l'entree : l'identite suit.
-        if ($inline !== '' && $this->looksLikeATitle($this->shorten($inline))) {
-            return [
-                'title' => $this->shorten($inline),
-                'organisation' => isset($after[0]) ? $this->shorten($after[0]) : null,
-                'description' => $this->joinDescription(array_slice($after, 1)),
-            ];
-        }
+        // 2. L'identite suit la date (gabarits Canva et anglophones) OU la
+        //    precede (disposition francaise classique). On retient le cote le
+        //    plus convaincant plutot que d'en privilegier un a l'aveugle.
+        $apres = $this->readIdentityBlock($after, true);
+        $avant = $this->readIdentityBlock($before, false);
 
-        if ($after !== [] && $this->looksLikeATitle($this->shorten($after[0]))) {
-            return [
-                'title' => $this->shorten($after[0]),
-                'organisation' => isset($after[1]) ? $this->shorten($after[1]) : null,
-                'description' => $this->joinDescription(array_slice($after, 2)),
-            ];
-        }
+        // L'entreprise en capitales collee au poste (score 3) est le signal le
+        // plus fiable qui existe : elle l'emporte sur l'orientation. Sinon
+        // c'est l'orientation de la rubrique qui tranche, et le cote oppose ne
+        // sert que de repli quand le cote attendu ne donne rien.
+        $prefere = $orientation === 'after' ? $apres : $avant;
+        $repli = $orientation === 'after' ? $avant : $apres;
 
-        return null;
-    }
+        $meilleur = match (true) {
+            ($apres['score'] ?? 0) === 3 => $apres,
+            ($avant['score'] ?? 0) === 3 => $avant,
+            $prefere !== null => $prefere,
+            default => $repli,
+        };
 
-    // "SURPRISE ROSESetter commercial/ Madrid freelance Gestion des messages"
-    // devient organisation "SURPRISE ROSE", intitule "Setter commercial".
-    //
-    // L'extraction PDF colle l'entreprise (en capitales) au poste : la
-    // frontiere est le passage d'une suite de capitales a une capitale suivie
-    // d'une minuscule. Le poste s'arrete ensuite au premier separateur, ce qui
-    // suit etant le lieu puis la description.
-    //
-    // @return array{title: string, organisation: string}|null
-    private function splitCapitalisedOrganisation(string $line): ?array
-    {
-        if (! preg_match('/^([\p{Lu}][\p{Lu}\s&\'.\-]{2,58}?)(?=\p{Lu}\p{Ll})(.+)$/u', $line, $m)) {
+        if ($meilleur === null) {
             return null;
         }
 
-        $organisation = trim($m[1], " \t.-'&");
-        $rest = trim($m[2]);
-
-        $title = preg_split('#\s*(?:[/·|]|\s-\s)\s*#u', $rest)[0] ?? $rest;
-
-        if (mb_strlen($organisation) < 3 || trim((string) $title) === '') {
-            return null;
-        }
+        // La description ne peut venir que d'apres la date : ce qui precede
+        // appartient a la mise en page, pas au recit de l'entree.
+        $description = $meilleur['side'] === 'after'
+            ? $this->joinDescription(array_slice($this->texts($after), count($meilleur['used'])))
+            : $this->joinDescription($this->texts($after));
 
         return [
-            'title' => $this->shorten((string) $title),
-            'organisation' => $this->shorten($organisation),
+            'title' => $meilleur['title'],
+            'organisation' => $meilleur['organisation'],
+            'description' => $description,
+            'used' => $meilleur['used'],
         ];
     }
 
-    // 2000 caracteres : la limite exacte acceptee par le profil
-    // (StoreExperienceRequest). Sur un CV a colonnes, l extraction agrege
-    // parfois plusieurs blocs dans une meme description et depassait cette
-    // limite — l API refusait alors l entree, et le candidat ne voyait qu un
-    // echec sans cause. On tronque plutot que de perdre l experience entiere.
-    private const MAX_DESCRIPTION_LENGTH = 2000;
-
-    private function joinDescription(array $lines): ?string
+    /** @param  array<int, array{index:int, text:string}>  $block */
+    private function texts(array $block): array
     {
+        return array_map(fn (array $l) => $l['text'], $block);
+    }
+
+    // Lit une ou deux lignes comme "intitule + organisation", en devinant
+    // laquelle est laquelle, et note la confiance obtenue.
+    //
+    // @param  array<int, array{index:int, text:string}>  $block
+    // @return array{title:string, organisation:?string, used:int[], score:int, side:string}|null
+    private function readIdentityBlock(array $block, bool $isAfter): ?array
+    {
+        if ($block === []) {
+            return null;
+        }
+
+        // Cote "avant", l'identite est ce qui touche la date, donc les
+        // DERNIERES lignes ; cote "apres", les PREMIERES.
+        $candidates = $isAfter ? array_slice($block, 0, 2) : array_slice($block, -2);
+
+        $side = $isAfter ? 'after' : 'before';
+
+        // L entreprise collee au poste est cherchee AVANT tout filtrage de
+        // longueur : ces lignes sont longues precisement parce que
+        // l extraction PDF y a colle la description, et les ecarter revenait a
+        // perdre le signal le plus fiable dont on dispose.
+        foreach ($candidates as $rang => $candidate) {
+            $glued = $this->splitGluedOrganisation($candidate['text']);
+            if ($glued !== null) {
+                return $glued + [
+                    'used' => array_map(fn (array $l) => $l['index'], array_slice($candidates, 0, $rang + 1)),
+                    'score' => 3,
+                    'side' => $side,
+                ];
+            }
+        }
+
         $lines = array_values(array_filter(
-            array_map('trim', $lines),
-            fn ($l) => $l !== '',
+            $candidates,
+            fn (array $l) => $this->couldBeIdentity($l['text']),
         ));
 
         if ($lines === []) {
             return null;
         }
 
-        return Str::limit(implode('
-', $lines), self::MAX_DESCRIPTION_LENGTH, '');
+        $first = $this->shorten($this->splitOnSeparators($lines[0]['text'])[0] ?? $lines[0]['text']);
+        if (! $this->looksLikeATitle($first)) {
+            return null;
+        }
+
+        $second = isset($lines[1])
+            ? $this->shorten($this->splitOnSeparators($lines[1]['text'])[0] ?? $lines[1]['text'])
+            : null;
+
+        // Les CV placent tantot l'intitule avant l'organisation, tantot
+        // l'inverse. Une ligne entierement en capitales, ou qui nomme un
+        // etablissement, est l'organisation.
+        $premierEstOrganisation = $second !== null
+            && $this->looksLikeOrganisation($first)
+            && ! $this->looksLikeOrganisation($second);
+
+        return [
+            'title' => $premierEstOrganisation ? $second : $first,
+            'organisation' => $premierEstOrganisation ? $first : $second,
+            'used' => array_map(
+                fn (array $l) => $l['index'],
+                array_slice($lines, 0, $second === null ? 1 : 2),
+            ),
+            'score' => $second === null ? 1 : 2,
+            'side' => $side,
+        ];
     }
 
-    // Filtre de vraisemblance. Sur un CV a colonnes, l'extraction PDF rend un
-    // texte melange d'ou l'on ne peut tirer que des phrases de description
-    // prises pour des intitules. Proposer ces entrees est PIRE que n'en
-    // proposer aucune : le candidat doit alors les supprimer une par une avant
-    // de ressaisir les vraies.
+    // Une ligne d'identite n'est ni une coordonnee, ni un intitule de
+    // rubrique, ni une phrase. Ce filtre est ce qui empeche l'en-tete du CV et
+    // les titres de rubrique de devenir des experiences fantomes.
+    private function couldBeIdentity(string $line): bool
+    {
+        $line = trim($line);
+
+        if ($line === '' || mb_strlen($line) > 120) {
+            return false;
+        }
+        if (preg_match('#@|https?://|www\.#iu', $line)) {
+            return false;
+        }
+        if (preg_match('/^(?:\+?\d[\d .\-]{7,})$/u', $line)) {
+            return false;
+        }
+
+        return ! $this->looksLikeSectionHeading($line);
+    }
+
+    private function looksLikeOrganisation(string $value): bool
+    {
+        $value = trim($value);
+
+        if ($value !== '' && $value === mb_strtoupper($value) && preg_match('/\p{L}{3,}/u', $value)) {
+            return true;
+        }
+
+        return (bool) preg_match('/\b(?:'.self::SCHOOL_HINTS.')/iu', $value);
+    }
+
+    // "LOVISAResponsable de Magasin" devient organisation "LOVISA", intitule
+    // "Responsable de Magasin".
+    //
+    // Exige qu'il n'y ait AUCUN espace a la frontiere : c'est ce qui distingue
+    // un collage d'extraction PDF d'un nom compose legitime. Sans cette
+    // condition, "SNCF Voyageurs", "BTS Management" ou "IUT Lyon 3" etaient
+    // decoupes de travers et l'intitule du diplome disparaissait.
+    //
+    // @return array{title:string, organisation:string}|null
+    private function splitGluedOrganisation(string $line): ?array
+    {
+        if (! preg_match('/^(\p{Lu}[\p{Lu}\s&\'.\-]{1,56}\p{Lu})(\p{Lu}\p{Ll}.+)$/u', $line, $m)) {
+            return null;
+        }
+
+        $organisation = trim($m[1], " \t.-'&");
+        $rest = trim($m[2]);
+        $title = $this->splitOnSeparators($rest)[0] ?? $rest;
+
+        // Un intitule de rubrique colle a la prose qui le suit
+        // ("PROFILDynamique et orientee clients...") a exactement la meme forme
+        // qu une entreprise collee a un poste. Sans ce garde-fou, la rubrique
+        // devenait l employeur et la premiere phrase de la bio un intitule.
+        if ($this->looksLikeSectionHeading($organisation) || $this->isTemplateLabel($organisation)) {
+            return null;
+        }
+        if (mb_strlen($organisation) < 3 || trim($title) === '' || ! $this->looksLikeATitle($title)) {
+            return null;
+        }
+
+        return [
+            'title' => $this->shorten($title),
+            'organisation' => $this->shorten($organisation),
+        ];
+    }
+
+    /** @return string[] */
+    private function splitOnSeparators(string $value): array
+    {
+        $parts = preg_split('#\s*(?:[/·|•]|\s[-–—]\s|,\s)\s*#u', trim($value)) ?: [];
+
+        return array_values(array_filter(array_map('trim', $parts), fn ($p) => $p !== ''));
+    }
+
+    private function joinDescription(array $lines): ?string
+    {
+        $lines = array_values(array_filter(array_map('trim', $lines), fn ($l) => $l !== ''));
+
+        if ($lines === []) {
+            return null;
+        }
+
+        return Str::limit(implode("\n", $lines), self::MAX_DESCRIPTION_LENGTH, '');
+    }
+
+    // Filtre de vraisemblance : un intitule est court et n'est pas une phrase.
+    // Applique apres decoupage sur les separateurs, jamais a une ligne
+    // entiere — sinon le budget de mots etait consomme par l'organisation et
+    // le lieu, et l'entree abandonnee sans trace.
     private function looksLikeATitle(string $value): bool
     {
         $value = trim($value);
@@ -344,68 +592,112 @@ class CvImportService
         if (mb_strlen($value) < 3 || mb_strlen($value) > 80) {
             return false;
         }
-
         if (preg_match('/[.…]$/u', $value)) {
             return false;
         }
+        if (! preg_match('/\p{L}{2,}/u', $value)) {
+            return false;
+        }
 
-        // Dix mots et non huit : des intitules reels comme "Community Manager
-        // et creatrice de contenu" depassent huit mots.
         return str_word_count(Str::ascii($value), 0) <= 10;
     }
 
-    // L'extraction PDF colle regulierement plusieurs elements sur une meme
-    // ligne. On tronque plutot que de refuser l'entree : le candidat corrige
-    // un intitule trop long bien plus vite qu'il ne ressaisit tout.
     private function shorten(string $value): string
     {
         return Str::limit(trim($value, " \t·|,-–—:"), 80, '');
     }
 
+    private function looksLikeSectionHeading(string $line): bool
+    {
+        $line = trim($line, " \t:•-–—*");
+
+        foreach (self::SECTION_HEADINGS as $pattern) {
+            if (preg_match('/^(?:'.$pattern.')$/iu', $line)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    // --- Dates ------------------------------------------------------------
+
+    // Un point de date : "2023", "06/2024", "30/06/2024" (format natif
+    // Europass), "sept. 2023", "August 2022".
+    private function datePointPattern(): string
+    {
+        return '(?:(?:'.self::MONTHS.')\.?\s*)?(?:\d{1,2}[\/.]){0,2}(?:19|20)\d{2}';
+    }
+
     private function dateRangeRegex(): string
     {
-        $m = self::MONTHS;
-        $point = '(?:(?:'.$m.')\.?\s*)?(?:\d{1,2}[\/.])?(?:19|20)\d{2}';
-        // "act" seul est frequent sur les gabarits anglophones ("JUN 2025 - Act").
-        $now = "aujourd'hui|aujourdhui|present|actuel(?:lement)?|act\b|en cours|a ce jour|now|today";
+        $point = $this->datePointPattern();
+        // Separateurs textuels entoures d'espaces ("to", "au", "until"), ou
+        // tirets. "to" et "until" manquaient : toute la plage echouait, donc
+        // l'entree disparaissait, sur des formes tres courantes en anglais.
+        $sep = '(?:\s*[-–—>]\s*|\s+(?:a|au|to|until|till|jusqu\'?a)\s+)';
 
-        return '/(?:depuis\s+('.$point.'))|(?:('.$point.')\s*(?:-|–|—|a|au|jusqu\'?a|>)\s*('.$point.'|'.$now.'))/iu';
+        return '/(?:depuis\s+('.$point.'))|(?:('.$point.')'.$sep.'('.$point.'|'.self::ONGOING.'))/iu';
+    }
+
+    // Une date SEULE ancre aussi une entree ("Bac Pro Commerce — 2021").
+    // Sans cela, toute entree datee d'une seule annee etait silencieusement
+    // ignoree — cas tres frequent pour les formations.
+    private function singleDateRegex(): string
+    {
+        return '/(?<![\d\/.])('.$this->datePointPattern().')(?![\d\/.])/iu';
     }
 
     /** @return array{start: ?string, end: ?string}|null */
     private function extractDateRange(string $line): ?array
     {
         $normalized = Str::lower(Str::ascii($line));
-        if (! preg_match($this->dateRangeRegex(), $normalized, $m)) {
-            return null;
+
+        if (preg_match($this->dateRangeRegex(), $normalized, $m)) {
+            // Forme "Depuis 2023" : debut connu, fin ouverte.
+            if (($m[1] ?? '') !== '') {
+                return ['start' => $this->toDate($m[1], false), 'end' => null];
+            }
+
+            $end = $m[3] ?? '';
+            $isOngoing = (bool) preg_match('/'.self::ONGOING.'/u', $end);
+
+            $startDate = $this->toDate($m[2] ?? '', false);
+            $endDate = $isOngoing ? null : $this->toDate($end, true);
+
+            // Le profil exige end_date >= start_date. Sur un texte melange,
+            // deux dates de deux entrees differentes peuvent etre appariees :
+            // mieux vaut une fin inconnue qu'une entree refusee par l'API.
+            if ($startDate !== null && $endDate !== null && $endDate < $startDate) {
+                $endDate = null;
+            }
+
+            return ['start' => $startDate, 'end' => $endDate];
         }
 
-        // Forme "Depuis 2023" : debut connu, fin ouverte.
-        if (($m[1] ?? '') !== '') {
+        if (preg_match($this->singleDateRegex(), $normalized, $m)) {
             return ['start' => $this->toDate($m[1], false), 'end' => null];
         }
 
-        $end = $m[3] ?? '';
-        $isOngoing = (bool) preg_match('/aujourd|present|actuel|en cours|a ce jour/u', $end);
-
-        $startDate = $this->toDate($m[2] ?? '', false);
-        $endDate = $isOngoing ? null : $this->toDate($end, true);
-
-        // Le profil exige une date de fin posterieure au debut
-        // (after_or_equal:start_date). Sur un texte melange, l extraction peut
-        // apparier deux dates qui n appartiennent pas a la meme entree et
-        // produire une plage inversee : l API refusait alors l entree entiere.
-        // Mieux vaut une date de fin inconnue qu une experience perdue.
-        if ($startDate !== null && $endDate !== null && $endDate < $startDate) {
-            $endDate = null;
-        }
-
-        return ['start' => $startDate, 'end' => $endDate];
+        return null;
     }
 
-    // Normalise en date SQL. Un CV donne rarement le jour : on retient le 1er
-    // du mois pour un debut, le dernier jour connu pour une fin, et janvier
-    // (ou decembre) quand seule l'annee est indiquee.
+    // Retire toute date de la ligne, y compris les mois restes orphelins.
+    // Le nettoyage porte sur le texte D'ORIGINE alors que la detection porte
+    // sur sa version sans accents : sans le motif insensible aux accents ici,
+    // "AOUT" restait dans la ligne et le residu devenait l'intitule.
+    private function stripDates(string $line): string
+    {
+        $result = preg_replace($this->dateRangeRegex(), ' ', $line) ?? $line;
+        $result = preg_replace($this->singleDateRegex(), ' ', $result) ?? $result;
+        $result = preg_replace('/\b(?:'.self::MONTHS.')\.?\b/iu', ' ', $result) ?? $result;
+        $result = preg_replace('/\b(?:'.self::ONGOING.')\b/iu', ' ', $result) ?? $result;
+
+        return trim(preg_replace('/\s+/u', ' ', $result) ?? '', " \t·|,-–—:");
+    }
+
+    // Normalise en date SQL. Un CV donne rarement le jour : le 1er du mois
+    // pour un debut, le dernier jour connu pour une fin.
     private function toDate(string $fragment, bool $isEnd): ?string
     {
         if (! preg_match('/((?:19|20)\d{2})/', $fragment, $y)) {
@@ -414,7 +706,11 @@ class CvImportService
         $year = (int) $y[1];
 
         $month = $isEnd ? 12 : 1;
-        if (preg_match('/(\d{1,2})[\/.](?:19|20)\d{2}/', $fragment, $m)) {
+
+        if (preg_match('/(\d{1,2})[\/.](\d{1,2})[\/.](?:19|20)\d{2}/', $fragment, $m)) {
+            // jj/mm/aaaa : le mois est le SECOND nombre.
+            $month = max(1, min(12, (int) $m[2]));
+        } elseif (preg_match('/(\d{1,2})[\/.](?:19|20)\d{2}/', $fragment, $m)) {
             $month = max(1, min(12, (int) $m[1]));
         } elseif (preg_match('/('.self::MONTHS.')/i', $fragment, $m)) {
             $month = $this->monthNumber($m[1]);
@@ -425,20 +721,22 @@ class CvImportService
         return sprintf('%04d-%02d-%02d', $year, $month, $day);
     }
 
-    // Prefixes francais ET anglais. Les plus longs d'abord : "juil" doit etre
-    // teste avant "jui", et "jun"/"jul" existent cote anglais — sans eux,
-    // "JUN 2025" retombait silencieusement sur janvier.
+    // Prefixes francais ET anglais, les plus longs d'abord. "jui" seul est
+    // ambigu (juin ou juillet) : juin par defaut, se tromper d'un mois etant
+    // sans consequence la ou retomber sur janvier fausse la chronologie.
     private const MONTH_PREFIXES = [
-        'janv' => 1, 'jan' => 1, 'fevr' => 2, 'fev' => 2, 'feb' => 2,
-        'mars' => 3, 'mar' => 3, 'avr' => 4, 'apr' => 4, 'mai' => 5, 'may' => 5,
-        'juin' => 6, 'jun' => 6, 'juil' => 7, 'jul' => 7,
-        // 'jui' seul est ambigu (juin ou juillet) et frequent sur les CV
-        // mis en page a l'etranger. Juin plutot que janvier par defaut : se
-        // tromper d'un mois est sans consequence, se tromper de semestre
-        // fausse la chronologie du parcours.
-        'jui' => 6,
-        'aout' => 8, 'aou' => 8, 'aug' => 8, 'sept' => 9, 'sep' => 9,
-        'octo' => 10, 'oct' => 10, 'nov' => 11, 'dec' => 12,
+        'janv' => 1, 'jan' => 1,
+        'fevr' => 2, 'fev' => 2, 'feb' => 2,
+        'mars' => 3, 'marc' => 3, 'mar' => 3,
+        'avr' => 4, 'apr' => 4,
+        'mai' => 5, 'may' => 5,
+        'juil' => 7, 'jul' => 7,
+        'juin' => 6, 'jun' => 6, 'jui' => 6,
+        'aout' => 8, 'aug' => 8, 'aou' => 8,
+        'sept' => 9, 'sep' => 9,
+        'octo' => 10, 'oct' => 10,
+        'nov' => 11,
+        'dec' => 12,
     ];
 
     private function monthNumber(string $name): int
@@ -454,38 +752,40 @@ class CvImportService
         return 1;
     }
 
-    // Nom et prenom, lus en tete de CV. C'est ce qui permet a l'import de
-    // CREER le profil d'un candidat qui vient d'arriver, au lieu de lui
-    // demander de saisir ses infos avant de pouvoir importer quoi que ce soit.
-    //
-    // Les CV placent quasi systematiquement l'identite sur les toutes
-    // premieres lignes, souvent en capitales, et parfois coupee en deux
-    // ("ALEXANDRE" puis "LEYVA" — constate sur un vrai CV). On agrege donc les
-    // premieres lignes qui ressemblent a un nom, puis on coupe : premier mot =
-    // prenom, le reste = nom. Convention imparfaite pour un prenom compose,
-    // mais le candidat relit et corrige, et c'est infiniment moins couteux que
-    // de tout ressaisir.
-    //
-    // @return array{first: ?string, last: ?string}
+    // --- Identite du candidat ---------------------------------------------
+
+    // Libelles de gabarit a ne jamais prendre pour un nom : "Curriculum Vitae"
+    // figure en tete de tous les Europass classiques et etait lu comme
+    // l'identite du candidat.
+    private const NOT_A_NAME = 'curriculum vitae|curriculum|resume|cv|profil|profile|candidature';
+
+    /** @return array{first: ?string, last: ?string} */
     private function extractName(string $text): array
     {
         $words = [];
 
-        foreach (array_slice($this->toLines($text), 0, 5) as $line) {
-            // Une ligne d'identite ne contient que des lettres, espaces, tirets
-            // et apostrophes : ni chiffre, ni @, ni ponctuation de phrase.
-            if (! preg_match("/^[\p{L}][\p{L}\-' ]{1,60}$/u", $line)) {
-                break;
+        foreach (array_slice($this->toLines($text), 0, 6) as $line) {
+            $line = trim($line);
+
+            // "SURNAME, Firstname" : format impose par Europass. Sans la
+            // virgule dans la classe autorisee, la lecture s'arretait net et
+            // ne renvoyait aucun nom.
+            if (preg_match('/^([\p{L}][\p{L}\-\' ]{1,40}),\s*([\p{L}][\p{L}\-\' ]{1,40})$/u', $line, $m)) {
+                return [
+                    'first' => $this->normalizeName($m[2]),
+                    'last' => $this->normalizeName($m[1]),
+                ];
             }
-            // Un intitule de rubrique en tete de page n'est pas un nom.
-            if ($this->looksLikeSectionHeading($line)) {
+
+            if ($this->looksLikeSectionHeading($line) || $this->isTemplateLabel($line)) {
+                continue;
+            }
+            if (! preg_match('/^[\p{L}][\p{L}\-\' ]{1,60}$/u', $line)) {
                 break;
             }
 
-            $words = array_merge($words, preg_split('/\s+/u', trim($line)));
+            $words = array_merge($words, preg_split('/\s+/u', $line) ?: []);
 
-            // Deux lignes suffisent (nom coupe en deux), et au-dela de quatre
-            // mots on ramasse un titre de poste plutot qu'une identite.
             if (count($words) >= 2) {
                 break;
             }
@@ -496,24 +796,23 @@ class CvImportService
             return ['first' => null, 'last' => null];
         }
 
-        $normalize = fn (string $w) => Str::title(Str::lower($w));
-
         return [
-            'first' => $normalize($words[0]),
-            'last' => implode(' ', array_map($normalize, array_slice($words, 1))),
+            'first' => $this->normalizeName($words[0]),
+            'last' => implode(' ', array_map(fn ($w) => $this->normalizeName($w), array_slice($words, 1))),
         ];
     }
 
-    private function looksLikeSectionHeading(string $line): bool
+    private function isTemplateLabel(string $line): bool
     {
-        foreach (self::SECTION_HEADINGS as $pattern) {
-            if (preg_match('/^(?:'.$pattern.')$/iu', trim($line))) {
-                return true;
-            }
-        }
-
-        return false;
+        return (bool) preg_match('/^(?:'.self::NOT_A_NAME.')$/iu', trim($line));
     }
+
+    private function normalizeName(string $word): string
+    {
+        return Str::title(Str::lower(trim($word)));
+    }
+
+    // --- Coordonnees ------------------------------------------------------
 
     private function extractEmail(string $text): ?string
     {
@@ -533,8 +832,8 @@ class CvImportService
         return null;
     }
 
-    // Code postal francais : 5 chiffres isoles, en excluant 00000 et les
-    // suites qui font partie d'un nombre plus long (montant, numero de rue).
+    // Code postal francais : 5 chiffres isoles, hors 00000 et hors suites
+    // appartenant a un nombre plus long.
     private function extractPostalCode(string $text): ?string
     {
         if (preg_match('/(?<!\d)((?:0[1-9]|[1-9]\d)\d{3})(?!\d)/', $text, $matches)) {
@@ -561,15 +860,15 @@ class CvImportService
             return 'Permis '.Str::upper($matches[1]);
         }
 
-        if (preg_match('/\bpermis\s*(?:de\s*conduire)?\b/i', $text)) {
+        if (preg_match('/\b(?:permis\s*(?:de\s*conduire)?|driving licen[cs]e)\b/i', $text)) {
             return 'Permis B';
         }
 
         return null;
     }
 
-    // Cherche dans le texte les noms deja connus de Jeuncy. Aucune invention :
-    // si le mot n'est pas dans le referentiel, il n'est pas propose.
+    // --- Referentiels -----------------------------------------------------
+
     private function matchReferential(string $text, array $names): array
     {
         $found = [];
@@ -580,7 +879,7 @@ class CvImportService
                 continue;
             }
 
-            // Frontieres de mot uniquement quand le nom commence et finit par
+            // Frontieres de mot seulement quand le nom commence et finit par
             // un caractere de mot : "Excel/Word" ou "C++" cassent \b.
             $quoted = preg_quote($needle, '/');
             $pattern = preg_match('/^\w/', $needle) && preg_match('/\w$/', $needle)
@@ -599,48 +898,47 @@ class CvImportService
         return $found;
     }
 
-    private const COMMON_LANGUAGES = [
-        'Anglais', 'Espagnol', 'Allemand', 'Italien', 'Portugais', 'Catalan',
-        'Arabe', 'Chinois', 'Russe', 'Neerlandais', 'Japonais', 'Francais',
+    // Nom francais retenu, mais reconnu aussi sous sa forme anglaise : un CV
+    // en anglais ecrit "English", "Spanish", "German", et aucune langue
+    // n'etait alors detectee.
+    private const LANGUAGES = [
+        'Anglais' => 'anglais|english',
+        'Espagnol' => 'espagnol|spanish',
+        'Allemand' => 'allemand|german',
+        'Italien' => 'italien|italian',
+        'Portugais' => 'portugais|portuguese',
+        'Catalan' => 'catalan',
+        'Arabe' => 'arabe|arabic',
+        'Chinois' => 'chinois|chinese|mandarin',
+        'Russe' => 'russe|russian',
+        'Neerlandais' => 'neerlandais|dutch',
+        'Japonais' => 'japonais|japanese',
+        'Francais' => 'francais|french',
     ];
 
-    // Cherche d'abord dans la rubrique "Langues" si elle existe (le niveau y
-    // suit immediatement la langue), sinon dans tout le texte.
-    // Cherche dans TOUT le texte et non dans la seule rubrique "Langues" :
-    // sur un CV a deux colonnes, l'extraction entrelace les colonnes et les
-    // frontieres de rubriques deviennent fausses — la rubrique "Langues" y
-    // contenait des competences, et inversement (constate sur un vrai CV).
-    // Chercher partout est sans risque ici : une langue est reconnue par son
-    // nom, pris dans une liste fermee, pas par sa position.
+    // Cherche dans TOUT le texte : sur un CV a deux colonnes les frontieres de
+    // rubriques sont fausses, et une langue se reconnait a son nom, pris dans
+    // une liste fermee — chercher partout est donc sans risque ici.
     private function extractLanguages(string $fullText): array
     {
         $haystack = Str::ascii($fullText);
         $found = [];
 
-        foreach (self::COMMON_LANGUAGES as $language) {
-            $needle = Str::ascii($language);
-            if (! preg_match('/\b'.preg_quote($needle, '/').'\b/i', $haystack, $m, PREG_OFFSET_CAPTURE)) {
+        foreach (self::LANGUAGES as $name => $pattern) {
+            if (! preg_match('/\b(?:'.$pattern.')\b/i', $haystack, $m, PREG_OFFSET_CAPTURE)) {
                 continue;
             }
 
-            // Niveau cherche dans les ~40 caracteres qui suivent : au-dela, il
-            // appartient vraisemblablement a une autre ligne du CV.
-            $after = substr($haystack, $m[0][1] + strlen($needle), 40);
-            $level = $this->readLanguageLevel($after);
-
-            $found[] = ['name' => $language, 'level' => $level];
+            $after = substr($haystack, $m[0][1] + strlen($m[0][0]), 40);
+            $found[] = ['name' => $name, 'level' => $this->readLanguageLevel($after)];
         }
 
         return $found;
     }
 
-    // Niveau CECRL (B2) ou son equivalent en toutes lettres, tres frequent sur
-    // les CV de jeunes candidats ("Anglais : courant").
-    // On retient l'indice le PLUS PROCHE de la langue, code CECRL ou mot.
-    // Prendre systematiquement le code d'abord donnait "Espagnol B2" pour un
-    // "Espagnol langue maternelle" suivi, quelques mots plus loin, d'un
-    // "Anglais B2" — le texte des CV a colonnes rapproche des lignes qui ne se
-    // suivent pas a l'ecran.
+    // On retient l'indice le PLUS PROCHE de la langue, code CECRL ou mot :
+    // prendre le code d'abord donnait "Espagnol B2" pour un "Espagnol langue
+    // maternelle" suivi, quelques mots plus loin, d'un "Anglais B2".
     private function readLanguageLevel(string $after): ?string
     {
         $candidates = [];
@@ -649,9 +947,16 @@ class CvImportService
             $candidates[] = ['at' => $m[1][1], 'level' => Str::upper($m[1][0])];
         }
 
-        foreach (['bilingue' => 'C2', 'maternelle' => 'C2', 'natif' => 'C2', 'courant' => 'C1',
-            'avance' => 'B2', 'intermediaire' => 'B1', 'scolaire' => 'A2',
-            'notions' => 'A1', 'debutant' => 'A1'] as $word => $level) {
+        $words = [
+            'bilingue' => 'C2', 'bilingual' => 'C2', 'maternelle' => 'C2', 'native' => 'C2', 'natif' => 'C2',
+            'courant' => 'C1', 'fluent' => 'C1',
+            'avance' => 'B2', 'advanced' => 'B2',
+            'intermediaire' => 'B1', 'intermediate' => 'B1',
+            'scolaire' => 'A2', 'basic' => 'A2',
+            'notions' => 'A1', 'debutant' => 'A1', 'beginner' => 'A1',
+        ];
+
+        foreach ($words as $word => $level) {
             if (preg_match('/\b'.$word.'/i', $after, $m, PREG_OFFSET_CAPTURE)) {
                 $candidates[] = ['at' => $m[0][1], 'level' => $level];
             }
