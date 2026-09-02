@@ -59,6 +59,11 @@ export interface CandidateProfile {
   // Droit d'opposition a la CVtheque (RGPD art. 21) : true par defaut cote
   // base, le candidat peut se retirer depuis son profil.
   is_visible_in_cvtheque: boolean;
+  // CV que le candidat a lui-meme depose. Propose aux recruteurs en priorite
+  // sur un CV genere par Jeuncy : c'est le document qu'il a choisi.
+  cv_file_url: string | null;
+  cv_original_filename: string | null;
+  cv_uploaded_at: string | null;
   experiences: Experience[];
   educations: Education[];
   skills: Skill[];
@@ -74,9 +79,19 @@ export interface GeneratedCv {
   generated_at: string;
 }
 
+// Suggestions issues de la lecture d'un PDF. Rien n'est devine : seuls des
+// formats non ambigus (email, telephone, code postal, LinkedIn, permis) et des
+// noms deja connus de Jeuncy (competences, logiciels) sont proposes — voir
+// CvImportService cote serveur. Le candidat relit et applique.
 export interface ImportedCvData {
   email: string | null;
   phone: string | null;
+  postal_code: string | null;
+  linkedin_url: string | null;
+  driving_license: string | null;
+  skills: string[];
+  software: string[];
+  languages: { name: string; level: string | null }[];
   raw_text: string;
 }
 
@@ -221,4 +236,20 @@ export function importCv(file: File) {
     method: 'POST',
     body: formData,
   });
+}
+
+// Depot du CV du candidat, conserve tel quel. A ne pas confondre avec importCv
+// ci-dessus, qui lit un PDF pour proposer des donnees sans conserver le fichier.
+export function uploadOwnCv(file: File) {
+  const formData = new FormData();
+  formData.append('cv_file', file);
+
+  return apiRequest<CandidateProfile>('/candidate-profile/cv-file', {
+    method: 'POST',
+    body: formData,
+  });
+}
+
+export function removeOwnCv() {
+  return apiRequest<CandidateProfile>('/candidate-profile/cv-file', { method: 'DELETE' });
 }

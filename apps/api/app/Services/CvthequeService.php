@@ -2,11 +2,15 @@
 
 namespace App\Services;
 
+use App\Enums\CvSource;
 use App\Exceptions\ApiException;
 use App\Models\CandidateProfile;
+use App\Models\CvDownload;
 use App\Models\User;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 // CVtheque : recherche de profils candidats reservee aux entreprises et CFA
 // disposant d'un abonnement actif (decision produit du 2026-08-17 — c'est la
@@ -27,7 +31,11 @@ use Illuminate\Database\Eloquent\Builder;
 //     apres avoir ouvert la fiche (voir LIST_COLUMNS et DETAIL_RELATIONS).
 class CvthequeService
 {
-    public function __construct(private readonly SubscriptionService $subscriptionService) {}
+    public function __construct(
+        private readonly SubscriptionService $subscriptionService,
+        private readonly CvService $cvService,
+        private readonly CandidateProfileService $profileService,
+    ) {}
 
     // Colonnes renvoyees en liste. Volontairement restreint : ni phone, ni
     // address, ni birth_date, ni l'email du compte. La ville reste exposee, un
@@ -127,6 +135,109 @@ class CvthequeService
             throw new ApiException('CANDIDATE_PROFILE_NOT_FOUND', 'Profil introuvable.', 404);
         }
 
+        // cv_file_url masquee : le recruteur ne doit jamais recevoir l'URL
+        // publique du fichier. Avec elle il pourrait recuperer le CV en
+        // contournant downloadCv(), donc sans passer par la garde d'abonnement
+        // ni par le journal de telechargement — et la partager telle quelle.
+        // Le telechargement passe exclusivement par cvtheque/{id}/cv.
+        $profile->makeHidden(['cv_file_url']);
+
+        // Le recruteur voit en revanche si le CV est celui que le candidat a
+        // lui-meme depose, et de quand il date : un CV choisi par le candidat
+        // n'a pas le meme statut qu'une fiche mise en page par Jeuncy.
+        $profile->setAttribute('has_uploaded_cv', $profile->cv_file_url !== null);
+
         return $profile;
+    }
+
+    // Telechargement du CV d'un candidat par un recruteur abonne.
+    //
+    // Passe deliberement par find() : la garde d'abonnement ET le filtre de
+    // visibilite CVtheque sont donc reappliques ici. Un candidat qui s'est
+    // retire de la CVtheque ne doit pas voir son CV rester telechargeable par
+    // quiconque aurait garde l'URL sous la main.
+    //
+    // Renvoie les octets du PDF plutot qu'une redirection vers le fichier
+    // stocke : l'URL publique du CV ne doit jamais fuiter cote recruteur,
+    // sinon elle circule ensuite hors de toute garde d'abonnement et hors du
+    // journal de telechargement.
+    public function downloadCv(User $user, int $candidateProfileId): array
+    {
+        $profile = $this->find($user, $candidateProfileId);
+        [$source, $contents] = $this->resolveCvFor($profile);
+
+        CvDownload::create([
+            'candidate_profile_id' => $profile->id,
+            'user_id' => $user->id,
+            'source' => $source,
+        ]);
+
+        return [
+            'contents' => $contents,
+            'filename' => $this->downloadFilename($profile, $source),
+        ];
+    }
+
+    // Ordre de priorite : ce que le candidat a choisi de presenter passe avant
+    // ce que Jeuncy sait fabriquer.
+    //
+    //  1. Son CV depose (Canva, Word...) — c'est SON document.
+    //  2. Son dernier CV genere sur Jeuncy et encore sur le disque.
+    //  3. A defaut, un PDF fabrique a la volee depuis les donnees du profil.
+    //
+    // Le troisieme cas n'est pas un repli de secours mais le cas majoritaire
+    // au demarrage : les profils deja en base n'ont pour la plupart jamais
+    // clique sur "Generer mon CV". Sans lui, la CVtheque serait vide de CV
+    // pour presque tout le monde.
+    private function resolveCvFor(CandidateProfile $profile): array
+    {
+        $uploadedPath = $this->profileService->uploadedCvAbsolutePath($profile);
+        if ($uploadedPath && is_file($uploadedPath)) {
+            $contents = file_get_contents($uploadedPath);
+            if ($contents !== false) {
+                return [CvSource::UPLOADED, $contents];
+            }
+        }
+
+        // archived_at : ArchiveInactiveCvs supprime le fichier du disque et
+        // ne garde que la ligne. Servir un CV archive donnerait un PDF vide.
+        $generated = $profile->generatedCvs()
+            ->whereNull('archived_at')
+            ->latest('generated_at')
+            ->first();
+
+        if ($generated) {
+            $path = Storage::disk('public')->path($this->relativeStoragePath($generated->file_url));
+            if (is_file($path)) {
+                $contents = file_get_contents($path);
+                if ($contents !== false) {
+                    return [CvSource::GENERATED, $contents];
+                }
+            }
+        }
+
+        return [CvSource::ON_THE_FLY, $this->cvService->renderPdfFor($profile)];
+    }
+
+    // Nom vu par le recruteur au telechargement. Pour un CV depose on garde le
+    // nom d'origine du candidat ; sinon on en compose un lisible plutot que de
+    // laisser un UUID, un recruteur classant des dizaines de CV devant pouvoir
+    // les retrouver.
+    private function downloadFilename(CandidateProfile $profile, CvSource $source): string
+    {
+        if ($source === CvSource::UPLOADED && $profile->cv_original_filename) {
+            return $profile->cv_original_filename;
+        }
+
+        $name = trim(($profile->first_name ?? '').' '.($profile->last_name ?? ''));
+
+        return 'CV-'.(Str::slug($name) ?: 'candidat-'.$profile->id).'.pdf';
+    }
+
+    private function relativeStoragePath(string $url): string
+    {
+        $base = rtrim(Storage::disk('public')->url(''), '/').'/';
+
+        return Str::startsWith($url, $base) ? substr($url, strlen($base)) : $url;
     }
 }

@@ -15,6 +15,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { DownloadCvButton } from '@/components/features/cvtheque/DownloadCvButton';
 import { getCvthequeCandidate } from '@/lib/api/cvtheque';
 import { ApiError } from '@/lib/api/client';
 
@@ -172,6 +173,16 @@ export function CvthequeCandidate() {
               </a>
             )}
           </div>
+
+          {/* Toujours disponible : si le candidat n'a ni depose ni genere de
+              CV, le serveur en fabrique un a la volee depuis son profil (voir
+              CvthequeService::resolveCvFor). Un recruteur ne tombe donc jamais
+              sur une fiche sans CV. */}
+          <DownloadCvButton
+            candidateId={c.id}
+            hasUploadedCv={c.has_uploaded_cv}
+            fallbackFilename={`CV-${c.first_name}-${c.last_name}.pdf`}
+          />
 
           {c.bio && (
             <section>

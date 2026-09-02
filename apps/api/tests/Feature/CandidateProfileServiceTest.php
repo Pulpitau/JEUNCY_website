@@ -213,4 +213,79 @@ class CandidateProfileServiceTest extends TestCase
         $this->assertNull($profile->photo_url);
         $this->assertFalse(is_file($path));
     }
+
+    // --- CV depose par le candidat ---
+
+    private function makeProfileWithUser(): User
+    {
+        $user = $this->makeUser();
+        $this->service->createForUser($user, ['first_name' => 'Léa', 'last_name' => 'Girard']);
+
+        return $user->fresh();
+    }
+
+    public function test_upload_cv_stores_file_and_keeps_original_name(): void
+    {
+        Storage::fake('public');
+        $user = $this->makeProfileWithUser();
+
+        $profile = $this->service->uploadCv(
+            $user,
+            UploadedFile::fake()->create('Mon CV 2026.pdf', 50, 'application/pdf'),
+        );
+
+        $this->assertNotNull($profile->cv_file_url);
+        $this->assertSame('Mon CV 2026.pdf', $profile->cv_original_filename);
+        $this->assertNotNull($profile->cv_uploaded_at);
+        $this->assertTrue(is_file($this->service->uploadedCvAbsolutePath($profile)));
+    }
+
+    // Un seul CV depose a la fois : redeposer remplace, sans laisser de
+    // fichier orphelin sur le disque.
+    public function test_upload_cv_replaces_the_previous_file(): void
+    {
+        Storage::fake('public');
+        $user = $this->makeProfileWithUser();
+
+        $first = $this->service->uploadCv($user, UploadedFile::fake()->create('a.pdf', 10, 'application/pdf'));
+        $firstPath = $this->service->uploadedCvAbsolutePath($first);
+
+        $second = $this->service->uploadCv($user->fresh(), UploadedFile::fake()->create('b.pdf', 10, 'application/pdf'));
+
+        $this->assertFalse(is_file($firstPath));
+        $this->assertNotSame($first->cv_file_url, $second->cv_file_url);
+    }
+
+    public function test_remove_cv_clears_columns_and_deletes_file(): void
+    {
+        Storage::fake('public');
+        $user = $this->makeProfileWithUser();
+        $withCv = $this->service->uploadCv($user, UploadedFile::fake()->create('cv.pdf', 10, 'application/pdf'));
+        $path = $this->service->uploadedCvAbsolutePath($withCv);
+
+        $profile = $this->service->removeCv($user->fresh());
+
+        $this->assertNull($profile->cv_file_url);
+        $this->assertNull($profile->cv_original_filename);
+        $this->assertNull($profile->cv_uploaded_at);
+        $this->assertFalse(is_file($path));
+    }
+
+    // Le nom d'origine est reaffiche au candidat et sert d'en-tete
+    // Content-Disposition au telechargement : il ne doit jamais porter de
+    // separateur de chemin ni de retour a la ligne.
+    public function test_upload_cv_sanitizes_a_hostile_filename(): void
+    {
+        Storage::fake('public');
+        $user = $this->makeProfileWithUser();
+
+        $profile = $this->service->uploadCv(
+            $user,
+            UploadedFile::fake()->create("../../evil\r\nX-Injected: 1.pdf", 10, 'application/pdf'),
+        );
+
+        $this->assertStringNotContainsString('/', $profile->cv_original_filename);
+        $this->assertStringNotContainsString('..', $profile->cv_original_filename);
+        $this->assertStringNotContainsString("\n", $profile->cv_original_filename);
+    }
 }

@@ -22,7 +22,7 @@ class DeploySchedulerCheckTest extends TestCase
         $this->get('/deploy/anything/scheduler')->assertNotFound();
     }
 
-    // Le cas nominal : les 4 taches sont enregistrees ET planifiees.
+    // Le cas nominal : chaque tache attendue est enregistree ET planifiee.
     public function test_scheduler_check_reports_ok_for_every_expected_task(): void
     {
         Config::set('app.deploy_token', 'secret-token');
@@ -35,6 +35,7 @@ class DeploySchedulerCheckTest extends TestCase
             'job-offers:archive-expired-trials',
             'cvs:archive-inactive',
             'video-rooms:send-reminders',
+            'cv-downloads:purge',
         ] as $commande) {
             $response->assertJsonPath("taches.{$commande}", 'ok');
         }

@@ -16,7 +16,9 @@ import { LanguagesSection } from '@/components/features/profile/LanguagesSection
 import { SkillsSection } from '@/components/features/profile/SkillsSection';
 import { SoftwareSection } from '@/components/features/profile/SoftwareSection';
 import { CvSection } from '@/components/features/profile/CvSection';
+import { OwnCvSection } from '@/components/features/profile/OwnCvSection';
 import { ImportCvSection } from '@/components/features/profile/ImportCvSection';
+import type { ImportedCvApplyPayload } from '@/components/features/profile/ImportCvSection';
 import { CvthequeVisibilitySection } from '@/components/features/profile/CvthequeVisibilitySection';
 import {
   getMyProfile,
@@ -35,6 +37,8 @@ import {
   generateCv,
   listGeneratedCvs,
   importCv,
+  uploadOwnCv,
+  removeOwnCv,
 } from '@/lib/api/candidate-profile';
 import { ApiError } from '@/lib/api/client';
 import { useStagedProfileSections } from '@/hooks/use-staged-profile-sections';
@@ -138,6 +142,14 @@ export function Profile() {
     mutationFn: removeProfilePhoto,
     onSuccess: invalidateProfile,
   });
+  const uploadOwnCvMutation = useMutation({
+    mutationFn: uploadOwnCv,
+    onSuccess: invalidateProfile,
+  });
+  const removeOwnCvMutation = useMutation({
+    mutationFn: removeOwnCv,
+    onSuccess: invalidateProfile,
+  });
   const generateCvMutation = useMutation({
     mutationFn: generateCv,
     onSuccess: () => queryClient.invalidateQueries({ queryKey: CVS_QUERY_KEY }),
@@ -148,6 +160,26 @@ export function Profile() {
       : generateCvMutation.isError
         ? 'Impossible de générer le CV pour le moment.'
         : null;
+
+  // Applique les suggestions issues d'un CV importe. Les champs de base et les
+  // referentiels passent par des endpoints differents, d'ou les appels
+  // separes ; ils sont sequentiels et non paralleles pour que le profil ne
+  // soit invalide qu'une fois, a la fin.
+  async function applyImportedCv(payload: ImportedCvApplyPayload) {
+    const { skills, software, ...info } = payload;
+
+    if (Object.keys(info).length > 0) {
+      await updateProfile(info);
+    }
+    if (skills) {
+      await syncSkills(skills);
+    }
+    if (software) {
+      await syncSoftware(software);
+    }
+
+    await invalidateProfile();
+  }
 
   if (profileQuery.isLoading) {
     return (
@@ -215,7 +247,14 @@ export function Profile() {
           <CardTitle>Importer un CV existant</CardTitle>
         </CardHeader>
         <CardContent>
-          <ImportCvSection onImport={(file) => importCv(file)} />
+          <ImportCvSection
+            onImport={(file) => importCv(file)}
+            existingSkills={profile?.skills.map((s) => s.name) ?? []}
+            existingSoftware={profile?.software.map((s) => s.name) ?? []}
+            // Absent tant que le profil n'existe pas : il n'y a rien a mettre
+            // a jour, le candidat cree d'abord ses informations de base.
+            onApply={profile ? applyImportedCv : undefined}
+          />
         </CardContent>
       </Card>
 
@@ -328,17 +367,34 @@ export function Profile() {
           faire apparaitre sans prevenir. */}
       {profile ? (
         <>
+          {/* Deux chemins volontairement distincts vers le meme besoin :
+              deposer le CV qu'on a deja, ou en faire fabriquer un. Le CV
+              depose est propose en premier parce que c'est celui que les
+              recruteurs verront en priorite. */}
           <Card>
             <CardHeader>
               <CardTitle>Mon CV</CardTitle>
+              <CardDescription>
+                Dépose le tien, ou laisse Jeuncy en générer un à partir de ton profil.
+              </CardDescription>
             </CardHeader>
-            <CardContent>
-              <CvSection
-                cvs={cvsQuery.data ?? []}
-                isGenerating={generateCvMutation.isPending}
-                error={generateCvError}
-                onGenerate={() => generateCvMutation.mutateAsync()}
+            <CardContent className="flex flex-col gap-8">
+              <OwnCvSection
+                fileUrl={profile.cv_file_url}
+                originalFilename={profile.cv_original_filename}
+                uploadedAt={profile.cv_uploaded_at}
+                onUpload={(file) => uploadOwnCvMutation.mutateAsync(file)}
+                onRemove={() => removeOwnCvMutation.mutateAsync()}
               />
+
+              <div className="border-t border-border pt-8">
+                <CvSection
+                  cvs={cvsQuery.data ?? []}
+                  isGenerating={generateCvMutation.isPending}
+                  error={generateCvError}
+                  onGenerate={() => generateCvMutation.mutateAsync()}
+                />
+              </div>
             </CardContent>
           </Card>
 

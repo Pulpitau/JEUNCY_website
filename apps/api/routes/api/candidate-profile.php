@@ -9,6 +9,7 @@ use App\Http\Controllers\ExperienceController;
 use App\Http\Controllers\GeneratedCvController;
 use App\Http\Controllers\LanguageController;
 use App\Http\Controllers\ProfilePhotoController;
+use App\Http\Controllers\UploadedCvController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('candidate-profile')->middleware(['auth:api', 'role:CANDIDATE'])->group(function () {
@@ -36,4 +37,9 @@ Route::prefix('candidate-profile')->middleware(['auth:api', 'role:CANDIDATE'])->
     Route::post('cv', [GeneratedCvController::class, 'store']);
     Route::get('cv', [GeneratedCvController::class, 'index']);
     Route::post('cv/import', [CvImportController::class, 'store']);
+
+    // CV depose par le candidat lui-meme, conserve tel quel et propose aux
+    // recruteurs en priorite sur un CV genere (voir CvthequeService).
+    Route::post('cv-file', [UploadedCvController::class, 'store']);
+    Route::delete('cv-file', [UploadedCvController::class, 'destroy']);
 });

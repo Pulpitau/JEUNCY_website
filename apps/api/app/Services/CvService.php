@@ -16,17 +16,8 @@ class CvService
 
     public function generate(User $user): GeneratedCv
     {
-        $profile = $this->profileService->requireProfile($user)
-            ->load(['user', 'experiences', 'educations', 'skills', 'languages', 'software']);
+        $profile = $this->profileService->requireProfile($user);
 
-        $pdf = Pdf::loadView('cv.template', [
-            'profile' => $profile,
-            'photoDataUri' => $this->photoDataUri($profile),
-            'logoDataUri' => $this->logoDataUri(),
-            'age' => $profile->birth_date?->age,
-            'scales' => $this->contentScales($profile),
-            'palette' => $this->palette($profile),
-        ])->setPaper('a4');
         // "cvs/" (et non "generated-cvs/") est bloque par defaut par Apache sur
         // l'hebergement mutualise OVH : les hebergeurs partagent souvent une regle
         // deny-all sur tout dossier nomme "cvs" (insensible a la casse), heritage
@@ -34,11 +25,31 @@ class CvService
         // outil de version control) - renvoie un 403 Apache generique avant meme
         // d'atteindre PHP, quels que soient les permissions du fichier.
         $path = 'generated-cvs/'.$profile->id.'/'.Str::uuid().'.pdf';
-        Storage::disk('public')->put($path, $pdf->output());
+        Storage::disk('public')->put($path, $this->renderPdfFor($profile));
 
         return $profile->generatedCvs()->create([
             'file_url' => Storage::disk('public')->url($path),
         ]);
+    }
+
+    // Fabrique le PDF et renvoie ses octets, sans rien ecrire sur le disque ni
+    // en base. Extrait de generate() pour que la CVtheque puisse servir un CV
+    // "a la volee" a un recruteur quand le candidat n'a ni depose ni genere de
+    // CV (voir CvthequeService::resolveCvFor) : ce PDF ne doit surtout pas
+    // apparaitre dans l'historique generated_cvs du candidat, qui ne l'a pas
+    // demande — c'est son historique a lui, pas un journal d'acces recruteur.
+    public function renderPdfFor(CandidateProfile $profile): string
+    {
+        $profile->loadMissing(['user', 'experiences', 'educations', 'skills', 'languages', 'software']);
+
+        return Pdf::loadView('cv.template', [
+            'profile' => $profile,
+            'photoDataUri' => $this->photoDataUri($profile),
+            'logoDataUri' => $this->logoDataUri(),
+            'age' => $profile->birth_date?->age,
+            'scales' => $this->contentScales($profile),
+            'palette' => $this->palette($profile),
+        ])->setPaper('a4')->output();
     }
 
     public function listForUser(User $user): Collection

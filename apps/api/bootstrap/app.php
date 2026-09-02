@@ -23,6 +23,11 @@ return Application::configure(basePath: dirname(__DIR__))
         $schedule->command('job-offers:expire')->daily();
         $schedule->command('job-offers:archive-expired-trials')->daily();
         $schedule->command('cvs:archive-inactive')->daily();
+        // Applique reellement la duree de conservation de 3 ans annoncee aux
+        // candidats dans la politique de confidentialite (section 4 ter).
+        // Hebdomadaire et non quotidien : le delai se compte en annees, une
+        // passe par semaine suffit largement.
+        $schedule->command('cv-downloads:purge')->weekly();
         // Horaire (pas quotidien comme les 3 taches ci-dessus) : la fenetre de
         // rappel est d'1h (voir SendVideoRoomReminders), donc alignee sur la
         // frequence du cron OVH lui-meme (schedule:run appele toutes les

@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { ContactEmail } from '@/components/ContactEmail';
 
-const LAST_UPDATED = '17 août 2026';
+const LAST_UPDATED = '2 septembre 2026';
 
 const DATA_CATEGORIES = [
   {
@@ -14,7 +14,8 @@ const DATA_CATEGORIES = [
       'Nom, prénom, titre professionnel, téléphone, date de naissance, adresse',
       'Photo de profil (facultative)',
       'Expériences, formations, compétences, langues, logiciels, loisirs, permis de conduire',
-      'CV générés (PDF) et lettres de motivation envoyées',
+      'CV générés (PDF), CV que vous déposez vous-même, et lettres de motivation envoyées',
+      'Journal des téléchargements de votre CV par les recruteurs (voir section 4 ter)',
     ],
   },
   {
@@ -169,6 +170,46 @@ export function PrivacyPolicy() {
               La base légale de ce traitement est l'intérêt légitime de Jeuncy à assurer
               la mise en relation entre candidats et recruteurs, objet même du service,
               équilibré par ce droit d'opposition libre et immédiat.
+            </p>
+          </section>
+
+          {/* Section ajoutee le 2026-09-02 avec le telechargement de CV depuis
+              la CVtheque. Deux points la rendent necessaire : le recruteur
+              repart avec un fichier que Jeuncy ne maitrise plus (limite du
+              droit a l'effacement, art. 17), et Jeuncy journalise nominativement
+              chaque telechargement (nouveau traitement a declarer, art. 13). */}
+          <section>
+            <h2 className="font-poppins text-xl font-semibold text-foreground">
+              4 ter. Téléchargement de votre CV par un recruteur
+            </h2>
+            <p className="mt-3">
+              Un recruteur abonné qui consulte votre fiche dans la CVthèque peut
+              télécharger votre CV au format PDF. Selon ce que vous avez fait, il s'agit :
+              du <strong>CV que vous avez déposé vous-même</strong> s'il y en a un, sinon
+              du <strong>dernier CV que vous avez généré</strong> sur Jeuncy, et à défaut
+              d'un <strong>CV mis en page automatiquement</strong> à partir des
+              informations de votre profil.
+            </p>
+            <p className="mt-3">
+              <strong>Ce CV ne contient que ce que vous avez renseigné</strong> dans votre
+              profil ou dans le fichier que vous avez déposé. Jeuncy n'y ajoute aucune
+              information provenant d'ailleurs.
+            </p>
+            <p className="mt-3">
+              <strong>Point important à connaître :</strong> une fois téléchargé, le
+              fichier se trouve sur l'équipement du recruteur et échappe au contrôle de
+              Jeuncy. Si vous demandez ultérieurement la suppression de vos données, nous
+              effaçons ce que nous détenons, mais nous ne pouvons pas récupérer les copies
+              déjà téléchargées. Cette limite est inhérente au fonctionnement d'une
+              CVthèque ; si elle ne vous convient pas, retirez-vous de la CVthèque (voir
+              section 4 bis) — votre CV cesse alors immédiatement d'être téléchargeable.
+            </p>
+            <p className="mt-3">
+              <strong>Traçabilité :</strong> chaque téléchargement est enregistré (compte
+              du recruteur, profil concerné, date et heure). Ce journal existe pour votre
+              protection : il nous permet de vous indiquer, si vous le demandez, qui a
+              accédé à votre CV, et de détecter un usage anormal. Il est conservé trois
+              ans, puis supprimé, et n'est jamais communiqué à des tiers.
             </p>
           </section>
 

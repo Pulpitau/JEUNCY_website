@@ -1,4 +1,4 @@
-import { apiRequest } from './client';
+import { apiDownload, apiRequest } from './client';
 
 // Profil tel qu'il apparait DANS LA LISTE. Volontairement pauvre en donnees
 // personnelles : le backend ne renvoie ici ni telephone, ni adresse, ni date
@@ -47,6 +47,11 @@ export interface CvthequeCandidateDetail extends CvthequeCandidate {
     start_date: string | null;
     end_date: string | null;
   }[];
+  // Indique si le CV telechargeable est celui que le candidat a lui-meme
+  // depose (son PDF Canva, Word...) plutot qu'une mise en page produite par
+  // Jeuncy. L'URL du fichier, elle, n'est jamais transmise : le
+  // telechargement passe obligatoirement par downloadCvthequeCv.
+  has_uploaded_cv: boolean;
 }
 
 export interface CvthequeSearchFilters {
@@ -91,4 +96,11 @@ export function getCvthequeCandidate(id: number) {
 
 export function getCvthequeAccess() {
   return apiRequest<{ has_access: boolean }>('/cvtheque/access');
+}
+
+// Telecharge le CV du candidat. Le serveur renvoie le PDF lui-meme (jamais son
+// URL) et journalise l'acces : chaque appel laisse une trace nominative,
+// exigence RGPD assumee cote produit — un CV telecharge quitte la plateforme.
+export function downloadCvthequeCv(id: number) {
+  return apiDownload(`/cvtheque/${id}/cv`);
 }

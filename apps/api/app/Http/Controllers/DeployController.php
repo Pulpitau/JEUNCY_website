@@ -102,6 +102,7 @@ class DeployController extends Controller
         'job-offers:archive-expired-trials',
         'cvs:archive-inactive',
         'video-rooms:send-reminders',
+        'cv-downloads:purge',
     ];
 
     // Extrait du controleur pour etre testable sur des entrees choisies : le

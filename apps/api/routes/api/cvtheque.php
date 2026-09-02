@@ -21,4 +21,7 @@ Route::prefix('cvtheque')->middleware(['auth:api', 'role:COMPANY,CFA,ADMIN'])->g
     // pour que /cvtheque/access ne soit jamais avale par ce parametre (meme
     // precaution que job-offers/search).
     Route::get('{candidateProfile}', [CvthequeController::class, 'show'])->whereNumber('candidateProfile');
+    // Declaree apres la fiche mais sur un segment supplementaire, donc jamais
+    // ambigue avec elle. Renvoie le PDF, pas du JSON (voir le controleur).
+    Route::get('{candidateProfile}/cv', [CvthequeController::class, 'downloadCv'])->whereNumber('candidateProfile');
 });

@@ -27,7 +27,14 @@ return [
 
     'allowed_headers' => ['*'],
 
-    'exposed_headers' => [],
+    // Content-Disposition : sans cette exposition explicite, le navigateur
+    // cache cet en-tete au JavaScript sur une requete cross-origine (le
+    // frontend et l'API sont sur deux domaines distincts en production).
+    // Consequence concrete : le telechargement d'un CV depuis la CVtheque
+    // retombait sur un nom generique au lieu du nom du fichier depose par le
+    // candidat. Constate en navigateur, pas en test — un test cote serveur
+    // voit l'en-tete, seul un vrai navigateur applique la restriction CORS.
+    'exposed_headers' => ['Content-Disposition'],
 
     'max_age' => 0,
 

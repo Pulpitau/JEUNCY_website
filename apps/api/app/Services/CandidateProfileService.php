@@ -124,7 +124,7 @@ class CandidateProfileService
         $profile = $this->requireProfile($user);
 
         if ($profile->photo_url) {
-            $this->deleteStoredPhoto($profile->photo_url);
+            $this->deleteStoredFile($profile->photo_url);
         }
 
         $filename = $profile->id.'-'.Str::uuid().'.'.$file->extension();
@@ -139,11 +139,84 @@ class CandidateProfileService
         $profile = $this->requireProfile($user);
 
         if ($profile->photo_url) {
-            $this->deleteStoredPhoto($profile->photo_url);
+            $this->deleteStoredFile($profile->photo_url);
             $profile->update(['photo_url' => null]);
         }
 
         return $profile->load(['experiences', 'educations', 'skills', 'languages', 'software']);
+    }
+
+    // CV depose par le candidat lui-meme, conserve tel quel : c'est le
+    // document qu'il a choisi de presenter aux recruteurs, il passe donc avant
+    // tout CV genere par Jeuncy (voir CvthequeService::resolveCvFor).
+    // Un seul CV depose a la fois : deposer remplace, comme pour la photo.
+    public function uploadCv(User $user, UploadedFile $file): CandidateProfile
+    {
+        $profile = $this->requireProfile($user);
+
+        if ($profile->cv_file_url) {
+            $this->deleteStoredFile($profile->cv_file_url);
+        }
+
+        // Meme precaution de nommage que pour les CV generes : un dossier
+        // "cvs/" est bloque par defaut par Apache sur le mutualise OVH (voir
+        // le commentaire detaille dans CvService::generate).
+        $filename = $profile->id.'-'.Str::uuid().'.pdf';
+        $path = $file->storeAs('uploaded-cvs', $filename, 'public');
+
+        $profile->update([
+            'cv_file_url' => Storage::disk('public')->url($path),
+            // Nom d'origine assaini : il est reaffiche au candidat et sert de
+            // nom de telechargement cote recruteur, donc il ne doit jamais
+            // pouvoir porter de separateur de chemin ni d'en-tete HTTP.
+            'cv_original_filename' => $this->sanitizeFilename($file->getClientOriginalName()),
+            'cv_uploaded_at' => now(),
+        ]);
+
+        return $profile->load(['experiences', 'educations', 'skills', 'languages', 'software']);
+    }
+
+    public function removeCv(User $user): CandidateProfile
+    {
+        $profile = $this->requireProfile($user);
+
+        if ($profile->cv_file_url) {
+            $this->deleteStoredFile($profile->cv_file_url);
+            $profile->update([
+                'cv_file_url' => null,
+                'cv_original_filename' => null,
+                'cv_uploaded_at' => null,
+            ]);
+        }
+
+        return $profile->load(['experiences', 'educations', 'skills', 'languages', 'software']);
+    }
+
+    // Chemin absolu sur disque du CV depose, pour le servir en telechargement
+    // sans exposer l'URL publique du fichier au recruteur (voir CvthequeService).
+    public function uploadedCvAbsolutePath(CandidateProfile $profile): ?string
+    {
+        if (! $profile->cv_file_url) {
+            return null;
+        }
+
+        return Storage::disk('public')->path($this->relativeStoragePath($profile->cv_file_url));
+    }
+
+    // Garde le nom lisible par un humain mais neutralise tout ce qui pourrait
+    // sortir du nom de fichier : separateurs de chemin, retours a la ligne
+    // (injection d'en-tete Content-Disposition), et longueur excessive.
+    private function sanitizeFilename(string $original): string
+    {
+        $base = basename(str_replace('\\', '/', $original));
+        $base = preg_replace('/[\r\n"]+/', '', $base) ?? '';
+        $base = trim($base);
+
+        if ($base === '' || ! Str::endsWith(Str::lower($base), '.pdf')) {
+            $base = 'cv.pdf';
+        }
+
+        return Str::limit($base, 120, '');
     }
 
     // Chemin absolu sur disque de la photo de profil, pour l'incorporer en base64
@@ -154,19 +227,21 @@ class CandidateProfileService
             return null;
         }
 
-        return Storage::disk('public')->path($this->relativePhotoPath($profile->photo_url));
+        return Storage::disk('public')->path($this->relativeStoragePath($profile->photo_url));
     }
 
-    private function relativePhotoPath(string $photoUrl): string
+    // Utilise pour la photo comme pour le CV depose : les deux sont stockes
+    // sur le meme disque public et referencés par leur URL complete en base.
+    private function relativeStoragePath(string $url): string
     {
         $base = rtrim(Storage::disk('public')->url(''), '/').'/';
 
-        return Str::startsWith($photoUrl, $base) ? substr($photoUrl, strlen($base)) : $photoUrl;
+        return Str::startsWith($url, $base) ? substr($url, strlen($base)) : $url;
     }
 
-    private function deleteStoredPhoto(string $photoUrl): void
+    private function deleteStoredFile(string $url): void
     {
-        Storage::disk('public')->delete($this->relativePhotoPath($photoUrl));
+        Storage::disk('public')->delete($this->relativeStoragePath($url));
     }
 
     public function requireProfile(User $user): CandidateProfile
