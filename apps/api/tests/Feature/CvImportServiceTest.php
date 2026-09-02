@@ -112,11 +112,110 @@ class CvImportServiceTest extends TestCase
 
     public function test_parse_extracts_languages_with_their_level(): void
     {
-        $file = $this->makePdfUpload('<p>Langues : Anglais B2, Espagnol courant</p>');
+        $file = $this->makePdfUpload('<p>Langues</p><p>Anglais B2</p><p>Espagnol courant</p>');
 
         $result = $this->service->parse($file);
 
         $this->assertContains(['name' => 'Anglais', 'level' => 'B2'], $result['languages']);
-        $this->assertContains(['name' => 'Espagnol', 'level' => null], $result['languages']);
+        // "courant" est traduit en C1 : les CV de jeunes candidats donnent
+        // rarement le niveau CECRL, presque toujours un mot.
+        $this->assertContains(['name' => 'Espagnol', 'level' => 'C1'], $result['languages']);
+    }
+
+    // --- Rubriques (experiences / formations) ---
+
+    private function makeRealisticCv(): UploadedFile
+    {
+        return $this->makePdfUpload(<<<'HTML'
+            <p>ALEXANDRE LEYVA</p>
+            <p>Conseiller Commercial</p>
+            <p>+33 6 30 15 43 12 - alexandre.leyva@example.com</p>
+            <p>12 Rue Teresa Rebull, 66300 Saint Laurent</p>
+
+            <p>EXPÉRIENCES</p>
+            <p>Conseiller de vente</p>
+            <p>Boulanger, Perpignan</p>
+            <p>sept. 2023 - juin 2024</p>
+            <p>Accueil et conseil des clients en rayon</p>
+            <p>Gestion de l'encaissement</p>
+            <p>Hôte de caisse</p>
+            <p>Carrefour, Cabestany</p>
+            <p>06/2022 - 08/2022</p>
+            <p>Encaissement et fidélisation</p>
+
+            <p>FORMATION</p>
+            <p>BTS Négociation et Digitalisation de la Relation Client</p>
+            <p>Lycée Aristide Maillol</p>
+            <p>2022 - 2024</p>
+            <p>Baccalauréat professionnel Commerce</p>
+            <p>Lycée Jean Lurçat</p>
+            <p>2019 - 2022</p>
+
+            <p>LANGUES</p>
+            <p>Anglais B1</p>
+            HTML);
+    }
+
+    public function test_parse_extracts_experiences_with_dates(): void
+    {
+        $result = $this->service->parse($this->makeRealisticCv());
+
+        $this->assertCount(2, $result['experiences']);
+
+        $first = $result['experiences'][0];
+        $this->assertSame('Conseiller de vente', $first['title']);
+        $this->assertSame('Boulanger, Perpignan', $first['company']);
+        $this->assertSame('2023-09-01', $first['start_date']);
+        $this->assertSame('2024-06-30', $first['end_date']);
+        $this->assertStringContainsString('Accueil et conseil', $first['description']);
+
+        $this->assertSame('Hôte de caisse', $result['experiences'][1]['title']);
+        $this->assertSame('2022-06-01', $result['experiences'][1]['start_date']);
+    }
+
+    public function test_parse_extracts_educations_with_dates(): void
+    {
+        $result = $this->service->parse($this->makeRealisticCv());
+
+        $this->assertCount(2, $result['educations']);
+        $this->assertStringContainsString('BTS Négociation', $result['educations'][0]['degree']);
+        $this->assertSame('Lycée Aristide Maillol', $result['educations'][0]['school']);
+        $this->assertSame('2022-01-01', $result['educations'][0]['start_date']);
+        $this->assertSame('2024-12-31', $result['educations'][0]['end_date']);
+    }
+
+    // Une entree en cours ("depuis", "aujourd'hui") laisse la date de fin
+    // vide : c'est ce que le profil attend pour un poste toujours occupe.
+    public function test_parse_leaves_end_date_empty_for_an_ongoing_entry(): void
+    {
+        $file = $this->makePdfUpload(
+            '<p>EXPÉRIENCES</p><p>Alternance communication</p><p>Odyssée Studio</p>'
+            ."<p>oct. 2025 - aujourd'hui</p>",
+        );
+
+        $result = $this->service->parse($file);
+
+        $this->assertCount(1, $result['experiences']);
+        $this->assertSame('2025-10-01', $result['experiences'][0]['start_date']);
+        $this->assertNull($result['experiences'][0]['end_date']);
+    }
+
+    // Sans date reconnaissable, on ne propose rien plutot que d'inventer une
+    // entree que le candidat devrait ensuite traquer et corriger.
+    public function test_parse_ignores_entries_without_a_recognisable_date(): void
+    {
+        $file = $this->makePdfUpload('<p>EXPÉRIENCES</p><p>Un poste sans aucune date</p>');
+
+        $result = $this->service->parse($file);
+
+        $this->assertSame([], $result['experiences']);
+    }
+
+    public function test_parse_returns_empty_sections_for_a_cv_without_headings(): void
+    {
+        $result = $this->service->parse($this->makePdfUpload('<p>Juste un paragraphe libre.</p>'));
+
+        $this->assertSame([], $result['experiences']);
+        $this->assertSame([], $result['educations']);
     }
 }

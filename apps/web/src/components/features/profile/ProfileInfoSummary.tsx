@@ -17,7 +17,7 @@ const DEFINED_ROWS = (
   profile: CandidateProfile,
 ): Array<{ label: string; value: string }> => {
   const rows: Array<{ label: string; value: string | null }> = [
-    { label: 'Titre professionnel', value: profile.headline },
+    { label: 'Ce que tu recherches', value: profile.headline },
     { label: 'Téléphone', value: profile.phone },
     { label: 'Date de naissance', value: formatBirthDate(profile.birth_date) },
     { label: 'Adresse', value: profile.address },

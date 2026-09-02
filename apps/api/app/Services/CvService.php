@@ -38,18 +38,76 @@ class CvService
     // CV (voir CvthequeService::resolveCvFor) : ce PDF ne doit surtout pas
     // apparaitre dans l'historique generated_cvs du candidat, qui ne l'a pas
     // demande — c'est son historique a lui, pas un journal d'acces recruteur.
+    //
+    // GARANTIE : le resultat tient sur UNE page, quel que soit le profil.
+    // Un CV sur deux pages (ou pire) n'est pas un CV, et un recruteur qui en
+    // recoit un juge le candidat, pas notre gabarit. Voir FIT_STEPS.
     public function renderPdfFor(CandidateProfile $profile): string
     {
         $profile->loadMissing(['user', 'experiences', 'educations', 'skills', 'languages', 'software']);
 
-        return Pdf::loadView('cv.template', [
+        $airy = $this->contentScales($profile);
+        $pdf = null;
+        $alreadyTried = [];
+
+        foreach (self::FIT_STEPS as $step) {
+            // Premiere passe : la mise en page aeree calculee pour ce profil.
+            // Passes suivantes : on revient a l'echelle de reference (1.0,
+            // calibree pour un profil dense) puis on comprime sous 1.0.
+            $scales = $step === null
+                ? $airy
+                : ['section' => $step, 'item' => $step, 'font' => $step];
+
+            // Un profil deja dense donne des scales aeres egaux a 1.0 : sans
+            // ce garde-fou, les deux premieres passes seraient identiques et
+            // on paierait un rendu complet pour rien.
+            $key = implode('/', $scales);
+            if (isset($alreadyTried[$key])) {
+                continue;
+            }
+            $alreadyTried[$key] = true;
+
+            $pdf = $this->renderAtScales($profile, $scales);
+
+            if ($pdf['pages'] <= 1) {
+                return $pdf['content'];
+            }
+        }
+
+        // Aucune echelle n'a suffi : on rend la plus compacte plutot que
+        // d'echouer. Un CV tres charge peut legitimement deborder, mais c'est
+        // devenu assez rare pour ne pas justifier de tronquer du contenu —
+        // tronquer serait pire, le candidat ne comprendrait pas ce qui manque.
+        return $pdf['content'];
+    }
+
+    // Echelles essayees dans l'ordre jusqu'a ce que le PDF tienne sur une page.
+    // null = la mise en page aeree propre au profil (contentScales), qui
+    // convient a la grande majorite des cas et evite une 2e passe. Les valeurs
+    // suivantes compriment progressivement : 1.0 est la reference calibree en
+    // phase 2 pour un profil dense, en dessous on resserre polices et espaces.
+    // Bornee a 0.58 : plus petit, le CV devient penible a lire, et mieux vaut
+    // deux pages lisibles qu'une page illisible.
+    private const FIT_STEPS = [null, 1.0, 0.9, 0.8, 0.7, 0.64, 0.58];
+
+    private function renderAtScales(CandidateProfile $profile, array $scales): array
+    {
+        $pdf = Pdf::loadView('cv.template', [
             'profile' => $profile,
             'photoDataUri' => $this->photoDataUri($profile),
             'logoDataUri' => $this->logoDataUri(),
             'age' => $profile->birth_date?->age,
-            'scales' => $this->contentScales($profile),
+            'scales' => $scales,
             'palette' => $this->palette($profile),
-        ])->setPaper('a4')->output();
+        ])->setPaper('a4');
+
+        $content = $pdf->output();
+
+        // Nombre de pages lu directement dans dompdf plutot que devine dans les
+        // octets du PDF : fiable quelle que soit la compression du flux.
+        $pages = $pdf->getDomPDF()->getCanvas()->get_page_count();
+
+        return ['content' => $content, 'pages' => $pages];
     }
 
     public function listForUser(User $user): Collection
@@ -135,12 +193,18 @@ class CvService
                 : 0,
         );
 
+        // Competences, logiciels et langues pesent 1 chacun et non 0.3 :
+        // sous-evalues, un profil affichant quinze competences mais peu
+        // d'experiences etait juge "vide", recevait l'inflation maximale, et
+        // debordait sur plusieurs pages — constate en production sur de vrais
+        // profils. Chaque entree occupe une ligne dans la colonne laterale,
+        // elle compte donc autant qu'une ligne de description.
         $score = ($profile->experiences->count() * 3)
             + $descriptionLineCount
             + ($profile->educations->count() * 1.5)
-            + ($profile->skills->count() * 0.3)
-            + ($profile->languages->count() * 0.3)
-            + ($profile->software->count() * 0.3)
+            + $profile->skills->count()
+            + $profile->languages->count()
+            + $profile->software->count()
             + ($profile->bio ? 1.5 : 0)
             + ($profile->hobbies ? 1 : 0);
 

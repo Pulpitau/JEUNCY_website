@@ -7,6 +7,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { ProfileInfoForm } from '@/components/features/profile/ProfileInfoForm';
 import { ProfileInfoSummary } from '@/components/features/profile/ProfileInfoSummary';
 import { ProfilePhotoUpload } from '@/components/features/profile/ProfilePhotoUpload';
@@ -161,21 +162,35 @@ export function Profile() {
         ? 'Impossible de générer le CV pour le moment.'
         : null;
 
-  // Applique les suggestions issues d'un CV importe. Les champs de base et les
-  // referentiels passent par des endpoints differents, d'ou les appels
-  // separes ; ils sont sequentiels et non paralleles pour que le profil ne
-  // soit invalide qu'une fois, a la fin.
+  // Applique les suggestions issues d'un CV importe. Chaque rubrique a son
+  // propre endpoint, d'ou les appels separes ; ils sont sequentiels et non
+  // paralleles pour que le profil ne soit invalide qu'une fois, a la fin —
+  // sinon l'ecran clignoterait entre chaque ajout.
   async function applyImportedCv(payload: ImportedCvApplyPayload) {
-    const { skills, software, ...info } = payload;
+    const { info, skills, software, experiences, educations, languages } = payload;
 
-    if (Object.keys(info).length > 0) {
-      await updateProfile(info);
+    const filledInfo = Object.fromEntries(
+      Object.entries(info).filter(([, value]) => value !== undefined),
+    );
+    if (Object.keys(filledInfo).length > 0) {
+      await updateProfile(filledInfo);
     }
     if (skills) {
       await syncSkills(skills);
     }
     if (software) {
       await syncSoftware(software);
+    }
+    // Ordre conserve : c'est celui du CV, donc l'ordre chronologique voulu
+    // par le candidat, et celui dans lequel les rubriques s'afficheront.
+    for (const experience of experiences) {
+      await addExperience(experience);
+    }
+    for (const education of educations) {
+      await addEducation(education);
+    }
+    for (const language of languages) {
+      await addLanguage(language);
     }
 
     await invalidateProfile();
@@ -251,6 +266,7 @@ export function Profile() {
             onImport={(file) => importCv(file)}
             existingSkills={profile?.skills.map((s) => s.name) ?? []}
             existingSoftware={profile?.software.map((s) => s.name) ?? []}
+            existingLanguages={profile?.languages.map((l) => l.name) ?? []}
             // Absent tant que le profil n'existe pas : il n'y a rien a mettre
             // a jour, le candidat cree d'abord ses informations de base.
             onApply={profile ? applyImportedCv : undefined}
@@ -404,14 +420,32 @@ export function Profile() {
           />
         </>
       ) : (
+        // Les deux options sont montrees, desactivees, plutot que masquees :
+        // masquees, le candidat croit qu'elles n'existent pas (retour terrain
+        // du 2026-09-02 — "il n'y a plus le generateur de CV"). Elles ont
+        // besoin d'un profil enregistre, le PDF etant fabrique cote serveur a
+        // partir de ses donnees.
         <Card>
           <CardHeader>
             <CardTitle>Mon CV</CardTitle>
             <CardDescription>
-              La génération de ton CV et ta visibilité dans la CVthèque s'activent dès que
-              tu enregistres tes informations personnelles.
+              Dépose le tien, ou laisse Jeuncy en générer un à partir de ton profil.
             </CardDescription>
           </CardHeader>
+          <CardContent className="flex flex-col gap-4">
+            <div className="flex flex-wrap gap-3">
+              <Button type="button" variant="outline" disabled>
+                Déposer mon CV (PDF)
+              </Button>
+              <Button type="button" variant="gradient" disabled>
+                Générer mon CV (PDF)
+              </Button>
+            </div>
+            <p className="font-inter text-sm text-muted-foreground">
+              Ces deux options s'activent dès que tu enregistres tes informations
+              personnelles, en haut de la page. Ta visibilité dans la CVthèque aussi.
+            </p>
+          </CardContent>
         </Card>
       )}
     </main>

@@ -92,6 +92,22 @@ export interface ImportedCvData {
   skills: string[];
   software: string[];
   languages: { name: string; level: string | null }[];
+  // Entrees reperees dans les rubriques du PDF. company/school/description
+  // peuvent etre absents quand le CV ne les explicite pas : le frontend
+  // n'applique que les entrees suffisamment completes.
+  experiences: {
+    title: string;
+    company: string | null;
+    start_date: string | null;
+    end_date: string | null;
+    description: string | null;
+  }[];
+  educations: {
+    degree: string;
+    school: string | null;
+    start_date: string | null;
+    end_date: string | null;
+  }[];
   raw_text: string;
 }
 

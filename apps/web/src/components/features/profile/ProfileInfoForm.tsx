@@ -128,12 +128,20 @@ export function ProfileInfoForm({
           )}
         </div>
         <div className="flex flex-col gap-2 sm:col-span-2">
-          <Label htmlFor="headline">Titre professionnel</Label>
+          {/* "Titre professionnel" perturbait les candidats (retour terrain
+              du 2026-09-02) : un jeune sans experience ne sait pas quel titre
+              se donner et laissait le champ vide. Formule cote recherche, pas
+              cote statut — la colonne en base reste headline. */}
+          <Label htmlFor="headline">Ce que tu recherches</Label>
           <Input
             id="headline"
-            placeholder="Ex : Chargé de communication digitale"
+            placeholder="Ex : Alternance en communication digitale"
             {...register('headline')}
           />
+          <p className="font-inter text-xs text-muted-foreground">
+            C'est la première chose que voient les recruteurs. Un poste, un secteur, ou
+            simplement le type de contrat que tu cherches.
+          </p>
         </div>
         <div className="flex flex-col gap-2">
           <Label htmlFor="phone">Téléphone</Label>
