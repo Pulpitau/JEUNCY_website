@@ -17,6 +17,12 @@ use Symfony\Component\HttpFoundation\Response;
  */
 class DeployController extends Controller
 {
+    // Version de cet outil de deploiement, renvoyee par /version. Sans elle, on
+    // ne peut pas savoir si le controleur lui-meme a bien ete redeploye : c est
+    // arrive le 2026-09-02, ou clear-cache continuait d echouer avec une version
+    // corrigee censement en place. A incrementer a chaque changement ici.
+    public const DEPLOY_TOOLS_VERSION = 'deploy-tools-2';
+
     private function assertAuthorized(string $token): void
     {
         $expected = config('app.deploy_token');
@@ -91,6 +97,8 @@ class DeployController extends Controller
         $this->assertAuthorized($token);
 
         $fichiers = [
+            'app/Http/Controllers/DeployController.php',
+            'routes/web.php',
             'app/Services/CvService.php',
             'app/Services/CvthequeService.php',
             'app/Services/CvImportService.php',
@@ -113,6 +121,7 @@ class DeployController extends Controller
         }
 
         return response()->json([
+            'version_outils_deploiement' => self::DEPLOY_TOOLS_VERSION,
             'version_moteur_cv' => CvService::LAYOUT_VERSION,
             'opcache_actif' => function_exists('opcache_get_status')
                 && is_array(@opcache_get_status(false)),
