@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\CvService;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Support\Facades\Artisan;
 use Symfony\Component\HttpFoundation\Response;
@@ -48,8 +49,71 @@ class DeployController extends Controller
         $this->assertAuthorized($token);
 
         Artisan::call('optimize:clear');
+        $sortie = Artisan::output();
 
-        return response(Artisan::output(), 200, ['Content-Type' => 'text/plain']);
+        // OPcache garde en memoire le BYTECODE des fichiers PHP. optimize:clear
+        // ne le touche pas : il ne vide que les caches applicatifs de Laravel.
+        // Sur un hebergement ou la revalidation des dates de modification est
+        // desactivee ou espacee, un fichier fraichement televerse continue donc
+        // d'etre execute dans son ancienne version, parfois longtemps.
+        //
+        // C'est exactement ce qui s'est produit le 2026-09-02 : trois
+        // deploiements successifs d'un correctif du CV sont restes sans effet,
+        // le serveur executant toujours l'ancien code malgre des fichiers a
+        // jour et un cache Laravel vide. Diagnostique en lisant la date de
+        // creation d'un PDF telecharge (veille du deploiement).
+        $sortie .= PHP_EOL.'OPcache : ';
+        if (! function_exists('opcache_reset')) {
+            $sortie .= 'extension absente, rien a faire';
+        } elseif (opcache_reset()) {
+            $sortie .= 'vide (le code PHP fraichement televerse est desormais actif)';
+        } else {
+            $sortie .= "reinitialisation refusee — l'ancien code peut rester actif";
+        }
+
+        return response($sortie.PHP_EOL, 200, ['Content-Type' => 'text/plain']);
+    }
+
+    // Quelle version du code tourne REELLEMENT sur le serveur ?
+    //
+    // Sans ce controle, on ne peut pas distinguer un correctif inefficace d'un
+    // correctif jamais execute — doute qui a coute trois allers-retours de
+    // deploiement le 2026-09-02. Empreinte et date de modification de chaque
+    // fichier sensible, pour comparer avec le depot en une seconde.
+    public function version(string $token): Response
+    {
+        $this->assertAuthorized($token);
+
+        $fichiers = [
+            'app/Services/CvService.php',
+            'app/Services/CvthequeService.php',
+            'app/Services/CvImportService.php',
+            'app/Services/CandidateProfileService.php',
+            'resources/views/cv/template.blade.php',
+            'bootstrap/app.php',
+            'config/cors.php',
+        ];
+
+        $etat = [];
+        foreach ($fichiers as $chemin) {
+            $absolu = base_path($chemin);
+            $etat[$chemin] = is_file($absolu)
+                ? [
+                    'empreinte' => substr(hash_file('sha256', $absolu), 0, 16),
+                    'modifie_le' => date('Y-m-d H:i:s', filemtime($absolu)),
+                    'octets' => filesize($absolu),
+                ]
+                : 'ABSENT';
+        }
+
+        return response()->json([
+            'version_moteur_cv' => CvService::LAYOUT_VERSION,
+            'opcache_actif' => function_exists('opcache_get_status')
+                && is_array(@opcache_get_status(false)),
+            'php' => PHP_VERSION,
+            'fichiers' => $etat,
+            'heure_serveur' => now()->toDateTimeString(),
+        ], 200, [], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
     }
 
     // Etat reel des taches planifiees sur le serveur.

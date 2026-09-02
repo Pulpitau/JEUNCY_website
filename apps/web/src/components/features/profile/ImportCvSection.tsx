@@ -94,6 +94,18 @@ export function ImportCvSection({
       const result = await onImport(file);
       setRawText(result.raw_text);
 
+      // L'API renvoie-t-elle bien la forme attendue ? Un serveur qui n'a pas
+      // recu la derniere version repond sans ces tableaux, et le code plus bas
+      // echouerait sur un "undefined" — l'utilisateur ne verrait qu'un echec
+      // generique alors que le PDF a ete lu correctement. Cas rencontre en
+      // production le 2026-09-02, ou l'ancien code tournait encore.
+      if (!Array.isArray(result.experiences) || !Array.isArray(result.educations)) {
+        setError(
+          "Le serveur n'a pas renvoyé les rubriques attendues. Le PDF est bien lu, mais l'API doit être mise à jour côté serveur avant que le profil puisse être rempli automatiquement.",
+        );
+        return;
+      }
+
       // Sans profil existant, le nom est indispensable : c'est le seul champ
       // que la creation d'un profil exige et qu'on ne peut pas deviner.
       if (!hasProfile && (!result.first_name || !result.last_name)) {
@@ -108,9 +120,11 @@ export function ImportCvSection({
       const isNew = (value: string, existing: string[]) =>
         !existing.some((e) => e.toLowerCase() === value.toLowerCase());
 
-      const newSkills = result.skills.filter((s) => isNew(s, existingSkills));
-      const newSoftware = result.software.filter((s) => isNew(s, existingSoftware));
-      const newLanguages = result.languages.filter((l) =>
+      const newSkills = (result.skills ?? []).filter((s) => isNew(s, existingSkills));
+      const newSoftware = (result.software ?? []).filter((s) =>
+        isNew(s, existingSoftware),
+      );
+      const newLanguages = (result.languages ?? []).filter((l) =>
         isNew(l.name, existingLanguages),
       );
 
