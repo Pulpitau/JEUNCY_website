@@ -784,8 +784,24 @@ class CvImportService
     // Libelles de gabarit a ne jamais prendre pour un nom : "Curriculum Vitae"
     // figure en tete de tous les Europass classiques et etait lu comme
     // l'identite du candidat.
+    //
+    // La deuxieme moitie de la liste couvre les etiquettes de la colonne
+    // "informations personnelles". Elle vient d'un cas reel : le profil d'un
+    // candidat s'est cree au nom de "Permis B". La ligne a exactement la forme
+    // d'un nom — deux mots, que des lettres, en tete de document — et rien ne
+    // la distinguait d'une identite.
     private const NOT_A_NAME = 'curriculum vitae|curriculum|resume|cv|profil|profile|candidature'
-        .'|contact|coordonn[ée]es|informations?|a propos|about( me)?';
+        .'|contact|coordonn[ée]es|informations?|a propos|about( me)?'
+        .'|permis(?:\s.{0,20})?|nationalit[ée]|[âa]ge|date de naissance|n[ée](?: le)?'
+        .'|adresse|t[ée]l[ée]phone|t[ée]l|mobile|portable|e?-?mail|courriel'
+        .'|situation familiale|v[ée]hicul[ée]e?|disponibilit[ée]';
+
+    // Mots qui ne figurent jamais dans un nom de personne mais souvent dans un
+    // titre de CV. Sans eux, une ligne comme "Alternance Vente" — deux mots,
+    // que des lettres — passait pour une identite.
+    private const NEVER_IN_A_NAME = 'alternance|alternant|apprentissage|stage|stagiaire'
+        .'|recherche|cherche|contrat|poste|emploi|job|etudiant|etudiante|motivation'
+        .'|objectif|licence|master|bts|but|dut|cap|bac|diplome|formation|experience';
 
     /** @return array{first: ?string, last: ?string} */
     private function extractName(string $text): array
@@ -807,15 +823,8 @@ class CvImportService
                 ];
             }
 
-            if ($this->looksLikeSectionHeading($line) || $this->isTemplateLabel($line)) {
-                continue;
-            }
-            if (! preg_match('/^[\p{L}][\p{L}\-\' ]{1,60}$/u', $line)) {
-                continue;
-            }
-
-            $mots = array_values(array_filter(preg_split('/\s+/u', $line) ?: []));
-            if ($mots === [] || count($mots) > 4) {
+            $mots = $this->nameWordsOf($line);
+            if ($mots === null) {
                 continue;
             }
 
@@ -824,6 +833,14 @@ class CvImportService
                 'mots' => $mots,
                 'capitales' => $line === mb_strtoupper($line),
             ];
+        }
+
+        // L'adresse email tranche avant toute heuristique de mise en page :
+        // c'est le seul indice qui ne depend ni de la position du nom dans le
+        // document ni de sa casse.
+        $confirme = $this->nameConfirmedByEmail($text);
+        if ($confirme !== null) {
+            return $confirme;
         }
 
         // Les CV ecrivent presque toujours l'identite en capitales, et c'est ce
@@ -840,6 +857,96 @@ class CvImportService
         }
 
         return ['first' => null, 'last' => null];
+    }
+
+    // Les mots d'une ligne SI elle peut etre un nom, null sinon. Partage entre
+    // la lecture de l'en-tete et la corroboration par l'email, pour que les
+    // deux appliquent exactement les memes exclusions.
+    /** @return string[]|null */
+    private function nameWordsOf(string $line): ?array
+    {
+        $line = trim($line);
+
+        if ($this->looksLikeSectionHeading($line) || $this->isTemplateLabel($line)) {
+            return null;
+        }
+        if (! preg_match('/^[\p{L}][\p{L}\-\' ]{1,60}$/u', $line)) {
+            return null;
+        }
+
+        $mots = array_values(array_filter(preg_split('/\s+/u', $line) ?: []));
+        if ($mots === [] || count($mots) > 4) {
+            return null;
+        }
+
+        foreach ($mots as $mot) {
+            if (preg_match('/^(?:'.self::NEVER_IN_A_NAME.')$/iu', Str::ascii($mot))) {
+                return null;
+            }
+        }
+
+        return $mots;
+    }
+
+    // Le nom corrobore par l'adresse email est le signal le plus sur d'un CV :
+    // "rostomghazli64@gmail.com" confirme "ROSTOM GHAZLI" ou qu'il se trouve
+    // dans le document, quelle que soit sa casse.
+    //
+    // Ce recours vient d'un cas reel : sur un CV a deux colonnes dont la
+    // colonne de gauche etait longue (contact, competences, logiciels,
+    // langues), le vrai nom tombait au-dela de la fenetre de douze lignes et
+    // c'est l'etiquette "Permis B" qui devenait l'identite du candidat. Elargir
+    // la fenetre ne suffisait pas : il faut un critere qui ne depende pas de la
+    // position du nom dans le document.
+    /** @return array{first: string, last: string}|null */
+    private function nameConfirmedByEmail(string $text): ?array
+    {
+        $email = $this->extractEmail($text);
+        if ($email === null) {
+            return null;
+        }
+
+        $locale = $this->lettersOnly(Str::before($email, '@'));
+
+        // Sous six lettres, l'adresse est trop courte pour confirmer quoi que
+        // ce soit ("lea@..." correspondrait a tout nom contenant "lea").
+        if (mb_strlen($locale) < 6) {
+            return null;
+        }
+
+        foreach (array_slice($this->toLines($text), 0, 40) as $line) {
+            $mots = $this->nameWordsOf($line);
+            if ($mots === null || count($mots) < 2) {
+                continue;
+            }
+
+            if ($this->allWordsAppearIn($mots, $locale)) {
+                return $this->splitName($mots);
+            }
+        }
+
+        return null;
+    }
+
+    /** @param string[] $mots */
+    private function allWordsAppearIn(array $mots, string $locale): bool
+    {
+        foreach ($mots as $mot) {
+            $normalise = $this->lettersOnly($mot);
+
+            // Trois lettres minimum : une initiale isolee se retrouve dans
+            // n'importe quelle adresse et ne confirme rien.
+            if (mb_strlen($normalise) < 3 || ! str_contains($locale, $normalise)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private function lettersOnly(string $value): string
+    {
+        return preg_replace('/[^a-z]/', '', Str::lower(Str::ascii($value))) ?? '';
     }
 
     /**
@@ -862,6 +969,17 @@ class CvImportService
         // Nom coupe sur deux lignes CONSECUTIVES ("ALEXANDRE" puis "LEYVA").
         // L'adjacence est exigee : sans elle, on assemblerait un mot de la
         // colonne de gauche avec un prenom lu quatre lignes plus bas.
+        //
+        // Reserve aux CAPITALES, et ce n'est pas cosmetique : une liste de
+        // competences est elle aussi une suite de lignes d'un seul mot. En
+        // casse normale, cette regle assemblait "Prospection" et
+        // "Encaissement" en un nom de candidat. Couper son nom sur deux lignes
+        // est un choix de mise en page, qui va presque toujours avec les
+        // capitales ; une liste, non.
+        if (! $exigerCapitales) {
+            return null;
+        }
+
         foreach ($eligibles as $rang => $ligne) {
             $suivante = $eligibles[$rang + 1] ?? null;
             if (

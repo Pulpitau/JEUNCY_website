@@ -194,6 +194,66 @@ class CvImportServiceTest extends TestCase
         $this->assertNull($result['first_name']);
         $this->assertNull($result['last_name']);
     }
+
+    // --- Trois profils reels crees sous un mauvais nom (2026-09-03) ---
+    //
+    // L'import cree le profil SANS que le candidat relise l'identite lue dans
+    // son PDF (voir Profile.tsx). Un nom mal extrait ne se voit donc qu'apres
+    // coup, dans la CVtheque, sous les yeux des recruteurs : ces trois cas
+    // valent des tests permanents.
+
+    // "Permis B" a la forme exacte d'un nom — deux mots, que des lettres, en
+    // tete de document — et devenait l'identite du candidat.
+    public function test_parse_does_not_take_a_personal_information_label_for_a_name(): void
+    {
+        $result = $this->service->parse($this->makePdfUpload(
+            '<p>Permis B</p><p>Organisation</p><p>Wordpress</p>',
+        ));
+
+        $this->assertNull($result['first_name']);
+        $this->assertNull($result['last_name']);
+    }
+
+    // CV a deux colonnes dont la colonne de gauche est longue : le vrai nom
+    // tombe au-dela de la fenetre de lecture de l'en-tete. L'adresse email le
+    // confirme quand meme, ou qu'il se trouve dans le document.
+    public function test_parse_confirms_the_name_with_the_email_address(): void
+    {
+        $result = $this->service->parse($this->makePdfUpload(
+            '<p>CONTACT</p><p>rostomghazli64@gmail.com</p><p>07 43 58 58 13</p>'
+            .'<p>Permis B</p><p>COMPÉTENCES</p><p>Organisation</p>'
+            .'<p>LOGICIELS</p><p>Wordpress</p><p>python</p>'
+            .'<p>LANGUES</p><p>Anglais - B1</p><p>Arabe - A2</p>'
+            .'<p>ROSTOM GHAZLI</p><p>Alternance en développement full stack</p>',
+        ));
+
+        $this->assertSame('Rostom', $result['first_name']);
+        $this->assertSame('Ghazli', $result['last_name']);
+    }
+
+    // Une liste de competences est, elle aussi, une suite de lignes d'un seul
+    // mot : la regle du nom coupe sur deux lignes assemblait "Prospection" et
+    // "Encaissement" en identite de candidat.
+    public function test_parse_does_not_glue_two_skills_into_a_name(): void
+    {
+        $result = $this->service->parse($this->makePdfUpload(
+            '<p>Prospection</p><p>Encaissement</p><p>Organisation</p>',
+        ));
+
+        $this->assertNull($result['first_name']);
+        $this->assertNull($result['last_name']);
+    }
+
+    // Un titre de CV n'est pas un nom, meme court ("Alternance Vente").
+    public function test_parse_does_not_take_a_cv_title_for_a_name(): void
+    {
+        $result = $this->service->parse($this->makePdfUpload(
+            '<p>Alternance Vente</p><p>Recherche Contrat</p>',
+        ));
+
+        $this->assertNull($result['first_name']);
+        $this->assertNull($result['last_name']);
+    }
     // --- Rubriques (experiences / formations) ---
 
     private function makeRealisticCv(): UploadedFile
