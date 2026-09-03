@@ -7,6 +7,7 @@ export const NotificationType = {
   TRIAL_OFFERS_ARCHIVED: 'TRIAL_OFFERS_ARCHIVED',
   VIDEO_ROOM_REMINDER: 'VIDEO_ROOM_REMINDER',
   PAYMENT_REFUNDED: 'PAYMENT_REFUNDED',
+  JOB_OFFER_MATCH: 'JOB_OFFER_MATCH',
 } as const;
 
 export type NotificationType = (typeof NotificationType)[keyof typeof NotificationType];

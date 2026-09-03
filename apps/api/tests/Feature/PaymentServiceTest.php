@@ -9,9 +9,11 @@ use App\Enums\PaymentStatus;
 use App\Enums\PaymentType;
 use App\Enums\UserRole;
 use App\Exceptions\ApiException;
+use App\Models\CandidateProfile;
 use App\Models\Payment;
 use App\Models\User;
 use App\Services\CompanyService;
+use App\Services\JobOfferMatchService;
 use App\Services\JobOfferService;
 use App\Services\PaymentService;
 use App\Services\SubscriptionService;
@@ -167,13 +169,13 @@ class PaymentServiceTest extends TestCase
     // valide dans l'environnement.
     private function serviceWithFakeStripe(?\Closure $onRefund = null): PaymentService
     {
-        return new class($this->app->make(JobOfferService::class), $this->app->make(SubscriptionService::class), $onRefund) extends PaymentService
+        return new class($this->app->make(JobOfferService::class), $this->app->make(SubscriptionService::class), $this->app->make(JobOfferMatchService::class), $onRefund) extends PaymentService
         {
             public array $refundedIntents = [];
 
-            public function __construct($jobOfferService, $subscriptionService, private $onRefund)
+            public function __construct($jobOfferService, $subscriptionService, $matchService, private $onRefund)
             {
-                parent::__construct($jobOfferService, $subscriptionService);
+                parent::__construct($jobOfferService, $subscriptionService, $matchService);
             }
 
             protected function performStripeRefund(string $paymentIntentId): void
@@ -263,5 +265,29 @@ class PaymentServiceTest extends TestCase
 
         $this->assertSame(PaymentStatus::SUCCEEDED, $payment->fresh()->status);
         $this->assertSame(JobOfferStatus::PUBLISHED, $offer->fresh()->status);
+    }
+
+    // Troisieme chemin de publication : le paiement a l'unite. Les candidats
+    // correspondants doivent etre prevenus ici aussi, sans quoi la notification
+    // dependrait de la facon dont l'entreprise a paye.
+    public function test_mark_payment_succeeded_notifies_matching_candidates(): void
+    {
+        $candidate = User::create([
+            'email' => 'lea@example.com',
+            'password_hash' => 'x',
+            'role' => UserRole::CANDIDATE,
+        ]);
+        CandidateProfile::create([
+            'user_id' => $candidate->id,
+            'first_name' => 'Lea',
+            'last_name' => 'Girard',
+            'headline' => 'Developpeur web en alternance',
+        ]);
+
+        $this->makeOfferAwaitingPayment();
+        $this->service->markPaymentSucceeded('cs_test_demo123', 'pi_test_demo123');
+
+        $this->assertSame(1, $candidate->notifications()
+            ->where('type', NotificationType::JOB_OFFER_MATCH)->count());
     }
 }

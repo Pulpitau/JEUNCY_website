@@ -31,6 +31,7 @@ class JobOfferService
         private readonly CfaOrganizationService $cfaOrganizationService,
         private readonly MailService $mailService,
         private readonly SubscriptionService $subscriptionService,
+        private readonly JobOfferMatchService $matchService,
     ) {}
 
     public function listOwn(User $user): Collection
@@ -180,6 +181,8 @@ class JobOfferService
             'applications_unlocked_at' => now(),
         ]);
 
+        $this->matchService->notifyMatchingCandidates($jobOffer);
+
         if ($isFirstTrialOffer) {
             $this->mailService->sendTrialStartedEmail($user->email, $organization->name, $this->priceLabelFor($jobOffer));
         }
@@ -215,6 +218,8 @@ class JobOfferService
             'payment_status' => PaymentStatus::SUBSCRIPTION,
             'published_at' => now(),
         ]);
+
+        $this->matchService->notifyMatchingCandidates($jobOffer);
 
         return $jobOffer;
     }

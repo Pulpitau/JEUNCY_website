@@ -12,4 +12,8 @@ enum NotificationType: string
     case TRIAL_OFFERS_ARCHIVED = 'TRIAL_OFFERS_ARCHIVED';
     case VIDEO_ROOM_REMINDER = 'VIDEO_ROOM_REMINDER';
     case PAYMENT_REFUNDED = 'PAYMENT_REFUNDED';
+
+    // Une offre publiee correspond au profil d un candidat : il en est
+    // prevenu pour pouvoir postuler lui-meme (voir JobOfferMatchService).
+    case JOB_OFFER_MATCH = 'JOB_OFFER_MATCH';
 }

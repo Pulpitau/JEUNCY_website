@@ -21,6 +21,7 @@ class PaymentService
     public function __construct(
         private readonly JobOfferService $jobOfferService,
         private readonly SubscriptionService $subscriptionService,
+        private readonly JobOfferMatchService $matchService,
     ) {}
 
     // Construit le client Stripe a la demande plutot qu'au constructeur : seule
@@ -166,6 +167,8 @@ class PaymentService
             'payment_status' => PaymentStatus::SUCCEEDED,
             'published_at' => now(),
         ]);
+
+        $this->matchService->notifyMatchingCandidates($jobOffer);
 
         $payment->user->notifications()->create([
             'type' => NotificationType::PAYMENT_SUCCEEDED,

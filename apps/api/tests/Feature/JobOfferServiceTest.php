@@ -4,11 +4,13 @@ namespace Tests\Feature;
 
 use App\Enums\ContractType;
 use App\Enums\JobOfferStatus;
+use App\Enums\NotificationType;
 use App\Enums\PaymentStatus;
 use App\Enums\PaymentType;
 use App\Enums\SubscriptionStatus;
 use App\Enums\UserRole;
 use App\Exceptions\ApiException;
+use App\Models\CandidateProfile;
 use App\Models\Payment;
 use App\Models\Subscription;
 use App\Models\User;
@@ -402,5 +404,68 @@ class JobOfferServiceTest extends TestCase
         $published = $this->service->publishViaSubscriptionForUser($owner->fresh(), $offer->fresh());
 
         $this->assertSame(JobOfferStatus::PUBLISHED, $published->status);
+    }
+
+    // Cree un candidat dont le profil correspond a offerPayload().
+    private function makeMatchingCandidate(): User
+    {
+        $user = User::create([
+            'email' => 'lea@example.com',
+            'password_hash' => 'x',
+            'role' => UserRole::CANDIDATE,
+        ]);
+
+        CandidateProfile::create([
+            'user_id' => $user->id,
+            'first_name' => 'Lea',
+            'last_name' => 'Girard',
+            'headline' => 'Developpeur web en alternance',
+        ]);
+
+        return $user;
+    }
+
+    public function test_publish_via_trial_notifies_matching_candidates(): void
+    {
+        $candidate = $this->makeMatchingCandidate();
+        $owner = $this->makeCompanyUser();
+        $offer = $this->service->createForUser($owner, $this->offerPayload());
+        $this->mailServiceMock->shouldReceive('sendTrialStartedEmail')->once();
+
+        $this->service->publishViaTrialForUser($owner->fresh(), $offer);
+
+        $this->assertSame(1, $candidate->notifications()
+            ->where('type', NotificationType::JOB_OFFER_MATCH)->count());
+    }
+
+    public function test_publish_via_subscription_notifies_matching_candidates(): void
+    {
+        $candidate = $this->makeMatchingCandidate();
+        $owner = $this->makeCompanyUser();
+        $offer = $this->service->createForUser($owner, $this->offerPayload());
+        Subscription::create([
+            'user_id' => $owner->id,
+            'status' => SubscriptionStatus::ACTIVE,
+            'amount_cents' => 7900,
+            'stripe_subscription_id' => 'sub_test_notify',
+            'stripe_customer_id' => 'cus_test_notify',
+        ]);
+
+        $this->service->publishViaSubscriptionForUser($owner->fresh(), $offer);
+
+        $this->assertSame(1, $candidate->notifications()
+            ->where('type', NotificationType::JOB_OFFER_MATCH)->count());
+    }
+
+    // Une offre creee reste un brouillon : personne ne doit etre prevenu avant
+    // qu'elle soit effectivement publiee et visible.
+    public function test_creating_a_draft_offer_notifies_nobody(): void
+    {
+        $candidate = $this->makeMatchingCandidate();
+        $owner = $this->makeCompanyUser();
+
+        $this->service->createForUser($owner, $this->offerPayload());
+
+        $this->assertSame(0, $candidate->notifications()->count());
     }
 }
