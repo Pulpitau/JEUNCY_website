@@ -155,6 +155,34 @@ class CvImportServiceTest extends TestCase
         $this->assertSame('Ben Abdeslem', $result['last_name']);
     }
 
+    // CV a deux colonnes : l'extraction rend d'abord la colonne etroite de
+    // gauche (contact, competences, langues), et le nom n'arrive qu'ensuite.
+    // La lecture s'arretait avant de l'atteindre.
+    public function test_parse_finds_the_name_after_a_left_hand_column(): void
+    {
+        $result = $this->service->parse($this->makePdfUpload(
+            '<p>CONTACT</p><p>06 12 34 56 78</p><p>lea@example.com</p>'
+            .'<p>COMPÉTENCES</p><p>Vente</p><p>Accueil client</p>'
+            .'<p>LÉA MOREAU</p><p>Alternance vente</p>',
+        ));
+
+        $this->assertSame('Léa', $result['first_name']);
+        $this->assertSame('Moreau', $result['last_name']);
+    }
+
+    // Le nom est presque toujours en capitales sur un CV, et c'est ce qui le
+    // distingue d'une competence restee dans la fenetre de recherche : sans
+    // cette preference, ce CV donnait le nom "Accueil Client".
+    public function test_parse_prefers_an_uppercase_line_over_a_skill(): void
+    {
+        $result = $this->service->parse($this->makePdfUpload(
+            '<p>Accueil client</p><p>Gestion de stock</p><p>NOAH PETIT</p>',
+        ));
+
+        $this->assertSame('Noah', $result['first_name']);
+        $this->assertSame('Petit', $result['last_name']);
+    }
+
     // Sans nom lisible, on ne renvoie rien : le frontend demande alors au
     // candidat de le saisir plutot que de creer un profil bancal.
     public function test_parse_returns_no_name_when_the_header_is_not_one(): void

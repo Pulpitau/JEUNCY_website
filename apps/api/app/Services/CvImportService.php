@@ -784,19 +784,22 @@ class CvImportService
     // Libelles de gabarit a ne jamais prendre pour un nom : "Curriculum Vitae"
     // figure en tete de tous les Europass classiques et etait lu comme
     // l'identite du candidat.
-    private const NOT_A_NAME = 'curriculum vitae|curriculum|resume|cv|profil|profile|candidature';
+    private const NOT_A_NAME = 'curriculum vitae|curriculum|resume|cv|profil|profile|candidature'
+        .'|contact|coordonn[ée]es|informations?|a propos|about( me)?';
 
     /** @return array{first: ?string, last: ?string} */
     private function extractName(string $text): array
     {
-        $words = [];
+        // Douze lignes et non six : sur un CV a deux colonnes, l'extraction
+        // rend d'abord la colonne etroite de gauche (CONTACT, telephone,
+        // email, COMPETENCES...) et le nom n'arrive qu'ensuite. S'arreter a la
+        // premiere ligne non conforme ne trouvait alors aucun nom.
+        $retenus = [];
 
-        foreach (array_slice($this->toLines($text), 0, 6) as $line) {
+        foreach (array_slice($this->toLines($text), 0, 12) as $index => $line) {
             $line = trim($line);
 
-            // "SURNAME, Firstname" : format impose par Europass. Sans la
-            // virgule dans la classe autorisee, la lecture s'arretait net et
-            // ne renvoyait aucun nom.
+            // "SURNAME, Firstname" : format impose par Europass.
             if (preg_match('/^([\p{L}][\p{L}\-\' ]{1,40}),\s*([\p{L}][\p{L}\-\' ]{1,40})$/u', $line, $m)) {
                 return [
                     'first' => $this->normalizeName($m[2]),
@@ -808,21 +811,78 @@ class CvImportService
                 continue;
             }
             if (! preg_match('/^[\p{L}][\p{L}\-\' ]{1,60}$/u', $line)) {
-                break;
+                continue;
             }
 
-            $words = array_merge($words, preg_split('/\s+/u', $line) ?: []);
+            $mots = array_values(array_filter(preg_split('/\s+/u', $line) ?: []));
+            if ($mots === [] || count($mots) > 4) {
+                continue;
+            }
 
-            if (count($words) >= 2) {
-                break;
+            $retenus[] = [
+                'index' => $index,
+                'mots' => $mots,
+                'capitales' => $line === mb_strtoupper($line),
+            ];
+        }
+
+        // Les CV ecrivent presque toujours l'identite en capitales, et c'est ce
+        // qui la distingue d'une competence ou d'un titre de rubrique reste
+        // dans la fenetre de recherche : sans cette preference, un CV a deux
+        // colonnes donnait le nom "Accueil Client", lu dans la liste des
+        // competences de la colonne de gauche. On ne retombe sur une ligne en
+        // casse normale que si aucune ligne en capitales ne convient.
+        foreach ([true, false] as $exigerCapitales) {
+            $nom = $this->firstNameCandidate($retenus, $exigerCapitales);
+            if ($nom !== null) {
+                return $nom;
             }
         }
 
-        $words = array_values(array_filter($words, fn ($w) => $w !== ''));
-        if (count($words) < 2 || count($words) > 4) {
-            return ['first' => null, 'last' => null];
+        return ['first' => null, 'last' => null];
+    }
+
+    /**
+     * @param  array<int, array{index:int, mots:string[], capitales:bool}>  $retenus
+     * @return array{first: string, last: string}|null
+     */
+    private function firstNameCandidate(array $retenus, bool $exigerCapitales): ?array
+    {
+        $eligibles = $exigerCapitales
+            ? array_values(array_filter($retenus, fn (array $l) => $l['capitales']))
+            : $retenus;
+
+        // Le nom tient sur une seule ligne.
+        foreach ($eligibles as $ligne) {
+            if (count($ligne['mots']) >= 2) {
+                return $this->splitName($ligne['mots']);
+            }
         }
 
+        // Nom coupe sur deux lignes CONSECUTIVES ("ALEXANDRE" puis "LEYVA").
+        // L'adjacence est exigee : sans elle, on assemblerait un mot de la
+        // colonne de gauche avec un prenom lu quatre lignes plus bas.
+        foreach ($eligibles as $rang => $ligne) {
+            $suivante = $eligibles[$rang + 1] ?? null;
+            if (
+                $suivante !== null
+                && count($ligne['mots']) === 1
+                && count($suivante['mots']) === 1
+                && $suivante['index'] === $ligne['index'] + 1
+            ) {
+                return $this->splitName([$ligne['mots'][0], $suivante['mots'][0]]);
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @param  string[]  $words
+     * @return array{first: string, last: string}
+     */
+    private function splitName(array $words): array
+    {
         return [
             'first' => $this->normalizeName($words[0]),
             'last' => implode(' ', array_map(fn ($w) => $this->normalizeName($w), array_slice($words, 1))),
