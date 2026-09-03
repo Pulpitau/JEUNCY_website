@@ -25,7 +25,7 @@ class DeployController extends Controller
     // ne peut pas savoir si le controleur lui-meme a bien ete redeploye : c est
     // arrive le 2026-09-02, ou clear-cache continuait d echouer avec une version
     // corrigee censement en place. A incrementer a chaque changement ici.
-    public const DEPLOY_TOOLS_VERSION = 'deploy-tools-3';
+    public const DEPLOY_TOOLS_VERSION = 'deploy-tools-4';
 
     private function assertAuthorized(string $token): void
     {
@@ -179,9 +179,66 @@ class DeployController extends Controller
                     fn () => Skill::count().' competences, '.Software::count().' logiciels'
                 ),
                 'profils_candidats' => $this->essai(fn () => CandidateProfile::count().' profils'),
+
+                // Ce que ->total() ne fait pas : produire la reponse.
+                'serialisation_filtre' => $this->essai(
+                    fn () => $this->tailleJson(app(AdminService::class)->listCandidateProfiles(['suspicious' => true]))
+                ),
+                'serialisation_sans_filtre' => $this->essai(
+                    fn () => $this->tailleJson(app(AdminService::class)->listCandidateProfiles([]))
+                ),
+                'encodage_des_profils' => $this->essai(fn () => $this->profilsMalEncodes()),
             ],
             'heure_serveur' => now()->toDateTimeString(),
         ], 200, [], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+    }
+
+    // Serialise reellement la reponse. json_encode echoue des qu'UNE valeur
+    // n'est pas de l'UTF-8 valide, et fait alors tomber la requete entiere en
+    // 500 — quel que soit le nombre de lignes correctes.
+    private function tailleJson(mixed $payload): string
+    {
+        $json = json_encode($payload);
+
+        if ($json === false) {
+            throw new \RuntimeException('json_encode a echoue : '.json_last_error_msg());
+        }
+
+        return strlen($json).' octets de JSON';
+    }
+
+    /**
+     * Identifiants des profils dont un champ texte n'est pas de l'UTF-8
+     * valide. Le texte vient de PDF lus par CvImportService, ou tout octet est
+     * possible.
+     *
+     * Renvoie des IDENTIFIANTS ET DES NOMS DE COLONNES, jamais les valeurs :
+     * une valeur mal encodee est une donnee personnelle, et l'inclure ferait
+     * d'ailleurs echouer cette reponse-ci de la meme facon.
+     */
+    private function profilsMalEncodes(): array
+    {
+        $colonnes = [
+            'first_name', 'last_name', 'headline', 'bio', 'city', 'address',
+            'hobbies', 'driving_license', 'cv_original_filename',
+        ];
+
+        $fautifs = [];
+
+        CandidateProfile::query()
+            ->select(array_merge(['id'], $colonnes))
+            ->chunkById(100, function ($profils) use ($colonnes, &$fautifs) {
+                foreach ($profils as $profil) {
+                    foreach ($colonnes as $colonne) {
+                        $valeur = $profil->getAttribute($colonne);
+                        if (is_string($valeur) && ! mb_check_encoding($valeur, 'UTF-8')) {
+                            $fautifs[] = "profil {$profil->id}, colonne {$colonne}";
+                        }
+                    }
+                }
+            });
+
+        return $fautifs === [] ? ['aucun profil mal encode'] : $fautifs;
     }
 
     /**
