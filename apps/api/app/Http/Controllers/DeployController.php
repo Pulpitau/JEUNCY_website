@@ -2,6 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\CandidateProfile;
+use App\Models\Skill;
+use App\Models\Software;
+use App\Services\AdminService;
 use App\Services\CvService;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Support\Facades\Artisan;
@@ -21,7 +25,7 @@ class DeployController extends Controller
     // ne peut pas savoir si le controleur lui-meme a bien ete redeploye : c est
     // arrive le 2026-09-02, ou clear-cache continuait d echouer avec une version
     // corrigee censement en place. A incrementer a chaque changement ici.
-    public const DEPLOY_TOOLS_VERSION = 'deploy-tools-2';
+    public const DEPLOY_TOOLS_VERSION = 'deploy-tools-3';
 
     private function assertAuthorized(string $token): void
     {
@@ -103,6 +107,14 @@ class DeployController extends Controller
             'app/Services/CvthequeService.php',
             'app/Services/CvImportService.php',
             'app/Services/CandidateProfileService.php',
+            // Outil de correction des noms de candidats : ces quatre fichiers
+            // doivent arriver ensemble, et leur absence produisait une erreur
+            // indistinguable d'un bug de code.
+            'app/Services/AdminService.php',
+            'app/Http/Controllers/Admin/CandidateProfileController.php',
+            'app/Http/Requests/Admin/ListCandidateProfilesRequest.php',
+            'app/Http/Requests/Admin/UpdateCandidateNameRequest.php',
+            'routes/api/admin.php',
             'resources/views/cv/template.blade.php',
             'bootstrap/app.php',
             'config/cors.php',
@@ -129,6 +141,69 @@ class DeployController extends Controller
             'fichiers' => $etat,
             'heure_serveur' => now()->toDateTimeString(),
         ], 200, [], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+    }
+
+    // Execute les chemins de code sensibles et renvoie l'exception REELLE quand
+    // l'un d'eux echoue.
+    //
+    // POURQUOI. Le frontend n'affiche qu'un message generique, les logs
+    // Laravel sont inaccessibles sans SSH, et reproduire en local ne sert a
+    // rien puisque les tests passent. Il ne restait que la devinette : deux
+    // diagnostics faux de suite, plusieurs deploiements pour rien. Une erreur
+    // qu'on ne peut pas lire coute plus cher que la route qui la lit.
+    //
+    // AUCUNE DONNEE PERSONNELLE n'est renvoyee : seulement des comptages et le
+    // message d'exception. Les requetes concernees ne portent ni nom ni email
+    // dans leurs parametres. Protegee par le meme DEPLOY_TOKEN que le reste.
+    public function selfTest(string $token): Response
+    {
+        $this->assertAuthorized($token);
+
+        return response()->json([
+            'version_outils_deploiement' => self::DEPLOY_TOOLS_VERSION,
+            'php' => PHP_VERSION,
+            'tests' => [
+                'admin_candidats_filtre' => $this->essai(
+                    fn () => app(AdminService::class)->listCandidateProfiles(['suspicious' => true])->total()
+                ),
+                'admin_candidats_sans_filtre' => $this->essai(
+                    fn () => app(AdminService::class)->listCandidateProfiles([])->total()
+                ),
+                'admin_service_autonome' => $this->essai(
+                    fn () => app(AdminService::class)->nameLooksImplausible('Permis', 'B') ? 'signale' : 'NON SIGNALE'
+                ),
+                'nom_reel_non_signale' => $this->essai(
+                    fn () => app(AdminService::class)->nameLooksImplausible('Rostom', 'Ghazli') ? 'SIGNALE A TORT' : 'ok'
+                ),
+                'referentiel' => $this->essai(
+                    fn () => Skill::count().' competences, '.Software::count().' logiciels'
+                ),
+                'profils_candidats' => $this->essai(fn () => CandidateProfile::count().' profils'),
+            ],
+            'heure_serveur' => now()->toDateTimeString(),
+        ], 200, [], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+    }
+
+    /**
+     * Le resultat de l'appel, ou l'exception decrite sans interrompre les
+     * autres essais : un seul appel de cette route doit renvoyer TOUS les
+     * diagnostics, pas s'arreter au premier echec.
+     */
+    private function essai(\Closure $appel): array
+    {
+        try {
+            return ['ok' => true, 'resultat' => $appel()];
+        } catch (\Throwable $e) {
+            return [
+                'ok' => false,
+                'exception' => $e::class,
+                // Tronque : un message de QueryException contient la requete
+                // SQL complete, inutilement longue ici.
+                'message' => mb_substr($e->getMessage(), 0, 500),
+                'fichier' => str_replace(base_path().DIRECTORY_SEPARATOR, '', $e->getFile()),
+                'ligne' => $e->getLine(),
+            ];
+        }
     }
 
     // Etat reel des taches planifiees sur le serveur.

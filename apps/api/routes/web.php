@@ -29,3 +29,6 @@ Route::get('/deploy/{token}/env-check', [DeployController::class, 'envCheck']);
 Route::get('/deploy/{token}/scheduler', [DeployController::class, 'scheduler']);
 // Quelle version du code tourne reellement sur le serveur (voir le controleur).
 Route::get('/deploy/{token}/version', [DeployController::class, 'version']);
+// Execute les chemins sensibles et renvoie l'exception reelle : sans elle,
+// une erreur de production n'est qu'une devinette (voir le controleur).
+Route::get('/deploy/{token}/selftest', [DeployController::class, 'selfTest']);
