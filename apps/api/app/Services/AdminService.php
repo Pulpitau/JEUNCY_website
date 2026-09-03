@@ -8,11 +8,15 @@ use App\Enums\UserRole;
 use App\Enums\VideoRoomStatus;
 use App\Exceptions\ApiException;
 use App\Models\Application;
+use App\Models\CandidateProfile;
 use App\Models\JobOffer;
 use App\Models\Payment;
+use App\Models\Skill;
+use App\Models\Software;
 use App\Models\User;
 use App\Models\VideoRoom;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Str;
 
 class AdminService
 {
@@ -87,6 +91,125 @@ class AdminService
         $target->update(['is_suspended' => false]);
 
         return $target;
+    }
+
+    // Profils candidats, avec un filtre sur les noms douteux.
+    //
+    // Le filtre s'evalue en PHP et non en SQL : reconnaitre "Permis B" ou
+    // "Prospection Encaissement" demande le meme vocabulaire que l'extracteur
+    // (voir CvImportService), qu'aucune clause WHERE ne sait exprimer. Les
+    // identifiants sont d'abord collectes sur deux colonnes seulement, puis la
+    // pagination reste faite par la base — le cout tient a une requete legere,
+    // pas au chargement de tous les profils.
+    public function listCandidateProfiles(array $filters): LengthAwarePaginator
+    {
+        $query = CandidateProfile::query()
+            ->with('user:id,email,is_suspended')
+            ->whereHas('user', fn ($q) => $q->notDeleted())
+            ->latest();
+
+        if (! empty($filters['suspicious'])) {
+            $query->whereIn('id', $this->implausiblyNamedProfileIds());
+        }
+
+        return $query->paginate(20);
+    }
+
+    /** @return int[] */
+    private function implausiblyNamedProfileIds(): array
+    {
+        return CandidateProfile::query()
+            ->whereHas('user', fn ($q) => $q->notDeleted())
+            ->get(['id', 'first_name', 'last_name'])
+            ->filter(fn (CandidateProfile $p) => $this->nameLooksImplausible(
+                (string) $p->first_name,
+                (string) $p->last_name,
+            ))
+            ->pluck('id')
+            ->all();
+    }
+
+    // Un nom que l'import n'aurait plus le droit de produire aujourd'hui.
+    // Signale, jamais corrige tout seul : un nom inhabituel reste un nom, et
+    // c'est a un humain de trancher.
+    public function nameLooksImplausible(string $first, string $last): bool
+    {
+        if (trim($first) === '' || trim($last) === '') {
+            return true;
+        }
+
+        $complet = trim($first.' '.$last);
+
+        // Un chiffre dans un nom vient toujours d'une ligne mal lue.
+        if (preg_match('/\d/u', $complet)) {
+            return true;
+        }
+
+        $mots = array_values(array_filter(preg_split('/\s+/u', $complet) ?: []));
+
+        // Au-dela de quatre mots, c'est une phrase, pas une identite.
+        if (count($mots) > 4) {
+            return true;
+        }
+
+        foreach ([$first, $last] as $partie) {
+            if (preg_match('/^(?:'.CvImportService::NOT_A_NAME.')$/iu', Str::ascii(trim($partie)))) {
+                return true;
+            }
+        }
+
+        foreach ($mots as $mot) {
+            if (preg_match('/^(?:'.CvImportService::NEVER_IN_A_NAME.')$/iu', Str::ascii($mot))) {
+                return true;
+            }
+        }
+
+        // Une competence ou un logiciel du referentiel n'est pas un nom de
+        // personne. C'est ce qui reconnait "Prospection Encaissement" : deux
+        // lignes d'une liste de competences assemblees en identite, que rien
+        // dans leur forme ne distingue d'un vrai nom.
+        foreach ([$first, $last] as $partie) {
+            if (isset($this->referentiel()[Str::lower(Str::ascii(trim($partie)))])) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Competences et logiciels connus, en minuscules sans accents.
+     *
+     * Charge une seule fois : la detection s'applique a tous les profils, et
+     * une requete par profil rendrait la liste inutilisable.
+     *
+     * @var array<string, true>|null
+     */
+    private ?array $referentiel = null;
+
+    /** @return array<string, true> */
+    private function referentiel(): array
+    {
+        if ($this->referentiel === null) {
+            $noms = array_merge(
+                Skill::query()->pluck('name')->all(),
+                Software::query()->pluck('name')->all(),
+            );
+
+            $this->referentiel = array_fill_keys(
+                array_map(fn (string $n) => Str::lower(Str::ascii($n)), $noms),
+                true,
+            );
+        }
+
+        return $this->referentiel;
+    }
+
+    public function updateCandidateName(CandidateProfile $profile, string $first, string $last): CandidateProfile
+    {
+        $profile->update(['first_name' => trim($first), 'last_name' => trim($last)]);
+
+        return $profile->fresh(['user']);
     }
 
     public function listJobOffers(array $filters): LengthAwarePaginator

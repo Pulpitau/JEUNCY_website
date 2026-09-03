@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Admin\CandidateProfileController;
 use App\Http\Controllers\Admin\JobOfferController;
 use App\Http\Controllers\Admin\PaymentController;
 use App\Http\Controllers\Admin\StatsController;
@@ -11,6 +12,10 @@ Route::prefix('admin')->middleware(['auth:api', 'role:ADMIN'])->group(function (
     Route::get('stats', [StatsController::class, 'index']);
 
     Route::get('users', [UserController::class, 'index']);
+
+    // Correction d'un nom de candidat mal lu par l'import de CV.
+    Route::get('candidate-profiles', [CandidateProfileController::class, 'index']);
+    Route::patch('candidate-profiles/{candidateProfile}/name', [CandidateProfileController::class, 'updateName']);
     Route::post('users/{user}/suspend', [UserController::class, 'suspend']);
     Route::post('users/{user}/reactivate', [UserController::class, 'reactivate']);
 

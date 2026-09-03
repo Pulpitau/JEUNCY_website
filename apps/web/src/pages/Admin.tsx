@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { AdminStatsPanel } from '@/components/features/admin/AdminStatsPanel';
 import { AdminUsersPanel } from '@/components/features/admin/AdminUsersPanel';
+import { AdminCandidatesPanel } from '@/components/features/admin/AdminCandidatesPanel';
 import { AdminJobOffersPanel } from '@/components/features/admin/AdminJobOffersPanel';
 import { AdminPaymentsPanel } from '@/components/features/admin/AdminPaymentsPanel';
 import { AdminVideoRoomsPanel } from '@/components/features/admin/AdminVideoRoomsPanel';
@@ -10,6 +11,7 @@ import { AdminVideoRoomsPanel } from '@/components/features/admin/AdminVideoRoom
 const TABS = [
   { key: 'stats', label: 'Statistiques' },
   { key: 'users', label: 'Utilisateurs' },
+  { key: 'candidates', label: 'Candidats' },
   { key: 'job-offers', label: 'Offres' },
   { key: 'payments', label: 'Paiements' },
   { key: 'video-rooms', label: 'Visios' },
@@ -47,6 +49,7 @@ export function Admin() {
 
       {tab === 'stats' && <AdminStatsPanel />}
       {tab === 'users' && <AdminUsersPanel />}
+      {tab === 'candidates' && <AdminCandidatesPanel />}
       {tab === 'job-offers' && <AdminJobOffersPanel />}
       {tab === 'payments' && <AdminPaymentsPanel />}
       {tab === 'video-rooms' && <AdminVideoRoomsPanel />}

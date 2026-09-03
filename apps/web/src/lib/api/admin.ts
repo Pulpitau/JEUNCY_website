@@ -153,3 +153,36 @@ export function listAdminVideoRooms(filters: {
 export function endVideoRoomAsAdmin(id: number) {
   return apiRequest<AdminVideoRoom>(`/admin/video-rooms/${id}/end`, { method: 'POST' });
 }
+
+export interface AdminCandidateProfile {
+  id: number;
+  first_name: string;
+  last_name: string;
+  city: string | null;
+  headline: string | null;
+  user: { id: number; email: string; is_suspended: boolean } | null;
+}
+
+export function listAdminCandidateProfiles(filters: {
+  suspicious?: boolean;
+  page?: number;
+}) {
+  const params = new URLSearchParams();
+  if (filters.suspicious) params.set('suspicious', '1');
+  if (filters.page) params.set('page', String(filters.page));
+  const query = params.toString();
+
+  return apiRequest<Paginated<AdminCandidateProfile>>(
+    `/admin/candidate-profiles${query ? `?${query}` : ''}`,
+  );
+}
+
+export function updateCandidateName(
+  id: number,
+  payload: { first_name: string; last_name: string },
+) {
+  return apiRequest<AdminCandidateProfile>(`/admin/candidate-profiles/${id}/name`, {
+    method: 'PATCH',
+    body: payload,
+  });
+}
