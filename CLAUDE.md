@@ -714,3 +714,55 @@ ACCOUNT_SUSPENDED`, 403). Un access token déjà émis est **aussi** coupé
   traiter plus tard" des phases précédentes constituent le backlog restant
   avant une mise en production complète (voir aussi section "Connu et à
   traiter plus tard" générale après la phase 3 pour le déploiement OVH).
+
+**Notification "une offre te correspond" (2026-09-03) : terminée**
+
+- Demande initiale (patron) : faire postuler **automatiquement** les
+  candidats correspondants dès qu'une entreprise paie sa publication.
+  Déconseillé et **écarté après validation du patron** : une candidature
+  signifie "je veux ce poste", l'envoyer à la place du candidat lui fait
+  dire ce qu'il n'a pas dit, et l'entreprise — celle qui paie — appelle
+  alors des gens qui n'ont rien demandé. Retenu à la place : prévenir le
+  candidat, qui postule lui-même.
+- `App\Services\JobOfferMatchService::notifyMatchingCandidates()` : un
+  candidat est prévenu si l'offre est **dans sa ville OU** si son profil
+  (titre, bio, compétences, logiciels) partage un mot significatif avec
+  l'intitulé — le OU est volontaire, exiger les deux ne notifierait
+  presque personne. Mots trop fréquents ("alternance", "poste",
+  "stage"...) exclus par une liste de `STOPWORDS`, sans quoi toutes les
+  offres correspondraient à tous les candidats. Un type de contrat
+  **explicitement** mentionné par le candidat exclut les autres ; un
+  profil muet sur ce point reste éligible à tout.
+- Exclus : candidats ayant déjà postulé à cette offre, comptes suspendus,
+  comptes supprimés. Insertion groupée par lots de 200, volontairement
+  synchrone (pas de worker possible sur l'hébergement mutualisé).
+- Branché sur les **trois** chemins de publication — essai gratuit et
+  abonnement (`JobOfferService`), paiement à l'unité (`PaymentService`,
+  webhook Stripe) : n'en brancher que certains rendrait la notification
+  dépendante de la façon dont l'entreprise a payé.
+- Nouveau type `NotificationType::JOB_OFFER_MATCH` (migration d'enum côté
+  MySQL + `packages/shared` côté TS). Aucun changement frontend
+  nécessaire : la cloche affiche `message` et navigue vers `link`
+  (`/offres/{id}`), où le formulaire de candidature pré-remplit déjà le
+  téléphone et sélectionne le dernier CV généré — "postule en un clic"
+  est littéralement vrai.
+- 17 tests PHPUnit ajoutés (301/301 au total) : 13 sur la règle de
+  correspondance (ville, mot-clé, compétence, exclusions, volume) et 4
+  d'intégration vérifiant que la notification part réellement depuis
+  chacun des trois chemins et **pas** à la création d'un brouillon.
+- **Vérifié contre la vraie base MySQL** : migration appliquée, puis
+  mesure à blanc dans une transaction annulée sur les offres et candidats
+  réels — le développeur de Rennes est notifié de l'offre de développeur
+  à Rennes, la commerciale de Nantes ne l'est pas, et un candidat ayant
+  déjà postulé ne l'est pas non plus. Écriture réelle de la valeur d'enum
+  confirmée (ce que SQLite des tests ne prouve pas).
+
+**Connu et à traiter plus tard (notification de correspondance)**
+
+- Notification in-app uniquement, pas d'email — `MailService` existe si
+  le besoin se confirme.
+- Pas de réglage côté candidat pour se désabonner de ces notifications
+  (aucune préférence de notification n'existe encore dans le produit).
+- La correspondance ne lit que le **titre** de l'offre, pas sa
+  description : suffisant tant que les intitulés sont explicites, à
+  revoir si des offres au titre vague apparaissent.
