@@ -790,7 +790,7 @@ class CvImportService
     // candidat s'est cree au nom de "Permis B". La ligne a exactement la forme
     // d'un nom — deux mots, que des lettres, en tete de document — et rien ne
     // la distinguait d'une identite.
-    public const NOT_A_NAME = 'curriculum vitae|curriculum|resume|cv|profil|profile|candidature'
+    private const NOT_A_NAME = 'curriculum vitae|curriculum|resume|cv|profil|profile|candidature'
         .'|contact|coordonn[ée]es|informations?|a propos|about( me)?'
         .'|permis(?:\s.{0,20})?|nationalit[ée]|[âa]ge|date de naissance|n[ée](?: le)?'
         .'|adresse|t[ée]l[ée]phone|t[ée]l|mobile|portable|e?-?mail|courriel'
@@ -799,7 +799,7 @@ class CvImportService
     // Mots qui ne figurent jamais dans un nom de personne mais souvent dans un
     // titre de CV. Sans eux, une ligne comme "Alternance Vente" — deux mots,
     // que des lettres — passait pour une identite.
-    public const NEVER_IN_A_NAME = 'alternance|alternant|apprentissage|stage|stagiaire'
+    private const NEVER_IN_A_NAME = 'alternance|alternant|apprentissage|stage|stagiaire'
         .'|recherche|cherche|contrat|poste|emploi|job|etudiant|etudiante|motivation'
         .'|objectif|licence|master|bts|but|dut|cap|bac|diplome|formation|experience';
 

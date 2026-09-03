@@ -93,11 +93,31 @@ class AdminService
         return $target;
     }
 
+    // Etiquettes de gabarit de CV qui ne sont jamais un nom de personne.
+    // "Permis B" a la forme exacte d'une identite — deux mots, que des
+    // lettres — et un vrai profil a ete cree sous ce nom.
+    //
+    // Volontairement duplique depuis CvImportService plutot que partage : lire
+    // sa constante obligeait a televerser les deux fichiers ensemble, et un
+    // envoi depareille cassait cette liste. Les deux listes ne servent pas la
+    // meme decision (ne pas extraire / signaler) et peuvent divenger.
+    private const LABEL_NOT_A_NAME = 'curriculum vitae|curriculum|resume|cv|profil|profile|candidature'
+        .'|contact|coordonn[ée]es|informations?|a propos|about( me)?'
+        .'|permis(?:\s.{0,20})?|nationalit[ée]|[âa]ge|date de naissance|n[ée](?: le)?'
+        .'|adresse|t[ée]l[ée]phone|t[ée]l|mobile|portable|e?-?mail|courriel'
+        .'|situation familiale|v[ée]hicul[ée]e?|disponibilit[ée]';
+
+    // Mots qui ne figurent jamais dans un nom de personne mais souvent dans un
+    // titre de CV ("Alternance Vente").
+    private const WORD_NEVER_IN_A_NAME = 'alternance|alternant|apprentissage|stage|stagiaire'
+        .'|recherche|cherche|contrat|poste|emploi|job|etudiant|etudiante|motivation'
+        .'|objectif|licence|master|bts|but|dut|cap|bac|diplome|formation|experience';
+
     // Profils candidats, avec un filtre sur les noms douteux.
     //
     // Le filtre s'evalue en PHP et non en SQL : reconnaitre "Permis B" ou
     // "Prospection Encaissement" demande le meme vocabulaire que l'extracteur
-    // (voir CvImportService), qu'aucune clause WHERE ne sait exprimer. Les
+    // que l'extracteur, qu'aucune clause WHERE ne sait exprimer. Les
     // identifiants sont d'abord collectes sur deux colonnes seulement, puis la
     // pagination reste faite par la base — le cout tient a une requete legere,
     // pas au chargement de tous les profils.
@@ -153,13 +173,13 @@ class AdminService
         }
 
         foreach ([$first, $last] as $partie) {
-            if (preg_match('/^(?:'.CvImportService::NOT_A_NAME.')$/iu', Str::ascii(trim($partie)))) {
+            if (preg_match('/^(?:'.self::LABEL_NOT_A_NAME.')$/iu', Str::ascii(trim($partie)))) {
                 return true;
             }
         }
 
         foreach ($mots as $mot) {
-            if (preg_match('/^(?:'.CvImportService::NEVER_IN_A_NAME.')$/iu', Str::ascii($mot))) {
+            if (preg_match('/^(?:'.self::WORD_NEVER_IN_A_NAME.')$/iu', Str::ascii($mot))) {
                 return true;
             }
         }
