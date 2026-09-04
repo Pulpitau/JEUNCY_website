@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\UserRole;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Facades\Http;
@@ -27,6 +28,58 @@ class MailService
             HTML;
 
         $this->send($apiKey, $to, 'Réinitialise ton mot de passe Jeuncy', $this->wrapEmailHtml('Réinitialise ton mot de passe', $body));
+    }
+
+    // Envoye a la creation du compte, depuis les DEUX chemins d'inscription
+    // (email/mot de passe et Google OAuth) : n'en brancher qu'un priverait la
+    // moitie des inscrits de leur premiere etape.
+    //
+    // Le contenu depend du role. Un candidat doit completer son profil, une
+    // entreprise publier son offre : un message commun n'aurait pu dire ni
+    // l'un ni l'autre.
+    public function sendWelcomeEmail(string $to, UserRole $role): void
+    {
+        $apiKey = config('services.resend.key');
+
+        if (! $apiKey) {
+            Log::warning("RESEND_API_KEY absent : email de bienvenue non envoye a {$to}");
+
+            return;
+        }
+
+        $frontend = rtrim((string) config('app.frontend_url'), '/');
+
+        if ($role === UserRole::CANDIDATE) {
+            $body = <<<HTML
+                <p>Ton compte est créé, on est content de t'avoir avec nous.</p>
+                <p>Il te reste une étape pour que les entreprises te trouvent : compléter ton profil.
+                Tu peux importer ton CV en PDF, on le remplit automatiquement à partir de lui.</p>
+                {$this->ctaButton('Compléter mon profil', $frontend.'/profile')}
+                <p>Une fois ton profil en ligne, tu es prévenu dès qu'une offre correspond à ce que tu
+                cherches — et tu postules en un clic, ton CV est déjà prêt.</p>
+                <p style="color:#6b7280;font-size:13px;">Jeuncy est et reste 100&nbsp;% gratuit pour les candidats.</p>
+                HTML;
+
+            $this->send($apiKey, $to, 'Bienvenue sur Jeuncy !', $this->wrapEmailHtml('Bienvenue sur Jeuncy !', $body));
+
+            return;
+        }
+
+        // Entreprise, CFA — et tout role a venir : le repli reste cette
+        // version plutot qu'un message vide.
+        $jours = JobOfferService::TRIAL_DURATION_DAYS;
+
+        $body = <<<HTML
+            <p>Ton compte est créé.</p>
+            <p>Tu peux dès maintenant publier ta première offre et la diffuser auprès de nos candidats.</p>
+            {$this->ctaButton('Publier une offre', $frontend.'/mes-offres')}
+            <p><strong>Ta première publication est offerte</strong>, à utiliser dans les {$jours} jours
+            qui suivent le démarrage de ton essai.</p>
+            <p>Dès qu'une offre est publiée, les candidats dont le profil lui correspond sont prévenus
+            automatiquement.</p>
+            HTML;
+
+        $this->send($apiKey, $to, 'Bienvenue sur Jeuncy !', $this->wrapEmailHtml('Bienvenue sur Jeuncy !', $body));
     }
 
     // Declenche par JobOfferService::publishViaTrialForUser au tout premier

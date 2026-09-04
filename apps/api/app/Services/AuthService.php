@@ -6,6 +6,7 @@ use App\Enums\UserRole;
 use App\Exceptions\ApiException;
 use App\Models\User;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 
 class AuthService
 {
@@ -42,7 +43,26 @@ class AuthService
             'last_login_at' => now(),
         ]);
 
+        $this->sendWelcomeEmail($user);
+
         return ['user' => $user, 'tokens' => $this->issueTokens($user)];
+    }
+
+    /**
+     * Souhaite la bienvenue, sans jamais mettre l'inscription en peril.
+     *
+     * MailService intercepte deja les erreurs reseau, mais pas le reste (cle
+     * mal formee, URL de configuration absente, panne inattendue). Un compte
+     * perdu parce qu'un serveur mail a hoquete serait un echec bien plus grave
+     * que l'email manquant : ici l'inscription prime toujours sur l'email.
+     */
+    private function sendWelcomeEmail(User $user): void
+    {
+        try {
+            $this->mailService->sendWelcomeEmail($user->email, $user->role);
+        } catch (\Throwable $e) {
+            Log::error("Email de bienvenue non envoye a {$user->email} : {$e->getMessage()}");
+        }
     }
 
     public function issueTokens(User $user): array
@@ -110,13 +130,21 @@ class AuthService
             return $existingByEmail;
         }
 
-        return User::create([
+        $user = User::create([
             'email' => $email,
             'password_hash' => null,
             'role' => $role,
             'google_id' => $googleId,
             'last_login_at' => now(),
         ]);
+
+        // Une inscription Google est une inscription : sans cet appel, la
+        // moitie des nouveaux comptes n'aurait jamais recu sa premiere etape.
+        // Le cas juste au-dessus (compte existant associe a Google) n'est PAS
+        // une inscription et ne doit rien declencher.
+        $this->sendWelcomeEmail($user);
+
+        return $user;
     }
 
     public function forgotPassword(string $email): void

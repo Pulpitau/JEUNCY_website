@@ -25,7 +25,7 @@ class DeployController extends Controller
     // ne peut pas savoir si le controleur lui-meme a bien ete redeploye : c est
     // arrive le 2026-09-02, ou clear-cache continuait d echouer avec une version
     // corrigee censement en place. A incrementer a chaque changement ici.
-    public const DEPLOY_TOOLS_VERSION = 'deploy-tools-4';
+    public const DEPLOY_TOOLS_VERSION = 'deploy-tools-5';
 
     private function assertAuthorized(string $token): void
     {
@@ -111,6 +111,9 @@ class DeployController extends Controller
             // doivent arriver ensemble, et leur absence produisait une erreur
             // indistinguable d'un bug de code.
             'app/Services/AdminService.php',
+            // Email de bienvenue : la methode et ses deux points d'appel.
+            'app/Services/MailService.php',
+            'app/Services/AuthService.php',
             'app/Http/Controllers/Admin/CandidateProfileController.php',
             'app/Http/Requests/Admin/ListCandidateProfilesRequest.php',
             'app/Http/Requests/Admin/UpdateCandidateNameRequest.php',
