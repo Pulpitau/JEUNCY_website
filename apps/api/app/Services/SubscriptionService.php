@@ -150,7 +150,11 @@ class SubscriptionService
     // propagerait tot ou tard dans une facture ou une stat.
     public function hasPaidAccess(User $user): bool
     {
-        return $user->role === UserRole::ADMIN || $this->hasActiveSubscription($user);
+        // STAFF comme ADMIN : acces interne, sans abonnement de
+        // complaisance. Jeuncy est deja responsable de traitement de ces
+        // donnees, et remplir la CVtheque est precisement leur mission.
+        return in_array($user->role, [UserRole::ADMIN, UserRole::STAFF], true)
+            || $this->hasActiveSubscription($user);
     }
 
     // La plus recente en premier : suffisant pour l'affichage (un utilisateur

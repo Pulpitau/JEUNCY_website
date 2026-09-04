@@ -186,3 +186,13 @@ export function updateCandidateName(
     body: payload,
   });
 }
+
+// Bascule candidat <-> membre de l'équipe Jeuncy. Réservée à ces deux rôles
+// côté serveur (voir AdminService::setStaffRole).
+export function promoteToStaff(id: number) {
+  return apiRequest<AdminUser>(`/admin/users/${id}/promote-staff`, { method: 'POST' });
+}
+
+export function demoteFromStaff(id: number) {
+  return apiRequest<AdminUser>(`/admin/users/${id}/demote-staff`, { method: 'POST' });
+}

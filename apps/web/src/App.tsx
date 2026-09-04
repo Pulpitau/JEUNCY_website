@@ -96,7 +96,9 @@ export default function App() {
           <Route
             path="/candidats"
             element={
-              <RequireAuth role={[UserRole.COMPANY, UserRole.CFA, UserRole.ADMIN]}>
+              <RequireAuth
+                role={[UserRole.COMPANY, UserRole.CFA, UserRole.ADMIN, UserRole.STAFF]}
+              >
                 <Cvtheque />
               </RequireAuth>
             }
@@ -104,7 +106,9 @@ export default function App() {
           <Route
             path="/candidats/:id"
             element={
-              <RequireAuth role={[UserRole.COMPANY, UserRole.CFA, UserRole.ADMIN]}>
+              <RequireAuth
+                role={[UserRole.COMPANY, UserRole.CFA, UserRole.ADMIN, UserRole.STAFF]}
+              >
                 <CvthequeCandidate />
               </RequireAuth>
             }

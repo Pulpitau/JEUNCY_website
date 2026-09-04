@@ -25,7 +25,7 @@ class DeployController extends Controller
     // ne peut pas savoir si le controleur lui-meme a bien ete redeploye : c est
     // arrive le 2026-09-02, ou clear-cache continuait d echouer avec une version
     // corrigee censement en place. A incrementer a chaque changement ici.
-    public const DEPLOY_TOOLS_VERSION = 'deploy-tools-5';
+    public const DEPLOY_TOOLS_VERSION = 'deploy-tools-6';
 
     private function assertAuthorized(string $token): void
     {
@@ -105,6 +105,11 @@ class DeployController extends Controller
             'routes/web.php',
             'app/Services/CvService.php',
             'app/Services/CvthequeService.php',
+            // Role STAFF : equipe Jeuncy, lecture de la CVtheque sans admin.
+            'app/Enums/UserRole.php',
+            'app/Services/SubscriptionService.php',
+            'app/Http/Controllers/Admin/UserController.php',
+            'routes/api/cvtheque.php',
             'app/Services/CvImportService.php',
             'app/Services/CandidateProfileService.php',
             // Outil de correction des noms de candidats : ces quatre fichiers

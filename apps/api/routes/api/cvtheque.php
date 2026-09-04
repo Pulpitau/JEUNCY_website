@@ -14,7 +14,7 @@ use Illuminate\Support\Facades\Route;
 // de complaisance. Le second filtre le laisse passer via
 // SubscriptionService::hasPaidAccess. Acces interne legitime au sens RGPD :
 // Jeuncy est deja responsable de traitement de ces donnees.
-Route::prefix('cvtheque')->middleware(['auth:api', 'role:COMPANY,CFA,ADMIN'])->group(function () {
+Route::prefix('cvtheque')->middleware(['auth:api', 'role:COMPANY,CFA,ADMIN,STAFF'])->group(function () {
     Route::get('access', [CvthequeController::class, 'access']);
     Route::get('/', [CvthequeController::class, 'index']);
     // whereNumber en plus de l'ordre de declaration : ceinture et bretelles

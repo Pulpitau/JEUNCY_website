@@ -75,6 +75,33 @@ class AdminService
         return $query->paginate(20);
     }
 
+    /**
+     * Bascule un compte entre CANDIDATE et STAFF.
+     *
+     * Volontairement limite a ces deux roles. Promouvoir vers ADMIN depuis
+     * l'interface donnerait a un administrateur le pouvoir d'en creer d'autres
+     * sans trace ; et transformer une entreprise en membre de l'equipe
+     * detacherait son profil, ses offres et ses paiements de leur titulaire.
+     */
+    public function setStaffRole(User $admin, User $target, bool $isStaff): User
+    {
+        if ($admin->is($target)) {
+            throw new ApiException('CANNOT_CHANGE_OWN_ROLE', 'Tu ne peux pas changer ton propre rôle.', 400);
+        }
+
+        if (! in_array($target->role, [UserRole::CANDIDATE, UserRole::STAFF], true)) {
+            throw new ApiException(
+                'ROLE_NOT_SWITCHABLE',
+                "Seul un compte candidat peut devenir membre de l'équipe, et inversement.",
+                400,
+            );
+        }
+
+        $target->update(['role' => $isStaff ? UserRole::STAFF : UserRole::CANDIDATE]);
+
+        return $target->fresh();
+    }
+
     public function suspendUser(User $admin, User $target): User
     {
         if ($admin->is($target)) {

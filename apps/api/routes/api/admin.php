@@ -14,6 +14,10 @@ Route::prefix('admin')->middleware(['auth:api', 'role:ADMIN'])->group(function (
     Route::get('users', [UserController::class, 'index']);
 
     // Correction d'un nom de candidat mal lu par l'import de CV.
+    // Bascule candidat <-> membre de l'equipe (voir setStaffRole).
+    Route::post('users/{user}/promote-staff', [UserController::class, 'promoteToStaff']);
+    Route::post('users/{user}/demote-staff', [UserController::class, 'demoteFromStaff']);
+
     Route::get('candidate-profiles', [CandidateProfileController::class, 'index']);
     Route::patch('candidate-profiles/{candidateProfile}/name', [CandidateProfileController::class, 'updateName']);
     Route::post('users/{user}/suspend', [UserController::class, 'suspend']);

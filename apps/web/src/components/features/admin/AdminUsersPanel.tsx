@@ -4,7 +4,13 @@ import { UserRole } from '@jeuncy/shared';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { listAdminUsers, reactivateUser, suspendUser } from '@/lib/api/admin';
+import {
+  demoteFromStaff,
+  listAdminUsers,
+  promoteToStaff,
+  reactivateUser,
+  suspendUser,
+} from '@/lib/api/admin';
 import { AdminPager } from './AdminPager';
 
 const ROLE_OPTIONS = [
@@ -12,6 +18,7 @@ const ROLE_OPTIONS = [
   { value: UserRole.CANDIDATE, label: 'Candidats' },
   { value: UserRole.COMPANY, label: 'Entreprises' },
   { value: UserRole.CFA, label: 'CFA' },
+  { value: UserRole.STAFF, label: 'Équipe Jeuncy' },
   { value: UserRole.ADMIN, label: 'Admins' },
 ];
 
@@ -30,6 +37,14 @@ export function AdminUsersPanel() {
   }
 
   const suspendMutation = useMutation({ mutationFn: suspendUser, onSuccess: invalidate });
+  const promoteMutation = useMutation({
+    mutationFn: promoteToStaff,
+    onSuccess: invalidate,
+  });
+  const demoteMutation = useMutation({
+    mutationFn: demoteFromStaff,
+    onSuccess: invalidate,
+  });
   const reactivateMutation = useMutation({
     mutationFn: reactivateUser,
     onSuccess: invalidate,
@@ -83,6 +98,28 @@ export function AdminUsersPanel() {
                 <Badge variant={user.is_suspended ? 'destructive' : 'default'}>
                   {user.is_suspended ? 'Suspendu' : 'Actif'}
                 </Badge>
+                {user.role === UserRole.CANDIDATE && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    disabled={promoteMutation.isPending}
+                    onClick={() => promoteMutation.mutate(user.id)}
+                  >
+                    Passer en équipe
+                  </Button>
+                )}
+                {user.role === UserRole.STAFF && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    disabled={demoteMutation.isPending}
+                    onClick={() => demoteMutation.mutate(user.id)}
+                  >
+                    Retirer de l’équipe
+                  </Button>
+                )}
                 {user.role !== UserRole.ADMIN &&
                   (user.is_suspended ? (
                     <Button

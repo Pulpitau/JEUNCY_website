@@ -23,6 +23,16 @@ class UserController extends Controller
         return response()->json($this->service->suspendUser($request->user(), $user));
     }
 
+    public function promoteToStaff(Request $request, User $user): JsonResponse
+    {
+        return response()->json($this->service->setStaffRole($request->user(), $user, true));
+    }
+
+    public function demoteFromStaff(Request $request, User $user): JsonResponse
+    {
+        return response()->json($this->service->setStaffRole($request->user(), $user, false));
+    }
+
     public function reactivate(User $user): JsonResponse
     {
         return response()->json($this->service->reactivateUser($user));

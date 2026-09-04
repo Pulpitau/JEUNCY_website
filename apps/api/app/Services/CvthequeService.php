@@ -101,7 +101,14 @@ class CvthequeService
         if (! empty($filters['q'])) {
             $term = '%'.$filters['q'].'%';
             $query->where(function (Builder $q) use ($term) {
-                $q->where('headline', 'like', $term)
+                // Le nom en premier : c'est par lui qu'on retrouve quelqu'un
+                // qu'on vient d'avoir au telephone ou de rencontrer sur un
+                // salon. Il manquait, et personne — pas meme un admin — ne
+                // pouvait retrouver un candidat par son nom.
+                $q->where('first_name', 'like', $term)
+                    ->orWhere('last_name', 'like', $term)
+                    ->orWhereRaw("CONCAT(first_name, ' ', last_name) like ?", [$term])
+                    ->orWhere('headline', 'like', $term)
                     ->orWhere('bio', 'like', $term)
                     ->orWhereHas('experiences', fn (Builder $sub) => $sub->where('title', 'like', $term)->orWhere('company', 'like', $term))
                     ->orWhereHas('educations', fn (Builder $sub) => $sub->where('degree', 'like', $term)->orWhere('field_of_study', 'like', $term)->orWhere('school', 'like', $term));

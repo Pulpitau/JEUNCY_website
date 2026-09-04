@@ -65,6 +65,13 @@ export function accountLinksFor(role: string): AccountLink[] {
     ];
   }
 
+  // Membre de l'equipe Jeuncy : la CVtheque, et rien d'autre. Il verifie
+  // que les candidats qu'il a eus au telephone ont bien termine leur
+  // inscription — il n'a besoin ni de l'administration, ni des offres.
+  if (role === UserRole.STAFF) {
+    return [{ to: '/candidats', label: 'Candidats', icon: Search }, ...common];
+  }
+
   return common;
 }
 
@@ -78,6 +85,8 @@ export function roleLabel(role: string): string {
       return 'Entreprise';
     case UserRole.CFA:
       return 'CFA';
+    case UserRole.STAFF:
+      return 'Équipe Jeuncy';
     case UserRole.ADMIN:
       return 'Administrateur';
     default:
