@@ -766,3 +766,48 @@ ACCOUNT_SUSPENDED`, 403). Un access token déjà émis est **aussi** coupé
 - La correspondance ne lit que le **titre** de l'offre, pas sa
   description : suffisant tant que les intitulés sont explicites, à
   revoir si des offres au titre vague apparaissent.
+
+**Outil de correction des noms de candidats (2026-09-04) : terminé**
+
+- Deux profils réels avaient été créés au nom de « Permis B » et d'une suite
+  de compétences : l'import de CV crée le profil **sans que le candidat
+  relise** l'identité lue dans son PDF, donc une extraction ratée ne se voit
+  qu'après coup, dans la CVthèque, sous les yeux des recruteurs.
+- Extraction corrigée (`CvImportService::extractName`) : étiquettes de
+  gabarit rejetées (`permis`, `nationalité`, `téléphone`…), mots impossibles
+  dans un nom (`alternance`, `stage`, `licence`…), et surtout **l'adresse
+  email comme corroboration** — `rostomghazli64@gmail.com` confirme « ROSTOM
+  GHAZLI » où qu'il se trouve dans le document, ce qui règle le cas des CV à
+  deux colonnes où le nom sort de la fenêtre de lecture.
+- `admin/candidate-profiles` (liste, filtre `suspicious`) et
+  `PATCH admin/candidate-profiles/{id}/name` + onglet « Candidats » dans
+  `/admin`. Le filtre s'évalue en PHP (aucune clause WHERE ne sait
+  reconnaître « Permis B »), et s'appuie aussi sur le **référentiel de
+  compétences** : « Prospection Encaissement » ne se distingue d'un vrai nom
+  que parce que ces deux mots sont des compétences connues.
+- Vérifié sur les 53 profils réels de production : 0 faux positif (« Louis
+  MOUCHE », « Hugo Dos Santos », « Laura FAYE » ne sont pas signalés).
+
+**Leçon de déploiement (2026-09-04) — à lire avant tout envoi OVH**
+
+- Le serveur porte une **arborescence parasite** : un dossier `app/` complet a
+  été déposé un jour dans `/api-app/app/Http/`, qui contient donc Auth,
+  Console, Enums, Exceptions, Http, Models, Providers, Services en plus de ses
+  trois dossiers légitimes. Ces copies sont **inertes** (le PSR-4 mappe
+  `App\Services\X` sur `app/Services/X.php`), mais elles servent de piège :
+  des fichiers y ont atterri au lieu de leur vraie destination.
+- C'est ce qui a coûté **cinq allers-retours** : trois fichiers
+  (`Admin/CandidateProfileController.php`, `Admin/ListCandidateProfilesRequest.php`,
+  `Admin/UpdateCandidateNameRequest.php`) n'étaient jamais arrivés, et quatre
+  hypothèses successives ont cherché un bug dans du code qui n'en avait pas.
+- **Toujours ajouter les fichiers d'une nouvelle fonctionnalité à la liste
+  surveillée de `DeployController::version()`** avant de les faire envoyer :
+  un fichier absent produit une panne indistinguable d'un bug de code.
+- `/deploy/{token}/selftest` (`deploy-tools-4`) exécute les chemins sensibles
+  et renvoie l'exception réelle. Piège rencontré : il appelait le **service**
+  sans passer par le contrôleur, donc il validait précisément la partie qui
+  marchait. Une instrumentation qui ne traverse pas tout le chemin donne une
+  fausse assurance.
+- `CvImportService.php` diffère d'un mot-clé de visibilité entre le dépôt
+  (`private`, 20047ab81a2fe1a6) et le serveur (`public`, 5ca94613966ea432) —
+  aucun effet fonctionnel, à réaligner au prochain envoi backend.
