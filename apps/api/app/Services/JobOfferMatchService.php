@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Enums\ContractType;
+use App\Enums\JobOfferStatus;
 use App\Enums\NotificationType;
 use App\Models\CandidateProfile;
 use App\Models\JobOffer;
@@ -90,9 +91,99 @@ class JobOfferMatchService
         return count($notifications);
     }
 
+    // Au plus trois offres annoncees d'un coup. Quelqu'un qui vient de
+    // completer son profil peut correspondre a beaucoup d'offres : lui en
+    // envoyer quinze d'affilee serait du harcelement, et il a de toute facon
+    // la liste complete sous les yeux. Les plus recentes d'abord.
+    private const MAX_OFFERS_PER_CANDIDATE = 3;
+
+    /**
+     * Previent un candidat des offres deja publiees qui lui correspondent.
+     *
+     * Symetrique de notifyMatchingCandidates(), qui ne couvre que le moment de
+     * la publication. Sans ce sens-ci, un candidat inscrit apres la mise en
+     * ligne d'une offre n'en entend jamais parler — le cas le plus frequent
+     * quand on remplit la CVtheque par prospection telephonique.
+     *
+     * Une offre n'est annoncee qu'UNE fois a un candidat donne : la
+     * deduplication porte sur les notifications deja envoyees, ce qui rend la
+     * methode sans danger a chaque modification de profil.
+     */
+    public function notifyCandidateOfMatchingOffers(CandidateProfile $profile): int
+    {
+        $profile->loadMissing(['user', 'skills:id,name', 'software:id,name']);
+
+        if (! $this->isReachable($profile)) {
+            return 0;
+        }
+
+        $dejaVues = Notification::query()
+            ->where('user_id', $profile->user_id)
+            ->where('type', NotificationType::JOB_OFFER_MATCH->value)
+            ->pluck('link')
+            ->all();
+
+        $dejaCandidat = $profile->applications()->pluck('job_offer_id')->all();
+
+        $notifications = [];
+
+        JobOffer::query()
+            ->where('status', JobOfferStatus::PUBLISHED)
+            ->whereNotIn('id', $dejaCandidat ?: [0])
+            ->latest('published_at')
+            ->limit(200)
+            ->get()
+            ->each(function (JobOffer $offre) use ($profile, $dejaVues, &$notifications) {
+                if (count($notifications) >= self::MAX_OFFERS_PER_CANDIDATE) {
+                    return false;
+                }
+
+                $lien = '/offres/'.$offre->id;
+                if (in_array($lien, $dejaVues, true)) {
+                    return null;
+                }
+
+                $correspond = $this->matches(
+                    $profile,
+                    $offre,
+                    $this->keywordsOf($offre),
+                    $this->normalize((string) $offre->city),
+                );
+
+                if ($correspond) {
+                    $notifications[] = [
+                        'user_id' => $profile->user_id,
+                        'type' => NotificationType::JOB_OFFER_MATCH->value,
+                        'message' => $this->messageForExistingOffer($offre),
+                        'link' => $lien,
+                        'read' => false,
+                        'created_at' => now(),
+                    ];
+                }
+
+                return null;
+            });
+
+        if ($notifications !== []) {
+            Notification::insert($notifications);
+        }
+
+        return count($notifications);
+    }
+
     private function messageFor(JobOffer $jobOffer): string
     {
         return "Une offre qui te correspond vient d'être publiée : « "
+            .Str::limit($jobOffer->title, 70)
+            .' ». Postule en un clic !';
+    }
+
+    // Dans l'autre sens, l'offre n'est pas nouvelle : c'est le candidat qui
+    // vient d'arriver. Lui annoncer une publication "qui vient d'avoir lieu"
+    // serait faux, et il s'en apercevrait en voyant la date de l'offre.
+    private function messageForExistingOffer(JobOffer $jobOffer): string
+    {
+        return 'Une offre correspond à ton profil : « '
             .Str::limit($jobOffer->title, 70)
             .' ». Postule en un clic !';
     }

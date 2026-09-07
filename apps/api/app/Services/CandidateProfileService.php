@@ -11,11 +11,14 @@ use App\Models\Skill;
 use App\Models\Software;
 use App\Models\User;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 class CandidateProfileService
 {
+    public function __construct(private readonly JobOfferMatchService $matchService) {}
+
     public function getForUser(User $user): CandidateProfile
     {
         return $this->requireProfile($user)->load(['experiences', 'educations', 'skills', 'languages', 'software']);
@@ -29,6 +32,8 @@ class CandidateProfileService
 
         $profile = $user->candidateProfile()->create($data);
 
+        $this->notifyMatchingOffers($profile);
+
         return $profile->load(['experiences', 'educations', 'skills', 'languages', 'software']);
     }
 
@@ -37,7 +42,25 @@ class CandidateProfileService
         $profile = $this->requireProfile($user);
         $profile->update($data);
 
+        $this->notifyMatchingOffers($profile);
+
         return $profile->load(['experiences', 'educations', 'skills', 'languages', 'software']);
+    }
+
+    /**
+     * Previent le candidat des offres deja publiees qui lui correspondent,
+     * sans jamais mettre en peril l'enregistrement de son profil.
+     *
+     * Une notification manquante est un desagrement ; un profil perdu parce
+     * qu'une notification a echoue serait une faute.
+     */
+    private function notifyMatchingOffers(CandidateProfile $profile): void
+    {
+        try {
+            $this->matchService->notifyCandidateOfMatchingOffers($profile);
+        } catch (\Throwable $e) {
+            Log::error("Offres correspondantes non notifiees au profil {$profile->id} : {$e->getMessage()}");
+        }
     }
 
     public function addExperience(User $user, array $data): Experience
@@ -101,6 +124,8 @@ class CandidateProfileService
 
         $profile->skills()->sync($skillIds);
 
+        $this->notifyMatchingOffers($profile->load('skills'));
+
         return $profile->load('skills');
     }
 
@@ -115,6 +140,8 @@ class CandidateProfileService
             ->map(fn (string $name) => Software::firstOrCreate(['name' => $name])->id);
 
         $profile->software()->sync($softwareIds);
+
+        $this->notifyMatchingOffers($profile->load('software'));
 
         return $profile->load('software');
     }

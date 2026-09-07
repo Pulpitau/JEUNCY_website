@@ -25,7 +25,7 @@ class DeployController extends Controller
     // ne peut pas savoir si le controleur lui-meme a bien ete redeploye : c est
     // arrive le 2026-09-02, ou clear-cache continuait d echouer avec une version
     // corrigee censement en place. A incrementer a chaque changement ici.
-    public const DEPLOY_TOOLS_VERSION = 'deploy-tools-6';
+    public const DEPLOY_TOOLS_VERSION = 'deploy-tools-7';
 
     private function assertAuthorized(string $token): void
     {
@@ -112,6 +112,9 @@ class DeployController extends Controller
             'routes/api/cvtheque.php',
             'app/Services/CvImportService.php',
             'app/Services/CandidateProfileService.php',
+            // Correspondance offre <-> candidat, dans les deux sens.
+            'app/Services/JobOfferMatchService.php',
+            'app/Console/Commands/NotifyCandidatesOfMatchingOffers.php',
             // Outil de correction des noms de candidats : ces quatre fichiers
             // doivent arriver ensemble, et leur absence produisait une erreur
             // indistinguable d'un bug de code.
@@ -322,6 +325,7 @@ class DeployController extends Controller
         'cvs:archive-inactive',
         'video-rooms:send-reminders',
         'cv-downloads:purge',
+        'job-offers:notify-matching-candidates',
     ];
 
     // Extrait du controleur pour etre testable sur des entrees choisies : le

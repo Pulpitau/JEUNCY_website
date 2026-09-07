@@ -23,6 +23,11 @@ return Application::configure(basePath: dirname(__DIR__))
         $schedule->command('job-offers:expire')->daily();
         $schedule->command('job-offers:archive-expired-trials')->daily();
         $schedule->command('cvs:archive-inactive')->daily();
+        // Rattrapage : les candidats deja inscrits avant qu'une offre ne soit
+        // publiee sont prevenus a la publication, et ceux qui arrivent apres le
+        // sont a la creation de leur profil. Restent ceux qui ne touchent plus a
+        // leur profil — ce balayage les couvre. Idempotent (voir la commande).
+        $schedule->command('job-offers:notify-matching-candidates')->daily();
         // Applique reellement la duree de conservation de 3 ans annoncee aux
         // candidats dans la politique de confidentialite (section 4 ter).
         // Hebdomadaire et non quotidien : le delai se compte en annees, une
