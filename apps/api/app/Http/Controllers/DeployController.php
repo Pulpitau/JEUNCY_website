@@ -31,7 +31,7 @@ class DeployController extends Controller
     // ne peut pas savoir si le controleur lui-meme a bien ete redeploye : c est
     // arrive le 2026-09-02, ou clear-cache continuait d echouer avec une version
     // corrigee censement en place. A incrementer a chaque changement ici.
-    public const DEPLOY_TOOLS_VERSION = 'deploy-tools-9';
+    public const DEPLOY_TOOLS_VERSION = 'deploy-tools-10';
 
     private function assertAuthorized(string $token): void
     {
@@ -348,10 +348,35 @@ class DeployController extends Controller
                 ];
             });
 
-        // Envoi reel, uniquement sur demande explicite (?envoyer=1). Sert a
-        // rattraper les candidats qu'une publication n'a pas notifies.
+        // Envoi reel, uniquement sur demande explicite (?envoyer=1).
+        //
+        // ?profil=N restreint l'envoi a CE seul candidat : indispensable pour
+        // tester avec une offre fictive sans arroser de vraies personnes.
+        //
+        // Volontairement HORS try/catch, contrairement au chemin applicatif
+        // (CandidateProfileService avale l'erreur pour ne jamais mettre en
+        // peril l'enregistrement d'un profil). C'est ce silence qui a rendu la
+        // panne invisible : ici l'exception doit remonter.
         $envoyees = null;
-        if (request()->query('envoyer') === '1') {
+        $profilCible = request()->query('profil');
+        $diagnosticCible = null;
+
+        if ($profilCible !== null) {
+            $cible = CandidateProfile::find((int) $profilCible);
+            $diagnosticCible = $cible
+                ? [
+                    'profil' => $cible->id,
+                    'ville_normalisee' => $appeler('normalize', [(string) $cible->city]),
+                    'ville_offre_normalisee' => $villeOffre,
+                    'villes_identiques' => $appeler('normalize', [(string) $cible->city]) === $villeOffre,
+                    'notifications_existantes' => Notification::where('user_id', $cible->user_id)->count(),
+                ]
+                : 'PROFIL INTROUVABLE';
+
+            if ($cible && request()->query('envoyer') === '1') {
+                $envoyees = $service->notifyCandidateOfMatchingOffers($cible);
+            }
+        } elseif (request()->query('envoyer') === '1') {
             $envoyees = $service->notifyMatchingCandidates($offre);
         }
 
@@ -362,6 +387,7 @@ class DeployController extends Controller
                 'CandidateProfileService' => $this->cablageMatchService(CandidateProfileService::class),
             ],
             'notifications_envoyees_a_l_instant' => $envoyees,
+            'profil_cible' => $diagnosticCible,
             'offre' => [
                 'id' => $offre->id,
                 'titre' => $offre->title,
