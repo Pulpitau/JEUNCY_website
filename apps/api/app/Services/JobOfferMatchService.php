@@ -231,7 +231,11 @@ class JobOfferMatchService
             ContractType::ALTERNANCE->value => Str::contains($souhait, ['alternance', 'alternant', 'apprentissage', 'apprenti']),
             ContractType::SAISONNIER->value => Str::contains($souhait, ['saisonnier', 'saisonniere', 'job d ete', 'job ete', 'saison']),
             ContractType::BENEVOLAT->value => Str::contains($souhait, ['benevolat', 'benevole', 'volontariat', 'service civique']),
-            ContractType::JOB_ETUDIANT->value => Str::contains($souhait, ['job etudiant', 'etudiant', 'temps partiel']),
+            // "etudiant" seul est volontairement absent : c'est un statut, pas
+            // un souhait de contrat. Le laisser ici excluait de toutes les
+            // alternances quiconque ecrivait "etudiant en BTS" — soit
+            // l'essentiel du public de Jeuncy.
+            ContractType::JOB_ETUDIANT->value => Str::contains($souhait, ['job etudiant', 'temps partiel']),
             ContractType::STAGE->value => Str::contains($souhait, ['stage', 'stagiaire']),
         ];
 
@@ -249,20 +253,57 @@ class JobOfferMatchService
             return false;
         }
 
-        $haystack = $this->normalize(implode(' ', [
+        $mots = preg_split('/[^\p{L}]+/u', $this->normalize(implode(' ', [
             $profile->headline ?? '',
             $profile->bio ?? '',
             $profile->skills->pluck('name')->implode(' '),
             $profile->software->pluck('name')->implode(' '),
-        ]));
+        ]))) ?: [];
 
         foreach ($keywords as $keyword) {
-            if (Str::contains($haystack, $keyword)) {
-                return true;
+            foreach ($mots as $mot) {
+                if ($this->sameWordFamily($keyword, $mot)) {
+                    return true;
+                }
             }
         }
 
         return false;
+    }
+
+    // Deux mots de la meme famille : "commerce" et "commercial", "restaurant"
+    // et "restauration", "vente" et "ventes".
+    //
+    // La comparaison etait auparavant litterale, et un candidat decrit sa
+    // recherche avec SES mots, jamais avec ceux de l'intitule de l'offre :
+    // "alternance en commerce" ne correspondait pas a "assistant commercial".
+    //
+    // Six caracteres communs, ou l'un prefixe l'autre a partir de cinq
+    // caracteres (pour les pluriels). En dessous, "vent" rapprocherait
+    // "ventilateur" — et une notification hors sujet coute plus cher qu'une
+    // notification manquante.
+    private const MIN_COMMON_PREFIX = 6;
+
+    private const MIN_PREFIX_WORD_LENGTH = 5;
+
+    private function sameWordFamily(string $a, string $b): bool
+    {
+        if ($a === $b) {
+            return true;
+        }
+
+        $court = min(mb_strlen($a), mb_strlen($b));
+
+        if ($court < self::MIN_PREFIX_WORD_LENGTH) {
+            return false;
+        }
+
+        $commun = 0;
+        while ($commun < $court && mb_substr($a, $commun, 1) === mb_substr($b, $commun, 1)) {
+            $commun++;
+        }
+
+        return $commun >= min(self::MIN_COMMON_PREFIX, $court);
     }
 
     /** @return string[] */

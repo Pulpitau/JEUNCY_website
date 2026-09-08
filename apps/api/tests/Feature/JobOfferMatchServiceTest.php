@@ -219,6 +219,42 @@ class JobOfferMatchServiceTest extends TestCase
         $this->assertSame(0, $this->service->notifyMatchingCandidates($offer));
     }
 
+    // --- Les deux defauts constates en production le 2026-09-08 ---
+
+    // "etudiant" declenchait la preference JOB_ETUDIANT et excluait donc
+    // TOUTE alternance, meme dans la meme ville. C'est pourtant la facon la
+    // plus naturelle de se presenter pour le public de Jeuncy : la regle
+    // ecartait des alternances precisement les gens qui en cherchent.
+    public function test_calling_oneself_a_student_does_not_exclude_alternance(): void
+    {
+        $this->makeCandidate(['city' => 'Perpignan', 'headline' => 'Etudiant en BTS commerce']);
+
+        $this->assertSame(1, $this->service->notifyMatchingCandidates($this->makeOffer()));
+    }
+
+    // Un candidat decrit sa recherche avec SES mots, jamais avec ceux de
+    // l'intitule : "commerce" ne correspondait pas a "commercial".
+    public function test_related_words_match_across_spellings(): void
+    {
+        $this->makeCandidate(['city' => 'Lille', 'headline' => 'Alternance en commerce']);
+
+        $offre = $this->makeOffer(['title' => 'Assistant commercial', 'city' => 'Lyon']);
+
+        $this->assertSame(1, $this->service->notifyMatchingCandidates($offre));
+    }
+
+    // L'elargissement ne doit pas tout rapprocher : sans plancher, "vent"
+    // rapprocherait "ventilateur", et une notification hors sujet coute plus
+    // cher qu'une notification manquante.
+    public function test_unrelated_words_sharing_a_few_letters_do_not_match(): void
+    {
+        $this->makeCandidate(['city' => 'Lille', 'headline' => 'Technicien de maintenance']);
+
+        $offre = $this->makeOffer(['title' => 'Boulanger patissier', 'city' => 'Lyon']);
+
+        $this->assertSame(0, $this->service->notifyMatchingCandidates($offre));
+    }
+
     // --- Volume ---
 
     public function test_every_matching_candidate_is_notified_once(): void
