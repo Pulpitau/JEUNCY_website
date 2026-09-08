@@ -32,7 +32,7 @@ class DeployController extends Controller
     // ne peut pas savoir si le controleur lui-meme a bien ete redeploye : c est
     // arrive le 2026-09-02, ou clear-cache continuait d echouer avec une version
     // corrigee censement en place. A incrementer a chaque changement ici.
-    public const DEPLOY_TOOLS_VERSION = 'deploy-tools-13';
+    public const DEPLOY_TOOLS_VERSION = 'deploy-tools-14';
 
     private function assertAuthorized(string $token): void
     {
@@ -309,6 +309,20 @@ class DeployController extends Controller
         $this->assertAuthorized($token);
 
         $offre = JobOffer::find($jobOffer);
+
+        // L'effacement doit fonctionner meme quand l'offre n'existe plus :
+        // c'est precisement le cas ou ses notifications deviennent des liens
+        // morts, et donc celui ou le nettoyage est le plus necessaire.
+        if (request()->query('effacer') === '1' && ! $offre) {
+            return response()->json([
+                'offre' => "Offre {$jobOffer} supprimee — seules ses notifications sont nettoyees.",
+                'notifications_effacees' => Notification::query()
+                    ->where('type', NotificationType::JOB_OFFER_MATCH->value)
+                    ->where('link', '/offres/'.$jobOffer)
+                    ->delete(),
+                'heure_serveur' => now()->toDateTimeString(),
+            ], 200, [], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        }
 
         if (! $offre) {
             return response()->json(['erreur' => "Offre {$jobOffer} introuvable."], 404);
