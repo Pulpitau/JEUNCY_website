@@ -32,3 +32,6 @@ Route::get('/deploy/{token}/version', [DeployController::class, 'version']);
 // Execute les chemins sensibles et renvoie l'exception reelle : sans elle,
 // une erreur de production n'est qu'une devinette (voir le controleur).
 Route::get('/deploy/{token}/selftest', [DeployController::class, 'selfTest']);
+// Explique, candidat par candidat, pourquoi une offre le notifie ou non.
+// Sans elle, un defaut de correspondance ne se diagnostique qu'a l'aveugle.
+Route::get('/deploy/{token}/match/{jobOffer}', [DeployController::class, 'matchDebug'])->whereNumber('jobOffer');

@@ -3,10 +3,13 @@
 namespace App\Http\Controllers;
 
 use App\Models\CandidateProfile;
+use App\Models\JobOffer;
+use App\Models\Notification;
 use App\Models\Skill;
 use App\Models\Software;
 use App\Services\AdminService;
 use App\Services\CvService;
+use App\Services\JobOfferMatchService;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Support\Facades\Artisan;
 use Symfony\Component\HttpFoundation\Response;
@@ -25,7 +28,7 @@ class DeployController extends Controller
     // ne peut pas savoir si le controleur lui-meme a bien ete redeploye : c est
     // arrive le 2026-09-02, ou clear-cache continuait d echouer avec une version
     // corrigee censement en place. A incrementer a chaque changement ici.
-    public const DEPLOY_TOOLS_VERSION = 'deploy-tools-7';
+    public const DEPLOY_TOOLS_VERSION = 'deploy-tools-8';
 
     private function assertAuthorized(string $token): void
     {
@@ -272,6 +275,84 @@ class DeployController extends Controller
                 'ligne' => $e->getLine(),
             ];
         }
+    }
+
+    /**
+     * Pour une offre donnee, explique candidat par candidat pourquoi il est
+     * notifie ou non.
+     *
+     * POURQUOI CETTE ROUTE. La regle de correspondance a echoue deux fois en
+     * production sur des cas qui semblaient evidents, et chaque diagnostic a
+     * ete une conjecture : les profils candidats sont derriere une
+     * authentification, les journaux inaccessibles sans SSH. Trois
+     * allers-retours perdus. Une regle qu'on ne peut pas interroger ne se
+     * corrige qu'au hasard.
+     *
+     * Ne renvoie QUE des identifiants, des booleens et la decision — ni nom,
+     * ni email, ni intitule de profil.
+     */
+    public function matchDebug(string $token, int $jobOffer): Response
+    {
+        $this->assertAuthorized($token);
+
+        $offre = JobOffer::find($jobOffer);
+
+        if (! $offre) {
+            return response()->json(['erreur' => "Offre {$jobOffer} introuvable."], 404);
+        }
+
+        $service = app(JobOfferMatchService::class);
+        $r = new \ReflectionClass($service);
+
+        $appeler = function (string $methode, array $args) use ($service, $r) {
+            $m = $r->getMethod($methode);
+            $m->setAccessible(true);
+
+            return $m->invokeArgs($service, $args);
+        };
+
+        $motsCles = $appeler('keywordsOf', [$offre]);
+        $villeOffre = $appeler('normalize', [(string) $offre->city]);
+
+        $profils = [];
+
+        CandidateProfile::query()
+            ->with(['user:id,is_suspended,deleted_account_at', 'skills:id,name', 'software:id,name'])
+            ->orderByDesc('id')
+            ->limit(60)
+            ->get()
+            ->each(function (CandidateProfile $profil) use ($offre, $motsCles, $villeOffre, $appeler, &$profils) {
+                $joignable = $appeler('isReachable', [$profil]);
+                $memeVille = $villeOffre !== '' && $appeler('normalize', [(string) $profil->city]) === $villeOffre;
+                $motPartage = $appeler('sharesKeyword', [$profil, $motsCles]);
+                $contratExclu = $appeler('contractIsExcluded', [$profil, $offre]);
+
+                $profils[] = [
+                    'profil' => $profil->id,
+                    'joignable' => $joignable,
+                    'meme_ville' => $memeVille,
+                    'mot_partage' => $motPartage,
+                    'contrat_exclu' => $contratExclu,
+                    'deja_candidat' => $profil->applications()->where('job_offer_id', $offre->id)->exists(),
+                    'deja_notifie' => Notification::where('user_id', $profil->user_id)
+                        ->where('link', '/offres/'.$offre->id)->exists(),
+                    'NOTIFIE' => $joignable && ! $contratExclu && ($memeVille || $motPartage),
+                ];
+            });
+
+        return response()->json([
+            'offre' => [
+                'id' => $offre->id,
+                'titre' => $offre->title,
+                'ville' => $offre->city,
+                'statut' => $offre->status->value,
+                'contrat' => $offre->contract_type->value,
+                'mots_cles_retenus' => $motsCles,
+            ],
+            'profils_candidats_en_base' => CandidateProfile::count(),
+            'profils' => $profils,
+            'heure_serveur' => now()->toDateTimeString(),
+        ], 200, [], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
     }
 
     // Etat reel des taches planifiees sur le serveur.
