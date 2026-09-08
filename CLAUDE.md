@@ -811,3 +811,40 @@ ACCOUNT_SUSPENDED`, 403). Un access token déjà émis est **aussi** coupé
 - `CvImportService.php` diffère d'un mot-clé de visibilité entre le dépôt
   (`private`, 20047ab81a2fe1a6) et le serveur (`public`, 5ca94613966ea432) —
   aucun effet fonctionnel, à réaligner au prochain envoi backend.
+
+**Notification de correspondance : deux fichiers manquants (2026-09-08)**
+
+- Symptôme : offre publiée, candidat du même domaine et de la même ville,
+  aucune notification. Quatre diagnostics faux avant d'y voir clair.
+- Causes réelles, **deux fichiers jamais arrivés sur le serveur**, aucun des
+  deux surveillé : `JobOfferService.php` (sans le câblage, rien n'était
+  appelé) et `app/Enums/NotificationType.php` (sans la valeur
+  `JOB_OFFER_MATCH`, l'insertion échouait).
+- **Pourquoi c'était invisible** : l'exception était avalée par le `try/catch`
+  de `CandidateProfileService`, posé pour qu'un candidat ne perde jamais son
+  profil à cause d'une notification ratée. La protection est juste ; elle rend
+  la panne muette.
+- Angle mort à retenir : je surveillais les fichiers **créés**, jamais ceux
+  **modifiés pour brancher** une fonctionnalité. C'est exactement là qu'était
+  la panne, deux fois.
+- Outils construits, à réutiliser avant toute conjecture :
+  - `/deploy/{token}/match/{id}` — explique, candidat par candidat, pourquoi
+    il est notifié ou non (ville, mot partagé, contrat, déjà notifié), plus
+    les mots-clés réellement retenus de l'intitulé. Aucune donnée personnelle.
+  - `cablage` dans cette réponse — vérifie **par réflexion** que
+    `JobOfferService`, `PaymentService` et `CandidateProfileService` reçoivent
+    bien `JobOfferMatchService`. Une empreinte prouve qu'un fichier est là ;
+    ceci prouve que l'appel existe.
+  - `?profil=N&envoyer=1` — envoi ciblé sur un seul candidat, **hors
+    try/catch** : c'est ce qui a fini par afficher l'exception réelle.
+  - `?effacer=1` — supprime les notifications de correspondance d'une offre,
+    y compris quand l'offre a été supprimée.
+- **Envoi de masse verrouillé** : `?envoyer=1` seul est refusé, il faut
+  `&tous=1`. Oublier `?profil=N` avait envoyé 37 notifications à de vrais
+  candidats pour une offre de test. Une action visible par des tiers ne doit
+  jamais être le comportement par défaut d'un paramètre omis.
+- Deux défauts de la règle corrigés au passage : le mot « étudiant » excluait
+  toutes les alternances (il déclenchait la préférence JOB_ETUDIANT), et la
+  comparaison des mots était littérale — « commerce » ne correspondait pas à
+  « commercial ». Comparaison par famille désormais : six caractères communs,
+  ou l'un préfixe l'autre à partir de cinq.
