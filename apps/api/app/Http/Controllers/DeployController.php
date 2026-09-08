@@ -31,7 +31,7 @@ class DeployController extends Controller
     // ne peut pas savoir si le controleur lui-meme a bien ete redeploye : c est
     // arrive le 2026-09-02, ou clear-cache continuait d echouer avec une version
     // corrigee censement en place. A incrementer a chaque changement ici.
-    public const DEPLOY_TOOLS_VERSION = 'deploy-tools-11';
+    public const DEPLOY_TOOLS_VERSION = 'deploy-tools-12';
 
     private function assertAuthorized(string $token): void
     {
@@ -113,6 +113,10 @@ class DeployController extends Controller
             'app/Services/CvthequeService.php',
             // Role STAFF : equipe Jeuncy, lecture de la CVtheque sans admin.
             'app/Enums/UserRole.php',
+            // Son absence a coute une matinee : une valeur d'enum manquante ne
+            // se voit nulle part, elle fait juste echouer l'insertion en
+            // silence, dans un try/catch prevu pour proteger autre chose.
+            'app/Enums/NotificationType.php',
             'app/Services/SubscriptionService.php',
             'app/Http/Controllers/Admin/UserController.php',
             'routes/api/cvtheque.php',
