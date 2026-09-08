@@ -166,6 +166,13 @@ class PaymentService
             'status' => JobOfferStatus::PUBLISHED,
             'payment_status' => PaymentStatus::SUCCEEDED,
             'published_at' => now(),
+            // Payer la publication donne acces aux candidatures de CETTE
+            // offre — pas a la CVtheque, qui reste reservee a l'abonnement.
+            //
+            // Sans cette ligne, l'essai GRATUIT donnait acces aux
+            // candidatures alors que le client PAYANT ne les voyait pas :
+            // il achetait une publication dont il ne pouvait rien tirer.
+            'applications_unlocked_at' => now(),
         ]);
 
         $this->matchService->notifyMatchingCandidates($jobOffer);

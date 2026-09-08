@@ -76,6 +76,18 @@ class PaymentServiceTest extends TestCase
         $this->assertSame(1, $user->notifications()->where('type', NotificationType::PAYMENT_SUCCEEDED)->count());
     }
 
+    // Le client qui PAIE doit voir les candidatures de son offre. Sans cela,
+    // l'essai gratuit y donnait acces mais pas le paiement : il achetait une
+    // publication dont il ne pouvait rien tirer.
+    public function test_paying_unlocks_the_applications_of_that_offer(): void
+    {
+        [, $offer] = $this->makeOfferAwaitingPayment();
+
+        $this->service->markPaymentSucceeded('cs_test_demo123', 'pi_test_demo123');
+
+        $this->assertNotNull($offer->fresh()->applications_unlocked_at);
+    }
+
     public function test_mark_payment_succeeded_is_idempotent(): void
     {
         [, , $payment] = $this->makeOfferAwaitingPayment();
