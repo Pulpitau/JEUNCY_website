@@ -31,7 +31,7 @@ class DeployController extends Controller
     // ne peut pas savoir si le controleur lui-meme a bien ete redeploye : c est
     // arrive le 2026-09-02, ou clear-cache continuait d echouer avec une version
     // corrigee censement en place. A incrementer a chaque changement ici.
-    public const DEPLOY_TOOLS_VERSION = 'deploy-tools-10';
+    public const DEPLOY_TOOLS_VERSION = 'deploy-tools-11';
 
     private function assertAuthorized(string $token): void
     {
@@ -374,10 +374,10 @@ class DeployController extends Controller
                 : 'PROFIL INTROUVABLE';
 
             if ($cible && request()->query('envoyer') === '1') {
-                $envoyees = $service->notifyCandidateOfMatchingOffers($cible);
+                $envoyees = $this->essai(fn () => $service->notifyCandidateOfMatchingOffers($cible));
             }
         } elseif (request()->query('envoyer') === '1') {
-            $envoyees = $service->notifyMatchingCandidates($offre);
+            $envoyees = $this->essai(fn () => $service->notifyMatchingCandidates($offre));
         }
 
         return response()->json([
