@@ -8,8 +8,11 @@ use App\Models\Notification;
 use App\Models\Skill;
 use App\Models\Software;
 use App\Services\AdminService;
+use App\Services\CandidateProfileService;
 use App\Services\CvService;
 use App\Services\JobOfferMatchService;
+use App\Services\JobOfferService;
+use App\Services\PaymentService;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Support\Facades\Artisan;
 use Symfony\Component\HttpFoundation\Response;
@@ -28,7 +31,7 @@ class DeployController extends Controller
     // ne peut pas savoir si le controleur lui-meme a bien ete redeploye : c est
     // arrive le 2026-09-02, ou clear-cache continuait d echouer avec une version
     // corrigee censement en place. A incrementer a chaque changement ici.
-    public const DEPLOY_TOOLS_VERSION = 'deploy-tools-8';
+    public const DEPLOY_TOOLS_VERSION = 'deploy-tools-9';
 
     private function assertAuthorized(string $token): void
     {
@@ -117,6 +120,11 @@ class DeployController extends Controller
             'app/Services/CandidateProfileService.php',
             // Correspondance offre <-> candidat, dans les deux sens.
             'app/Services/JobOfferMatchService.php',
+            // Ils portent l'appel a la notification au moment de publier.
+            // Leur absence de cette liste a coute quatre allers-retours :
+            // une version perimee notifie simplement jamais, sans erreur.
+            'app/Services/JobOfferService.php',
+            'app/Services/PaymentService.php',
             'app/Console/Commands/NotifyCandidatesOfMatchingOffers.php',
             // Outil de correction des noms de candidats : ces quatre fichiers
             // doivent arriver ensemble, et leur absence produisait une erreur
@@ -340,7 +348,20 @@ class DeployController extends Controller
                 ];
             });
 
+        // Envoi reel, uniquement sur demande explicite (?envoyer=1). Sert a
+        // rattraper les candidats qu'une publication n'a pas notifies.
+        $envoyees = null;
+        if (request()->query('envoyer') === '1') {
+            $envoyees = $service->notifyMatchingCandidates($offre);
+        }
+
         return response()->json([
+            'cablage' => [
+                'JobOfferService' => $this->cablageMatchService(JobOfferService::class),
+                'PaymentService' => $this->cablageMatchService(PaymentService::class),
+                'CandidateProfileService' => $this->cablageMatchService(CandidateProfileService::class),
+            ],
+            'notifications_envoyees_a_l_instant' => $envoyees,
             'offre' => [
                 'id' => $offre->id,
                 'titre' => $offre->title,
@@ -353,6 +374,36 @@ class DeployController extends Controller
             'profils' => $profils,
             'heure_serveur' => now()->toDateTimeString(),
         ], 200, [], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    }
+
+    /**
+     * Le service passe recoit-il bien JobOfferMatchService dans son
+     * constructeur ?
+     *
+     * Une version perimee de ces fichiers se construit sans la moindre erreur
+     * et n'appelle simplement jamais la notification : la panne est totalement
+     * silencieuse, aucune trace nulle part. Ce controle la rend visible.
+     */
+    private function cablageMatchService(string $classe): string
+    {
+        if (! class_exists($classe)) {
+            return 'CLASSE ABSENTE';
+        }
+
+        $constructeur = (new \ReflectionClass($classe))->getConstructor();
+
+        if (! $constructeur) {
+            return 'PAS DE CONSTRUCTEUR';
+        }
+
+        foreach ($constructeur->getParameters() as $parametre) {
+            $type = $parametre->getType();
+            if ($type instanceof \ReflectionNamedType && $type->getName() === JobOfferMatchService::class) {
+                return 'ok';
+            }
+        }
+
+        return 'NON CABLE — version perimee sur le serveur';
     }
 
     // Etat reel des taches planifiees sur le serveur.
