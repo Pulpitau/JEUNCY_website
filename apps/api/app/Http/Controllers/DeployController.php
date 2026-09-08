@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\NotificationType;
 use App\Models\CandidateProfile;
 use App\Models\JobOffer;
 use App\Models\Notification;
@@ -31,7 +32,7 @@ class DeployController extends Controller
     // ne peut pas savoir si le controleur lui-meme a bien ete redeploye : c est
     // arrive le 2026-09-02, ou clear-cache continuait d echouer avec une version
     // corrigee censement en place. A incrementer a chaque changement ici.
-    public const DEPLOY_TOOLS_VERSION = 'deploy-tools-12';
+    public const DEPLOY_TOOLS_VERSION = 'deploy-tools-13';
 
     private function assertAuthorized(string $token): void
     {
@@ -381,7 +382,27 @@ class DeployController extends Controller
                 $envoyees = $this->essai(fn () => $service->notifyCandidateOfMatchingOffers($cible));
             }
         } elseif (request()->query('envoyer') === '1') {
-            $envoyees = $this->essai(fn () => $service->notifyMatchingCandidates($offre));
+            // Envoi de masse : exige 'tous=1' EN PLUS.
+            //
+            // Sans ce second verrou, oublier ?profil=N transformait un essai
+            // cible en envoi a tous les candidats correspondants. C'est
+            // arrive : 37 personnes prevenues d'une offre de test. Une action
+            // visible par des tiers ne doit jamais etre le comportement par
+            // defaut d'un parametre omis.
+            $envoyees = request()->query('tous') === '1'
+                ? $this->essai(fn () => $service->notifyMatchingCandidates($offre))
+                : 'REFUSE : precise ?profil=N pour un envoi cible, ou ajoute &tous=1 pour prevenir TOUS les candidats correspondants.';
+        }
+
+        // Efface les notifications de correspondance emises pour CETTE offre.
+        // Sert a reparer un envoi malencontreux — notamment sur une offre de
+        // test, dont le lien deviendrait mort a la suppression de l'offre.
+        $effacees = null;
+        if (request()->query('effacer') === '1') {
+            $effacees = Notification::query()
+                ->where('type', NotificationType::JOB_OFFER_MATCH->value)
+                ->where('link', '/offres/'.$offre->id)
+                ->delete();
         }
 
         return response()->json([
@@ -391,6 +412,7 @@ class DeployController extends Controller
                 'CandidateProfileService' => $this->cablageMatchService(CandidateProfileService::class),
             ],
             'notifications_envoyees_a_l_instant' => $envoyees,
+            'notifications_effacees' => $effacees,
             'profil_cible' => $diagnosticCible,
             'offre' => [
                 'id' => $offre->id,
