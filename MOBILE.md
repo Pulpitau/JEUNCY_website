@@ -28,6 +28,28 @@ trois rôles** : candidats, entreprises et CFA.
 | Compte développeur | Au nom de la société Jeuncy (pas au nom d'une personne)    |
 | Budget récurrent   | Validé : ~99 €/an Apple, ~25 € une fois Google             |
 
+### Réponses obtenues le 2026-09-08
+
+| Question            | Réponse                                                                                                                                               |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Nom dans les stores | **Jeuncy**                                                                                                                                            |
+| Numéro D-U-N-S      | **Obtenu**, au nom de SAS JEUNCY — le compte Apple Organisation peut être ouvert                                                                      |
+| Téléphone de test   | **iPhone** (Pierre). Expo Go pour voir l'app en direct pendant le développement                                                                       |
+| Échéance visée      | Application **développée et testable fin octobre 2026**. La publication dans les stores dépend en plus de la validation Apple/Google (1 à 2 semaines) |
+
+### Déblocage des candidatures : produit abandonné
+
+Question tranchée le 2026-09-08. Payer la publication (9,99 € entreprise,
+5,99 € CFA) donne accès aux candidatures **de cette offre**. La CVthèque
+reste réservée à l'abonnement.
+
+Le code faisait l'inverse : l'essai gratuit débloquait les candidatures, le
+paiement non — une entreprise qui payait ne pouvait consulter aucune
+candidature. Corrigé le 2026-09-08 (`PaymentService`, test de non-régression).
+
+**Conséquence pour les stores : un seul produit à déclarer**, la publication
+d'offre, en deux tarifs. Le type `APPLICATIONS_UNLOCK` reste inutilisé.
+
 ### Hypothèses retenues faute de réponse explicite
 
 Ces deux points ont été proposés et recommandés, sans validation formelle du
