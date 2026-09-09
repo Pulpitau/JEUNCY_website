@@ -7,8 +7,15 @@ l'interface. Le cadrage complet est dans `MOBILE.md` a la racine du depot.
 ## Lancer l'application
 
 ```bash
-pnpm --filter mobile start
+cd apps/mobile
+npx expo start
 ```
+
+`npx` plutot que `pnpm` : pnpm n est pas accessible depuis le terminal
+PowerShell de la machine de developpement (il existe dans l environnement
+d execution de Claude Code, pas dans la session Windows), alors que `npx` est
+livre avec Node et installe pour toute la machine. Les deux commandes sont
+equivalentes ; celle-ci fonctionne partout.
 
 Scanner le QR code affiche avec l'appareil photo de l'iPhone (application
 **Expo Go** installee). Le PC et le telephone doivent etre sur le meme Wi-Fi ;
