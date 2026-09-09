@@ -848,3 +848,66 @@ ACCOUNT_SUSPENDED`, 403). Un access token déjà émis est **aussi** coupé
   comparaison des mots était littérale — « commerce » ne correspondait pas à
   « commercial ». Comparaison par famille désormais : six caractères communs,
   ou l'un préfixe l'autre à partir de cinq.
+
+**Application mobile — phase 0, socle (2026-09-09) : terminée**
+
+- Nouveau `apps/mobile` : Expo SDK 57, React Native 0.86, React 19.2, Expo
+  Router, TypeScript strict. Intégré au workspace pnpm ; il consomme
+  `@jeuncy/shared` comme `apps/web`. Le cadrage complet est dans `MOBILE.md`.
+- **Une seule modification backend** : mode mobile de l'authentification
+  (`AuthController`). Un client natif se déclare par l'en-tête
+  `X-Jeuncy-Client: mobile` et reçoit alors le refresh token dans le corps
+  JSON, sans qu'aucun cookie soit posé. `AuthService` n'a pas bougé.
+- **Garde anti-XSS, le point à ne jamais assouplir** : en mode mobile,
+  `/auth/refresh` lit le jeton dans le corps et **ignore le cookie**. Sans
+  cela, un script injecté dans le navigateur appellerait la route avec cet
+  en-tête, le navigateur joindrait le cookie httpOnly automatiquement, et le
+  serveur renverrait en clair un refresh token de 7 jours — la protection
+  httpOnly du site annulée par une fonctionnalité mobile.
+- 10 tests dans `tests/Feature/MobileAuthTest.php` (354/354 au total). **Piège
+  rencontré, consigné dans le fichier** : le harnais de test de Laravel ne
+  joint aucun cookie à une requête `postJson`. Le test de la garde passait donc
+  pour la mauvaise raison — il vérifiait qu'un cookie absent ne servait à rien.
+  Corrigé en passant par `post()`, avec une contre-épreuve qui prouve que le
+  même cookie fonctionne dès qu'on ne se déclare plus mobile.
+- **Sonde de déploiement** (aucun effet de bord, aucune donnée touchée) :
+  `POST /api/auth/refresh` avec l'en-tête mobile et
+  `{"refreshToken":"sonde"}` répond `MISSING_REFRESH_TOKEN` (400) sur
+  l'ancienne version, `INVALID_REFRESH_TOKEN` (401) une fois le fichier
+  déployé. Elle prouve que le code s'exécute, là où une empreinte prouve
+  seulement qu'un fichier est présent.
+- Côté application : thème Jeuncy (`src/theme/`, valeurs de la section 2
+  recopiées à la main — aucune génération commune avec `tailwind.config.ts`,
+  synchronisation manuelle), mode clair/sombre/système persistant, client API
+  porté depuis le web (même enveloppe, même rejeu sur 401, même coalescence des
+  refresh), refresh token dans `expo-secure-store` (Keychain/Keystore), écrans
+  de connexion, inscription et mot de passe oublié, accueil par rôle.
+- Case **« J'ai 15 ans ou plus »** à l'inscription (décision du 2026-09-09,
+  `MOBILE.md` §9.3). **Déclaratif seulement : rien n'est encore enregistré
+  côté serveur.** Suffisant pour Apple, insuffisant pour prouver le
+  consentement — une colonne en base reste à ajouter avant la soumission.
+- Vérifié : `expo export --platform ios` produit un bundle complet (Metro
+  résout les alias `@/`, le paquet du workspace et les assets), types et lint
+  propres, Metro démarre. **Pas encore vérifié sur un vrai iPhone** : le
+  backend n'était pas déployé au moment de l'écriture.
+- Deux pièges natifs traités : une police custom n'a pas de graisse (chaque
+  graisse est un fichier, `fontWeight` est sans effet sur Android — d'où les
+  constantes de `theme/typography.ts`) ; et importer les polices depuis la
+  racine de `@expo-google-fonts/*` embarque les 18 graisses de chaque famille,
+  italiques comprises — 9,1 Mo d'assets contre 1,7 Mo en important chaque
+  fichier par son chemin exact.
+
+**Connu et à traiter plus tard (mobile phase 0)**
+
+- Google OAuth, notifications push et achats intégrés **ne fonctionnent pas
+  dans Expo Go** : ils exigent un *development build*, donc le compte Apple
+  Developer (chemin critique, plusieurs semaines de validation pour un compte
+  Organisation).
+- Âge minimum non enregistré côté serveur (voir ci-dessus).
+- `logout` incrémente `token_version`, ce qui révoque **tous** les appareils :
+  se déconnecter du téléphone déconnecte aussi le site. Comportement déjà
+  existant entre navigateurs, mais plus visible avec deux clients.
+- `pnpm-workspace.yaml` liste désormais des `minimumReleaseAgeExclude` pour les
+  paquets Expo 57, ajoutés automatiquement par pnpm : sa politique par défaut
+  refuse les paquets publiés trop récemment (protection chaîne
+  d'approvisionnement). Assouplissement assumé, à relire aux montées de version.

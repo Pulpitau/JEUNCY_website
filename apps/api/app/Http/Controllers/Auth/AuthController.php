@@ -23,6 +23,14 @@ class AuthController extends Controller
 
     private const REFRESH_COOKIE_PATH = '/api/auth';
 
+    // En-tete par lequel l'application mobile se declare. Un client natif ne
+    // gere pas les cookies comme un navigateur : il range le refresh token
+    // dans le coffre du telephone (Keychain iOS / Keystore Android), et a donc
+    // besoin de le recevoir dans le corps JSON.
+    private const MOBILE_CLIENT_HEADER = 'X-Jeuncy-Client';
+
+    private const MOBILE_CLIENT_VALUE = 'mobile';
+
     public function __construct(private readonly AuthService $authService) {}
 
     public function register(RegisterRequest $request): JsonResponse
@@ -34,7 +42,7 @@ class AuthController extends Controller
             UserRole::from($validated['role']),
         );
 
-        return $this->respondWithTokens($result['user'], $result['tokens'], 201);
+        return $this->respondWithTokens($request, $result['user'], $result['tokens'], 201);
     }
 
     public function login(LoginRequest $request): JsonResponse
@@ -43,11 +51,37 @@ class AuthController extends Controller
         $user = $this->authService->validateCredentials($validated['email'], $validated['password']);
         $tokens = $this->authService->issueTokens($user);
 
-        return $this->respondWithTokens($user, $tokens, 200);
+        return $this->respondWithTokens($request, $user, $tokens, 200);
     }
 
     public function refresh(Request $request): JsonResponse
     {
+        // Client mobile : le refresh token est lu dans le CORPS de la requete,
+        // et le cookie est volontairement ignore.
+        //
+        // POURQUOI cette separation stricte plutot que "renvoyer aussi le token
+        // en JSON quand l'en-tete est present". Dans cette version naive, un
+        // script injecte dans le navigateur (XSS sur jeuncy.com) appellerait
+        // cette route avec l'en-tete mobile : le navigateur joindrait
+        // automatiquement le cookie httpOnly, et le serveur repondrait en clair
+        // avec un refresh token de 7 jours. Toute la protection httpOnly du web
+        // tomberait pour un confort mobile. En n'acceptant que le corps, un tel
+        // script n'a rien a envoyer — le token vit dans le coffre du telephone,
+        // hors de portee d'un navigateur.
+        if ($this->isMobileClient($request)) {
+            $refreshToken = $request->input('refreshToken');
+            if (! is_string($refreshToken) || $refreshToken === '') {
+                throw new ApiException('MISSING_REFRESH_TOKEN', 'Aucune session active.', 400);
+            }
+
+            $tokens = $this->authService->refreshTokens($refreshToken);
+
+            return response()->json([
+                'accessToken' => $tokens['accessToken'],
+                'refreshToken' => $tokens['refreshToken'],
+            ]);
+        }
+
         $refreshToken = $request->cookie(self::REFRESH_COOKIE_NAME);
         if (! $refreshToken) {
             throw new ApiException('MISSING_REFRESH_TOKEN', 'Aucune session active.', 400);
@@ -123,8 +157,27 @@ class AuthController extends Controller
             ->cookie($this->makeRefreshCookie($tokens['refreshToken']));
     }
 
-    private function respondWithTokens(User $user, array $tokens, int $status): JsonResponse
+    private function isMobileClient(Request $request): bool
     {
+        return strtolower(trim((string) $request->header(self::MOBILE_CLIENT_HEADER, '')))
+            === self::MOBILE_CLIENT_VALUE;
+    }
+
+    private function respondWithTokens(Request $request, User $user, array $tokens, int $status): JsonResponse
+    {
+        // Client mobile : le refresh token part dans le corps, et AUCUN cookie
+        // n'est pose. En poser un dupliquerait un secret de 7 jours dans un
+        // stockage que l'application ne maitrise pas (le magasin de cookies du
+        // moteur reseau natif), alors que le coffre du telephone est
+        // precisement le point de la manoeuvre.
+        if ($this->isMobileClient($request)) {
+            return response()->json([
+                'user' => $user,
+                'accessToken' => $tokens['accessToken'],
+                'refreshToken' => $tokens['refreshToken'],
+            ], $status);
+        }
+
         return response()
             ->json(['user' => $user, 'accessToken' => $tokens['accessToken']], $status)
             ->cookie($this->makeRefreshCookie($tokens['refreshToken']));

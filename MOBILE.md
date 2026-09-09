@@ -192,7 +192,7 @@ Abonnements en achat intégré · Visioconférence (à évaluer) · Administrati
 
 | Phase                | Contenu                                                                                                           |
 | -------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| 0 — Socle            | Projet Expo, navigation, thème Jeuncy (couleurs, Poppins/Inter, mode sombre), client API, auth, stockage sécurisé |
+| 0 — Socle ✅          | **Terminée le 2026-09-09.** Projet Expo, navigation, thème Jeuncy, client API, auth, stockage sécurisé — détail dans `CLAUDE.md` |
 | 1 — Candidat         | Tous les écrans candidat, y compris CV et candidatures                                                            |
 | 2 — Push             | Jetons d'appareil, envoi depuis PHP, branchement sur les notifications existantes                                 |
 | 3 — Entreprise / CFA | Profil, offres, candidatures reçues, CVthèque                                                                     |
@@ -279,7 +279,12 @@ déclarée par une **URL publique** dans la fiche du store.
   applications touchant des mineurs, et c'est un motif de refus fréquent. En
   France, le consentement RGPD autonome est possible **à partir de 15 ans** ;
   en dessous, l'autorisation d'un titulaire de l'autorité parentale est requise.
-  À trancher avec le patron : fixe-t-on un âge minimum à l'inscription ?
+  **Tranché le 2026-09-09 : âge minimum de 15 ans**, déclaré par une case à
+  cocher à l'inscription. Un alternant de 16-17 ans reste éligible, et le
+  mécanisme lourd de l'accord parental est évité. La case existe dans
+  l'application depuis la phase 0, mais **rien n'est encore enregistré côté
+  serveur** : suffisant pour Apple, insuffisant pour prouver le consentement.
+  Une colonne en base reste à ajouter avant la soumission.
 - **Comptes de test** à fournir aux validateurs, pour les **trois rôles** —
   avec des données réalistes, sinon la validation échoue faute de pouvoir
   tester.

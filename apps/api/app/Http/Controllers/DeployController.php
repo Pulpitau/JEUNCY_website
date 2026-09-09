@@ -32,7 +32,7 @@ class DeployController extends Controller
     // ne peut pas savoir si le controleur lui-meme a bien ete redeploye : c est
     // arrive le 2026-09-02, ou clear-cache continuait d echouer avec une version
     // corrigee censement en place. A incrementer a chaque changement ici.
-    public const DEPLOY_TOOLS_VERSION = 'deploy-tools-14';
+    public const DEPLOY_TOOLS_VERSION = 'deploy-tools-15';
 
     private function assertAuthorized(string $token): void
     {
@@ -142,6 +142,13 @@ class DeployController extends Controller
             'app/Http/Requests/Admin/ListCandidateProfilesRequest.php',
             'app/Http/Requests/Admin/UpdateCandidateNameRequest.php',
             'routes/api/admin.php',
+            // Mode mobile de l'authentification : le refresh token part dans le
+            // corps JSON pour un client natif, et /auth/refresh ignore alors le
+            // cookie (garde anti-XSS, voir MobileAuthTest). Une version perimee
+            // de ce fichier deconnecte l'application au bout de 15 minutes sans
+            // aucune erreur visible — panne exactement du genre de celles qui
+            // ont coute quatre allers-retours en septembre.
+            'app/Http/Controllers/Auth/AuthController.php',
             'resources/views/cv/template.blade.php',
             'bootstrap/app.php',
             'config/cors.php',
