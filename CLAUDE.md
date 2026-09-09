@@ -900,7 +900,7 @@ ACCOUNT_SUSPENDED`, 403). Un access token déjà émis est **aussi** coupé
 **Connu et à traiter plus tard (mobile phase 0)**
 
 - Google OAuth, notifications push et achats intégrés **ne fonctionnent pas
-  dans Expo Go** : ils exigent un *development build*, donc le compte Apple
+  dans Expo Go** : ils exigent un _development build_, donc le compte Apple
   Developer (chemin critique, plusieurs semaines de validation pour un compte
   Organisation).
 - Âge minimum non enregistré côté serveur (voir ci-dessus).

@@ -43,5 +43,5 @@ de la charte doit etre reportee des deux cotes.
 Ordre de travail defini dans `MOBILE.md` section 7. La phase 0 (ce socle)
 couvre navigation, theme, client API et authentification par email. Google
 OAuth, les notifications push et les achats integres demandent un
-*development build* — ils ne fonctionnent pas dans Expo Go — et donc le compte
+_development build_ — ils ne fonctionnent pas dans Expo Go — et donc le compte
 Apple Developer.
