@@ -235,17 +235,73 @@ personnes pendant 14 jours avant publication.
 _Montants et règles à confirmer au moment de l'inscription : les stores les
 font évoluer._
 
-## 9. Contraintes de validation
+## 9. Contraintes de validation, mentions légales et RGPD
 
-- **Suppression du compte depuis l'application** — obligatoire chez Apple.
-  Existe déjà côté RGPD, à exposer dans l'application.
-- **Politique de confidentialité** et déclaration détaillée des données
-  collectées.
-- **Public jeune.** Jeuncy s'adresse à des jeunes, dont des mineurs de 16-17 ans
-  en alternance. Les deux stores ont des règles renforcées sur les applications
-  touchant des mineurs. **À anticiper sérieusement — c'est un motif de refus
-  fréquent.**
-- Comptes de test à fournir aux validateurs, pour les trois rôles.
+C'est le volet le plus facile à sous-estimer : une omission ici coûte un refus
+de store, ou pire, une non-conformité sur des données de mineurs.
+
+### 9.1 Ce qui existe déjà côté API — à exposer, pas à réécrire
+
+| Besoin                            | Existant                                                                                                                     |
+| --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| Export de ses données             | `GET account/export` (`AccountService::exportData`)                                                                          |
+| Suppression du compte             | `DELETE account` — exige la saisie de l'email en confirmation                                                                |
+| Anonymisation comptable           | Un compte ayant payé est **anonymisé**, pas supprimé : obligation légale de conservation des pièces comptables               |
+| Conservation limitée              | 3 ans annoncés dans la politique de confidentialité, réellement appliqués par `cvs:archive-inactive` et `cv-downloads:purge` |
+| Visibilité CVthèque               | `is_visible_in_cvtheque` — le candidat peut se retirer de la CVthèque                                                        |
+| Journal des téléchargements de CV | Chaque téléchargement par un recruteur est journalisé                                                                        |
+
+**Rien de tout cela n'est à redévelopper.** L'application doit rendre ces
+fonctions accessibles depuis ses écrans, c'est tout.
+
+### 9.2 Pages légales du site, à reprendre dans l'application
+
+- `/mentions-legales`
+- `/confidentialite` — politique de confidentialité
+- `/mon-compte/confidentialite` — écran personnel : export, suppression,
+  visibilité dans la CVthèque
+
+Ces trois pages doivent avoir leur équivalent natif. Un lien vers le site ne
+suffit pas pour Apple : la politique de confidentialité doit aussi être
+déclarée par une **URL publique** dans la fiche du store.
+
+### 9.3 Exigences propres aux stores
+
+- **Suppression du compte depuis l'application — obligatoire chez Apple**
+  (règle 5.1.1(v)). Une application qui permet de créer un compte doit
+  permettre de le supprimer, sans passer par le site ni par un email.
+- **Déclaration des données collectées** : « App Privacy » chez Apple,
+  « Sécurité des données » chez Google. Il faut lister précisément ce qui est
+  collecté (identité, email, téléphone, CV, ville, historique de candidatures)
+  et à quoi ça sert. Toute déclaration inexacte est un motif de retrait.
+- **Public jeune.** Jeuncy s'adresse à des jeunes, dont des **mineurs de 16-17
+  ans en alternance**. Les deux stores ont des règles renforcées sur les
+  applications touchant des mineurs, et c'est un motif de refus fréquent. En
+  France, le consentement RGPD autonome est possible **à partir de 15 ans** ;
+  en dessous, l'autorisation d'un titulaire de l'autorité parentale est requise.
+  À trancher avec le patron : fixe-t-on un âge minimum à l'inscription ?
+- **Comptes de test** à fournir aux validateurs, pour les **trois rôles** —
+  avec des données réalistes, sinon la validation échoue faute de pouvoir
+  tester.
+
+### 9.4 Achats intégrés et RGPD
+
+Point rassurant : avec les achats intégrés, **Jeuncy ne voit jamais les
+données bancaires**. Apple et Google encaissent et ne transmettent qu'un
+identifiant de transaction. La surface de responsabilité est plus petite
+qu'avec Stripe sur le web.
+
+En revanche, le **reçu doit être vérifié côté serveur** — ne jamais croire le
+client sur la réalité d'un paiement.
+
+### 9.5 Notifications push et consentement
+
+- iOS exige une **autorisation explicite** de l'utilisateur avant tout envoi.
+  Demander cette permission **au bon moment** (après que le candidat a compris
+  ce qu'il y gagne), jamais au premier lancement.
+- Prévoir un **réglage de désactivation dans l'application** : aujourd'hui
+  aucune préférence de notification n'existe côté produit (voir CLAUDE.md,
+  « Connu et à traiter plus tard »). L'app est l'occasion de le créer.
 
 ## 10. Le coût qui ne s'arrête jamais
 
