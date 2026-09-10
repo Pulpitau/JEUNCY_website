@@ -4,6 +4,7 @@ import { Navbar } from '@/components/Navbar';
 import { Footer } from '@/components/Footer';
 import { CompleteProfileBanner } from '@/components/CompleteProfileBanner';
 import { RequireAuth } from '@/components/RequireAuth';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { Home } from '@/pages/Home';
 import { About } from '@/pages/About';
 import { Pricing } from '@/pages/Pricing';
@@ -43,131 +44,135 @@ export default function App() {
           mobile. Il ne s'affiche que pour un candidat sans profil. */}
       <CompleteProfileBanner />
       <div className="flex-1">
-        <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/a-propos" element={<About />} />
-          <Route path="/contact" element={<Contact />} />
-          {/* Route publique, mais l'onglet correspondant n'apparait dans la
+        {/* Le filet entoure le contenu, pas la Navbar ni le Footer : une
+            page en erreur ne doit pas emporter la navigation avec elle. */}
+        <ErrorBoundary>
+          <Routes>
+            <Route path="/" element={<Home />} />
+            <Route path="/a-propos" element={<About />} />
+            <Route path="/contact" element={<Contact />} />
+            {/* Route publique, mais l'onglet correspondant n'apparait dans la
               barre que pour une entreprise ou un CFA connecte (voir
               navLinksFor dans Navbar.tsx) : le lien est communique aux
               prospects apres un premier echange. */}
-          <Route path="/tarifs" element={<Pricing />} />
-          <Route path="/offres" element={<JobOffers />} />
-          <Route path="/offres/:id" element={<JobOfferDetail />} />
-          <Route path="/entreprises" element={<Companies />} />
-          <Route path="/entreprises/:id" element={<CompanyProfile />} />
-          <Route path="/cfa" element={<CfaOrganizations />} />
-          <Route path="/cfa/:id" element={<CfaOrganizationProfile />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
-          <Route path="/forgot-password" element={<ForgotPassword />} />
-          <Route path="/reset-password" element={<ResetPassword />} />
-          <Route path="/auth/callback" element={<AuthCallback />} />
-          <Route
-            path="/profile"
-            element={
-              <RequireAuth role={UserRole.CANDIDATE}>
-                <Profile />
-              </RequireAuth>
-            }
-          />
-          <Route
-            path="/organization"
-            element={
-              <RequireAuth role={[UserRole.COMPANY, UserRole.CFA]}>
-                <OrganizationProfile />
-              </RequireAuth>
-            }
-          />
-          <Route
-            path="/mes-offres"
-            element={
-              <RequireAuth role={[UserRole.COMPANY, UserRole.CFA]}>
-                <MyJobOffers />
-              </RequireAuth>
-            }
-          />
-          {/* CVtheque : RequireAuth ne filtre que le ROLE. La garde
+            <Route path="/tarifs" element={<Pricing />} />
+            <Route path="/offres" element={<JobOffers />} />
+            <Route path="/offres/:id" element={<JobOfferDetail />} />
+            <Route path="/entreprises" element={<Companies />} />
+            <Route path="/entreprises/:id" element={<CompanyProfile />} />
+            <Route path="/cfa" element={<CfaOrganizations />} />
+            <Route path="/cfa/:id" element={<CfaOrganizationProfile />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
+            <Route path="/auth/callback" element={<AuthCallback />} />
+            <Route
+              path="/profile"
+              element={
+                <RequireAuth role={UserRole.CANDIDATE}>
+                  <Profile />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/organization"
+              element={
+                <RequireAuth role={[UserRole.COMPANY, UserRole.CFA]}>
+                  <OrganizationProfile />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/mes-offres"
+              element={
+                <RequireAuth role={[UserRole.COMPANY, UserRole.CFA]}>
+                  <MyJobOffers />
+                </RequireAuth>
+              }
+            />
+            {/* CVtheque : RequireAuth ne filtre que le ROLE. La garde
               d'abonnement, elle, est cote serveur (402) et la page affiche
               alors son ecran d'accroche — voir CvthequeService.
               ADMIN inclus : l'equipe Jeuncy consulte la CVtheque comme un
               client abonne, sans souscrire d'abonnement (voir
               SubscriptionService::hasPaidAccess). */}
-          <Route
-            path="/candidats"
-            element={
-              <RequireAuth
-                role={[UserRole.COMPANY, UserRole.CFA, UserRole.ADMIN, UserRole.STAFF]}
-              >
-                <Cvtheque />
-              </RequireAuth>
-            }
-          />
-          <Route
-            path="/candidats/:id"
-            element={
-              <RequireAuth
-                role={[UserRole.COMPANY, UserRole.CFA, UserRole.ADMIN, UserRole.STAFF]}
-              >
-                <CvthequeCandidate />
-              </RequireAuth>
-            }
-          />
-          <Route
-            path="/mes-candidatures"
-            element={
-              <RequireAuth role={UserRole.CANDIDATE}>
-                <MyApplications />
-              </RequireAuth>
-            }
-          />
-          <Route path="/demo/:roomId" element={<DemoRoom />} />
-          <Route
-            path="/mes-visios"
-            element={
-              <RequireAuth role={[UserRole.COMPANY, UserRole.CFA]}>
-                <MyVideoRooms />
-              </RequireAuth>
-            }
-          />
-          <Route
-            path="/admin"
-            element={
-              <RequireAuth role={UserRole.ADMIN}>
-                <Admin />
-              </RequireAuth>
-            }
-          />
-          {/* Apercu du rendu public d'une offre, brouillon compris — meme
+            <Route
+              path="/candidats"
+              element={
+                <RequireAuth
+                  role={[UserRole.COMPANY, UserRole.CFA, UserRole.ADMIN, UserRole.STAFF]}
+                >
+                  <Cvtheque />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/candidats/:id"
+              element={
+                <RequireAuth
+                  role={[UserRole.COMPANY, UserRole.CFA, UserRole.ADMIN, UserRole.STAFF]}
+                >
+                  <CvthequeCandidate />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/mes-candidatures"
+              element={
+                <RequireAuth role={UserRole.CANDIDATE}>
+                  <MyApplications />
+                </RequireAuth>
+              }
+            />
+            <Route path="/demo/:roomId" element={<DemoRoom />} />
+            <Route
+              path="/mes-visios"
+              element={
+                <RequireAuth role={[UserRole.COMPANY, UserRole.CFA]}>
+                  <MyVideoRooms />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/admin"
+              element={
+                <RequireAuth role={UserRole.ADMIN}>
+                  <Admin />
+                </RequireAuth>
+              }
+            />
+            {/* Apercu du rendu public d'une offre, brouillon compris — meme
               composant de rendu que /offres/:id, garde ADMIN cote client ET
               cote serveur (routes/api/admin.php). */}
-          <Route
-            path="/admin/offres/:id/apercu"
-            element={
-              <RequireAuth role={UserRole.ADMIN}>
-                <AdminJobOfferPreview />
-              </RequireAuth>
-            }
-          />
-          <Route
-            path="/mes-paiements"
-            element={
-              <RequireAuth role={[UserRole.COMPANY, UserRole.CFA]}>
-                <MyPayments />
-              </RequireAuth>
-            }
-          />
-          <Route
-            path="/mon-compte/confidentialite"
-            element={
-              <RequireAuth>
-                <AccountPrivacy />
-              </RequireAuth>
-            }
-          />
-          <Route path="/mentions-legales" element={<LegalNotice />} />
-          <Route path="/confidentialite" element={<PrivacyPolicy />} />
-        </Routes>
+            <Route
+              path="/admin/offres/:id/apercu"
+              element={
+                <RequireAuth role={UserRole.ADMIN}>
+                  <AdminJobOfferPreview />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/mes-paiements"
+              element={
+                <RequireAuth role={[UserRole.COMPANY, UserRole.CFA]}>
+                  <MyPayments />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/mon-compte/confidentialite"
+              element={
+                <RequireAuth>
+                  <AccountPrivacy />
+                </RequireAuth>
+              }
+            />
+            <Route path="/mentions-legales" element={<LegalNotice />} />
+            <Route path="/confidentialite" element={<PrivacyPolicy />} />
+          </Routes>
+        </ErrorBoundary>
       </div>
       <Footer />
     </div>

@@ -53,6 +53,53 @@
   Header always set Referrer-Policy "strict-origin-when-cross-origin"
 </IfModule>
 
+# --- Cache : le document d'entree doit toujours etre frais -----------------
+# index.html designe les fichiers d'assets par leur empreinte. Servi depuis le
+# cache, il fait charger au navigateur l'ANCIEN bundle — qui existe toujours
+# sur le serveur, rien n'y est jamais supprime — et le visiteur execute une
+# version perimee du site sans qu'aucune erreur ne le signale.
+#
+# Constate le 2026-09-10 : une page d'administration restait blanche apres
+# correctif deploye, parce que l'onglet ouvert executait encore le bundle
+# precedent. Aggravant, c'est une application monopage : naviguer vers une
+# autre page ne redemande NI le HTML NI le JavaScript. OVH ne posait aucun
+# Cache-Control sur le HTML (verifie : ni ETag, ni Last-Modified non plus),
+# laissant le navigateur decider seul.
+# OVH active mod_expires par defaut : il ajoute son propre Cache-Control
+# (max-age=900) et un Expires APRES les notres, ce qui produit deux
+# directives max-age contradictoires dans une meme reponse. La norme laisse
+# alors le comportement a l appreciation de chaque navigateur — autant dire
+# que la regle immuable ci-dessous ne serait pas fiable. On coupe donc
+# mod_expires et on pilote le cache uniquement par mod_headers.
+<IfModule mod_expires.c>
+  ExpiresActive Off
+</IfModule>
+
+<IfModule mod_headers.c>
+  <FilesMatch "\.html$">
+    Header always set Cache-Control "no-cache, must-revalidate"
+  </FilesMatch>
+
+  # A l'inverse, un fichier de build porte son empreinte dans son nom
+  # (index-uRdQ6uug.js) : son contenu ne changera jamais, une nouvelle version
+  # a un autre nom. Un an de cache immuable est donc exact, et bien plus
+  # rapide que les 900 secondes par defaut d'OVH.
+  #
+  # Le motif exige le tiret et l'empreinte : favicon.ico et les logos, qui NE
+  # sont PAS empreintes, gardent le cache par defaut et restent donc
+  # remplacables.
+  <FilesMatch "-[A-Za-z0-9_-]{8}\.(js|css)$">
+    Header always set Cache-Control "public, max-age=31536000, immutable"
+  </FilesMatch>
+
+  # Les fichiers NON empreintes (favicon, logos, robots.txt, sitemap) :
+  # une heure. Assez pour soulager le serveur, assez court pour qu un
+  # remplacement se propage dans la journee.
+  <FilesMatch "\.(ico|png|jpe?g|svg|webp|woff2?|txt|xml)$">
+    Header always set Cache-Control "public, max-age=3600"
+  </FilesMatch>
+</IfModule>
+
 # --- Routage de l'application monopage ------------------------------------
 <IfModule mod_rewrite.c>
   RewriteEngine On

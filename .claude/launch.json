@@ -8,6 +8,20 @@
       "port": 5173
     },
     {
+      "name": "web-prod",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": [
+        "--filter",
+        "@jeuncy/web",
+        "exec",
+        "vite",
+        "preview",
+        "--port",
+        "4173"
+      ],
+      "port": 4173
+    },
+    {
       "name": "api",
       "runtimeExecutable": "php",
       "runtimeArgs": ["artisan", "serve", "--port=3000"],

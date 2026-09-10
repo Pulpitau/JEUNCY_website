@@ -22,7 +22,18 @@
     /* Path aliases */
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      /* Deux versions de @types/react cohabitent dans le workspace depuis
+         que apps/mobile y a ete ajoute (React 19 pour Expo, React 18 ici).
+         TypeScript resolvait alors les types React de react-router vers la
+         19 et ceux de l app vers la 18 : deux ReactNode incompatibles, et
+         un <Link> refuse comme composant JSX. Ces alias forcent tout le
+         programme sur la copie de apps/web. A retirer le jour ou le web
+         passera lui aussi en React 19. */
+      "react": ["./node_modules/@types/react"],
+      "react/jsx-runtime": ["./node_modules/@types/react/jsx-runtime"],
+      "react-dom": ["./node_modules/@types/react-dom"],
+      "react-dom/client": ["./node_modules/@types/react-dom/client"]
     },
 
     /* Linting */
