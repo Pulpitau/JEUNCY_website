@@ -112,6 +112,19 @@ class PaymentService
 
         match ($event->type) {
             'checkout.session.completed' => $this->handleCheckoutCompleted($event->data->object),
+            // Emis a la premiere facture ET a chaque renouvellement : c'est
+            // le seul evenement qui dit qu'un euro d'abonnement est
+            // reellement rentre. Sans lui, le CA du back-office n'en voit
+            // aucun.
+            //
+            // DEUX noms, pas un : selon la version de l API et l interface
+            // Stripe, l evenement d une facture reglee s appelle
+            // invoice.paid ou invoice.payment_succeeded. Les deux sont
+            // acceptes pour ne pas dependre de celui qui est proposé dans
+            // le tableau de bord. Aucun risque de double comptage : la
+            // recette est dedoublonnee sur stripe_invoice_id, contrainte
+            // unique en base (voir handleInvoicePaid).
+            'invoice.paid', 'invoice.payment_succeeded' => $this->subscriptionService->handleInvoicePaid($event->data->object),
             'customer.subscription.updated' => $this->subscriptionService->handleSubscriptionUpdated($event->data->object),
             'customer.subscription.deleted' => $this->subscriptionService->handleSubscriptionDeleted($event->data->object),
             default => null,

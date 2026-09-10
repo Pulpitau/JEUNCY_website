@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 #[Fillable([
     'user_id', 'job_offer_id', 'type', 'amount_cents', 'currency', 'status',
-    'stripe_payment_intent_id', 'stripe_session_id',
+    'stripe_payment_intent_id', 'stripe_session_id', 'stripe_invoice_id',
 ])]
 class Payment extends Model
 {

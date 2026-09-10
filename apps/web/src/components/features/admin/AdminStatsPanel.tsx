@@ -2,7 +2,19 @@ import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { fetchAdminStats } from '@/lib/api/admin';
 
-function StatCard({ label, value }: { label: string; value: string | number }) {
+// Un tiret plutot qu'un zero quand l'API ne fournit pas encore le chiffre :
+// afficher « 0,00 € » de chiffre d'affaires serait une information fausse.
+function euros(cents: number | undefined) {
+  return cents === undefined ? '—' : `${(cents / 100).toFixed(2)} €`;
+}
+
+function StatCard({
+  label,
+  value,
+}: {
+  label: string;
+  value: string | number | undefined;
+}) {
   return (
     <Card>
       <CardHeader>
@@ -11,7 +23,7 @@ function StatCard({ label, value }: { label: string; value: string | number }) {
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <p className="font-poppins text-2xl font-bold">{value}</p>
+        <p className="font-poppins text-2xl font-bold">{value ?? '—'}</p>
       </CardContent>
     </Card>
   );
@@ -46,9 +58,33 @@ export function AdminStatsPanel() {
       <StatCard label="Offres au total" value={stats.job_offers.total} />
       <StatCard label="Candidatures" value={stats.applications.total} />
       <StatCard label="Paiements réussis" value={stats.payments.succeeded_count} />
+      <StatCard label="Revenus (total)" value={euros(stats.payments.revenue_cents)} />
+      {/* Ponctuel et recurrent ne se pilotent pas pareil : un total
+          unique masquait celui des deux qui pese le plus. */}
       <StatCard
-        label="Revenus"
-        value={`${(stats.payments.revenue_cents / 100).toFixed(2)} €`}
+        label="dont annonces"
+        value={euros(stats.payments.offers_revenue_cents)}
+      />
+      <StatCard
+        label="dont abonnements"
+        value={euros(stats.payments.subscriptions_revenue_cents)}
+      />
+      {/* Ce qui rentrera le mois prochain sans qu'aucune vente n'ait
+          lieu — calcule sur les abonnements actifs uniquement. */}
+      <StatCard
+        label="Revenu mensuel récurrent"
+        value={euros(stats.subscriptions?.mrr_cents)}
+      />
+      <StatCard label="Abonnements actifs" value={stats.subscriptions?.active} />
+      <StatCard label="Abonnements impayés" value={stats.subscriptions?.past_due} />
+      <StatCard label="Abonnements résiliés" value={stats.subscriptions?.canceled} />
+      <StatCard
+        label="Places fondateur prises"
+        value={
+          stats.subscriptions
+            ? `${stats.subscriptions.founder_seats_taken} / 50`
+            : undefined
+        }
       />
       <StatCard label="Salles de visio" value={stats.video_rooms.total} />
       <StatCard label="Visios en cours" value={stats.video_rooms.live} />

@@ -1,6 +1,7 @@
 import type {
   JobOfferStatus,
   PaymentStatus,
+  PaymentType,
   UserRole,
   VideoRoomStatus,
 } from '@jeuncy/shared';
@@ -23,7 +24,23 @@ export interface AdminStats {
     archived: number;
   };
   applications: { total: number };
-  payments: { succeeded_count: number; revenue_cents: number };
+  payments: {
+    succeeded_count: number;
+    revenue_cents: number;
+    /* Optionnels a dessein : l'API et le site sont deployes
+       separement, donc le site peut tourner un moment devant une API
+       qui ne renvoie pas encore ces champs. Les marquer obligatoires
+       avait rendu tout l'onglet blanc pendant cette fenetre. */
+    offers_revenue_cents?: number;
+    subscriptions_revenue_cents?: number;
+  };
+  subscriptions?: {
+    active: number;
+    past_due: number;
+    canceled: number;
+    mrr_cents: number;
+    founder_seats_taken: number;
+  };
   video_rooms: { total: number; live: number };
 }
 
@@ -57,6 +74,7 @@ interface UserSummary {
 
 export interface AdminPayment {
   id: number;
+  type: PaymentType;
   amount_cents: number;
   currency: string;
   status: PaymentStatus;

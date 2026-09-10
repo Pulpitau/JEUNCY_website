@@ -4,6 +4,8 @@ namespace App\Services;
 
 use App\Enums\JobOfferStatus;
 use App\Enums\PaymentStatus;
+use App\Enums\PaymentType;
+use App\Enums\SubscriptionStatus;
 use App\Enums\UserRole;
 use App\Enums\VideoRoomStatus;
 use App\Exceptions\ApiException;
@@ -13,6 +15,7 @@ use App\Models\JobOffer;
 use App\Models\Payment;
 use App\Models\Skill;
 use App\Models\Software;
+use App\Models\Subscription;
 use App\Models\User;
 use App\Models\VideoRoom;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -45,9 +48,33 @@ class AdminService
             'applications' => [
                 'total' => Application::count(),
             ],
+            // Le total inclut desormais les prelevements d'abonnement (voir
+            // SubscriptionService::handleInvoicePaid). Il reste net des
+            // remboursements, un paiement rembourse quittant SUCCEEDED.
+            //
+            // La ventilation n'est pas un ornement : ponctuel et recurrent ne
+            // se pilotent pas pareil, et un total unique masquait justement
+            // celui des deux qui pese le plus.
             'payments' => [
                 'succeeded_count' => Payment::where('status', PaymentStatus::SUCCEEDED)->count(),
                 'revenue_cents' => (int) Payment::where('status', PaymentStatus::SUCCEEDED)->sum('amount_cents'),
+                'offers_revenue_cents' => (int) Payment::where('status', PaymentStatus::SUCCEEDED)
+                    ->whereIn('type', [PaymentType::OFFER_PUBLICATION, PaymentType::APPLICATIONS_UNLOCK])
+                    ->sum('amount_cents'),
+                'subscriptions_revenue_cents' => (int) Payment::where('status', PaymentStatus::SUCCEEDED)
+                    ->where('type', PaymentType::SUBSCRIPTION)
+                    ->sum('amount_cents'),
+            ],
+            // Le revenu mensuel recurrent : ce que les abonnements en cours
+            // rapporteront le mois prochain sans qu'aucune vente n'ait lieu.
+            // Calcule sur les abonnements ACTIVE uniquement — un impaye ne
+            // rentrera pas, le compter serait se mentir.
+            'subscriptions' => [
+                'active' => Subscription::where('status', SubscriptionStatus::ACTIVE)->count(),
+                'past_due' => Subscription::where('status', SubscriptionStatus::PAST_DUE)->count(),
+                'canceled' => Subscription::where('status', SubscriptionStatus::CANCELED)->count(),
+                'mrr_cents' => (int) Subscription::where('status', SubscriptionStatus::ACTIVE)->sum('amount_cents'),
+                'founder_seats_taken' => Subscription::where('is_founder_rate', true)->count(),
             ],
             'video_rooms' => [
                 'total' => VideoRoom::count(),

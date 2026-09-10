@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { PaymentStatus } from '@jeuncy/shared';
+import { PaymentStatus, PaymentType } from '@jeuncy/shared';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -97,7 +97,9 @@ export function AdminPaymentsPanel() {
             >
               <div>
                 <p className="font-poppins font-medium">
-                  {payment.job_offer?.title ?? 'Offre supprimée'}
+                  {payment.type === PaymentType.SUBSCRIPTION
+                    ? 'Abonnement mensuel'
+                    : (payment.job_offer?.title ?? 'Offre supprimée')}
                 </p>
                 <p className="text-xs text-muted-foreground">
                   {payment.user.email} —{' '}

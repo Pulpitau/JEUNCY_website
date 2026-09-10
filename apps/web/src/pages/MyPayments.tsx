@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { PaymentStatus } from '@jeuncy/shared';
+import { PaymentStatus, PaymentType } from '@jeuncy/shared';
 import { Badge } from '@/components/ui/badge';
 import { listMyPayments } from '@/lib/api/payments';
 
@@ -20,6 +20,22 @@ const STATUS_VARIANT: Record<
   [PaymentStatus.PENDING]: 'outline',
 };
 
+// Un prelevement d'abonnement ne se rattache a aucune offre. Sans ce
+// libelle, il s'affichait « Offre supprimée » — un intitule alarmant pour
+// ce qui est en realite une facture mensuelle normale.
+function paymentLabel(payment: {
+  type: PaymentType;
+  job_offer: { title: string } | null;
+}) {
+  if (payment.type === PaymentType.SUBSCRIPTION) {
+    return 'Abonnement mensuel';
+  }
+  if (payment.job_offer) {
+    return payment.job_offer.title;
+  }
+  return 'Offre supprimée';
+}
+
 export function MyPayments() {
   const paymentsQuery = useQuery({
     queryKey: ['payments', 'mine'],
@@ -33,7 +49,7 @@ export function MyPayments() {
       <div>
         <h1 className="font-poppins text-3xl font-bold">Mes paiements</h1>
         <p className="mt-1 font-inter text-muted-foreground">
-          Historique des paiements effectués pour la publication de tes offres.
+          Historique de tes publications d'offres et de tes prélèvements d'abonnement.
         </p>
       </div>
 
@@ -55,9 +71,7 @@ export function MyPayments() {
               className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-border p-4"
             >
               <div>
-                <p className="font-poppins font-medium">
-                  {payment.job_offer?.title ?? 'Offre supprimée'}
-                </p>
+                <p className="font-poppins font-medium">{paymentLabel(payment)}</p>
                 <p className="text-xs text-muted-foreground">
                   {new Date(payment.created_at).toLocaleDateString('fr-FR')}
                 </p>

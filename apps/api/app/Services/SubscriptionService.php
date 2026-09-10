@@ -3,9 +3,12 @@
 namespace App\Services;
 
 use App\Enums\NotificationType;
+use App\Enums\PaymentStatus;
+use App\Enums\PaymentType;
 use App\Enums\SubscriptionStatus;
 use App\Enums\UserRole;
 use App\Exceptions\ApiException;
+use App\Models\Payment;
 use App\Models\Subscription;
 use App\Models\User;
 use Carbon\Carbon;
@@ -227,6 +230,63 @@ class SubscriptionService
                 ? 'Ton abonnement Jeuncy est activé au tarif fondateur, conservé tant que tu restes abonné : offres illimitées, candidatures et CVthèque inclus.'
                 : 'Ton abonnement Jeuncy est activé : offres illimitées, candidatures et CVthèque inclus.',
             'link' => '/mes-offres',
+        ]);
+    }
+
+    // Une facture d'abonnement payee, enregistree comme piece comptable dans
+    // `payments`. Stripe emet invoice.paid a la premiere echeance puis a chaque
+    // renouvellement mensuel : c'est donc ici, et nulle part ailleurs, que se
+    // constitue le chiffre d'affaires recurrent.
+    //
+    // AUCUNE NOTIFICATION n'est creee. L'activation de l'abonnement est deja
+    // annoncee par handleCheckoutCompleted, et prevenir le client chaque mois
+    // qu'il a bien ete debite releverait du releve bancaire, pas de la
+    // plateforme — Stripe lui envoie deja son recu.
+    public function handleInvoicePaid(object $invoice): void
+    {
+        $invoiceId = $invoice->id ?? null;
+        if (! $invoiceId) {
+            return;
+        }
+
+        // L'emplacement de l'abonnement dans la facture a change selon les
+        // versions de l'API Stripe (racine historiquement, puis sous parent,
+        // et present aussi sur les lignes) : les trois sont tentes. Meme piege
+        // que current_period_end dans handleSubscriptionUpdated.
+        $stripeSubscriptionId = $invoice->subscription
+            ?? ($invoice->parent->subscription_details->subscription ?? null)
+            ?? ($invoice->lines->data[0]->subscription ?? null);
+
+        if (! $stripeSubscriptionId) {
+            return;
+        }
+
+        $subscription = Subscription::where('stripe_subscription_id', $stripeSubscriptionId)->first();
+        if (! $subscription) {
+            return;
+        }
+
+        // Idempotence, portee aussi par une contrainte unique en base : Stripe
+        // rejoue ses webhooks, et un rejeu ne doit pas compter deux fois le
+        // meme prelevement dans le chiffre d'affaires.
+        if (Payment::where('stripe_invoice_id', $invoiceId)->exists()) {
+            return;
+        }
+
+        Payment::create([
+            'user_id' => $subscription->user_id,
+            // Un abonnement ne se rattache a aucune offre en particulier : il
+            // les couvre toutes. La page "Mes paiements" se fie au type, pas a
+            // la presence d'une offre.
+            'job_offer_id' => null,
+            'type' => PaymentType::SUBSCRIPTION,
+            // Le montant vient de la FACTURE, pas de l'abonnement local : c'est
+            // ce que Stripe a reellement encaisse, remises et prorata compris.
+            'amount_cents' => (int) ($invoice->amount_paid ?? 0),
+            'currency' => strtoupper((string) ($invoice->currency ?? 'eur')),
+            'status' => PaymentStatus::SUCCEEDED,
+            'stripe_payment_intent_id' => $invoice->payment_intent ?? null,
+            'stripe_invoice_id' => $invoiceId,
         ]);
     }
 
