@@ -47,6 +47,7 @@ class PaymentService
         $jobOffer = $this->jobOfferService->requirePayableOffer($user, $jobOffer);
         $frontendUrl = rtrim(config('app.frontend_url'), '/');
         $priceCents = $this->jobOfferService->priceCentsFor($jobOffer);
+        $dureeLabel = $this->jobOfferService->publicationDurationLabel();
 
         $session = $this->stripe()->checkout->sessions->create([
             'mode' => 'payment',
@@ -58,7 +59,10 @@ class PaymentService
                     'currency' => 'eur',
                     'unit_amount' => $priceCents,
                     'product_data' => [
-                        'name' => "Publication de l'offre \u{2014} {$jobOffer->title}",
+                        // La duree figure dans le libelle : c'est le dernier
+                        // texte lu avant de saisir sa carte, et le seul que
+                        // Stripe reprendra sur le recu.
+                        'name' => "Mise en ligne de l'offre pendant {$dureeLabel} \u{2014} {$jobOffer->title}",
                     ],
                 ],
             ]],
@@ -179,6 +183,12 @@ class PaymentService
             'status' => JobOfferStatus::PUBLISHED,
             'payment_status' => PaymentStatus::SUCCEEDED,
             'published_at' => now(),
+            // Le paiement a l'offre achete une PERIODE de mise en ligne
+            // (decision du 2026-09-10), pas une publication definitive.
+            // Recalculee a partir de maintenant a chaque paiement : un
+            // renouvellement repart pour une periode pleine, jamais pour le
+            // reliquat de la precedente.
+            'expires_at' => now()->addDays($this->jobOfferService->publicationDays()),
             // Payer la publication donne acces aux candidatures de CETTE
             // offre — pas a la CVtheque, qui reste reservee a l'abonnement.
             //
@@ -242,8 +252,19 @@ class PaymentService
         $jobOffer = $payment->jobOffer;
         if ($jobOffer) {
             $jobOffer->update([
-                'status' => JobOfferStatus::ARCHIVED,
+                // Une offre DEJA arrivee a echeance reste EXPIRED. La
+                // basculer en ARCHIVED la rendrait definitivement non
+                // payable (voir requirePayableOffer), alors que le client
+                // vient d'etre rembourse et pourrait vouloir la remettre en
+                // ligne : le geste commercial lui couterait son annonce.
+                'status' => $jobOffer->status === JobOfferStatus::EXPIRED
+                    ? JobOfferStatus::EXPIRED
+                    : JobOfferStatus::ARCHIVED,
                 'payment_status' => PaymentStatus::PENDING,
+                // La periode achetee n'a plus lieu d'etre. Sans cet
+                // effacement, une republication heriterait d'une echeance
+                // deja passee et retomberait hors ligne aussitot.
+                'expires_at' => null,
             ]);
         }
 

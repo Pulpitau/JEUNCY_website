@@ -40,6 +40,13 @@ return [
         // qui a supprime le deblocage a l'offre existant depuis le 2026-08-05).
         'company_offer_price_cents' => (int) env('STRIPE_COMPANY_OFFER_PRICE_CENTS', 999),
         'cfa_offer_price_cents' => (int) env('STRIPE_CFA_OFFER_PRICE_CENTS', 599),
+        // Duree de mise en ligne achetee par ce paiement. Depuis le
+        // 2026-09-10 le prix n'achete plus une publication definitive mais
+        // une periode : passe ce delai l'offre sort de la ligne, et son
+        // proprietaire la remet en ligne en repayant le meme montant.
+        // AUCUN prelevement automatique : c'est un achat ponctuel qui
+        // expire, pas un abonnement Stripe.
+        'offer_publication_days' => (int) env('STRIPE_OFFER_PUBLICATION_DAYS', 30),
         // Abonnement mensuel (voir SubscriptionService::priceCentsFor) : tout
         // illimite — publication d'offres, acces aux candidatures de toutes les
         // offres, et acces a la CVtheque. Meme tarif entreprise et CFA depuis le

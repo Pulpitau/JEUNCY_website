@@ -139,6 +139,71 @@ class MailService
         $this->send($apiKey, $to, 'Ta période d\'essai gratuite Jeuncy est terminée', $this->wrapEmailHtml('Ton essai gratuit est terminé', $body));
     }
 
+    /**
+     * Preavis : la periode de mise en ligne payee se termine bientot.
+     *
+     * @param  array<int, array{titre: string, fin: \DateTimeInterface}>  $offres
+     */
+    public function sendOffersExpiringEmail(string $to, array $offres, string $priceLabel): void
+    {
+        $apiKey = config('services.resend.key');
+
+        if (! $apiKey) {
+            Log::warning("RESEND_API_KEY absent : preavis de fin de mise en ligne non envoye a {$to}");
+
+            return;
+        }
+
+        $frontendUrl = rtrim(config('app.frontend_url'), '/');
+        $list = collect($offres)
+            ->map(fn (array $o) => '<li>'.e($o['titre']).' — jusqu\'au '.$o['fin']->format('d/m/Y').'</li>')
+            ->implode('');
+        $pluriel = count($offres) > 1 ? 's' : '';
+
+        $body = <<<HTML
+            <p>Bonjour,</p>
+            <p>La période de mise en ligne de votre offre{$pluriel} se termine bientôt :</p>
+            <ul style="padding-left:20px;color:#374151;">{$list}</ul>
+            <p>Passé cette date, l'offre{$pluriel} ne sera plus visible par les candidats. Vous pouvez la remettre en ligne à tout moment pour {$priceLabel} depuis votre espace.</p>
+            <p style="color:#6b7280;font-size:14px;">Aucun prélèvement automatique : rien ne sera débité sans action de votre part.</p>
+            {$this->ctaButton('Gérer mes offres', $frontendUrl.'/mes-offres')}
+            HTML;
+
+        $this->send($apiKey, $to, 'Votre offre Jeuncy arrive en fin de diffusion', $this->wrapEmailHtml('Fin de diffusion proche', $body));
+    }
+
+    /**
+     * L'offre vient de sortir de la ligne, faute de renouvellement.
+     *
+     * @param  array<int, string>  $offerTitles
+     */
+    public function sendOffersExpiredEmail(string $to, array $offerTitles, string $priceLabel): void
+    {
+        $apiKey = config('services.resend.key');
+
+        if (! $apiKey) {
+            Log::warning("RESEND_API_KEY absent : fin de mise en ligne non annoncee a {$to}");
+
+            return;
+        }
+
+        $frontendUrl = rtrim(config('app.frontend_url'), '/');
+        $list = collect($offerTitles)
+            ->map(fn (string $title) => '<li>'.e($title).'</li>')
+            ->implode('');
+        $pluriel = count($offerTitles) > 1 ? 's' : '';
+
+        $body = <<<HTML
+            <p>Bonjour,</p>
+            <p>La période de mise en ligne de votre offre{$pluriel} est terminée. Elle{$pluriel} n'apparai{$pluriel}t plus dans les recherches des candidats :</p>
+            <ul style="padding-left:20px;color:#374151;">{$list}</ul>
+            <p>Vos candidatures déjà reçues restent accessibles. Pour remettre une offre en ligne, il suffit de la repayer {$priceLabel} depuis votre espace.</p>
+            {$this->ctaButton('Remettre en ligne', $frontendUrl.'/mes-offres')}
+            HTML;
+
+        $this->send($apiKey, $to, "Votre offre Jeuncy n'est plus en ligne", $this->wrapEmailHtml('Fin de diffusion', $body));
+    }
+
     // Declenche par SendVideoRoomReminders (cron horaire) pour l'hote et,
     // s'il existe, le participant d'une salle programmee dans l'heure qui
     // suit. $joinUrl pointe vers la page Jeuncy /demo/{jitsi_room_name}

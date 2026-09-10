@@ -298,9 +298,9 @@ export function MyJobOffers() {
           ) : (
             <>
               Ta période d'essai gratuite est terminée. Publier une offre à l'unité coûte{' '}
-              {isCfa ? CFA_OFFER_PRICE_LABEL : COMPANY_OFFER_PRICE_LABEL} — ou passe à
-              l'abonnement pour publier sans limite, voir toutes tes candidatures et
-              accéder à la CVthèque.
+              {isCfa ? CFA_OFFER_PRICE_LABEL : COMPANY_OFFER_PRICE_LABEL} par mois de mise
+              en ligne, sans prélèvement automatique — ou passe à l'abonnement pour
+              publier sans limite, voir toutes tes candidatures et accéder à la CVthèque.
             </>
           )}
         </p>

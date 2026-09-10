@@ -57,10 +57,22 @@ class JobOfferMatchService
 
         $notifications = [];
 
+        // Une offre remise en ligne chaque mois ne doit pas renvoyer la
+        // meme annonce aux memes jeunes mois apres mois : on ecarte ceux
+        // qui portent deja une notification pour cette offre. C'est la
+        // regle qu'applique deja notifyCandidateOfMatchingOffers dans
+        // l'autre sens ; les deux directions se comportent enfin pareil.
+        $dejaPrevenus = Notification::query()
+            ->where('type', NotificationType::JOB_OFFER_MATCH->value)
+            ->where('link', '/offres/'.$jobOffer->id)
+            ->pluck('user_id')
+            ->all();
+
         CandidateProfile::query()
             ->with(['user:id,is_suspended,deleted_account_at', 'skills:id,name', 'software:id,name'])
             // Un candidat deja candidat a cette offre n'a rien a apprendre.
             ->whereDoesntHave('applications', fn ($q) => $q->where('job_offer_id', $jobOffer->id))
+            ->whereNotIn('user_id', $dejaPrevenus ?: [0])
             ->chunkById(200, function ($profiles) use ($jobOffer, $keywords, $city, &$notifications) {
                 foreach ($profiles as $profile) {
                     if (! $this->isReachable($profile)) {

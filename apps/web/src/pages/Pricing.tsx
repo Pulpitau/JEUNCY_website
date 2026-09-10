@@ -45,7 +45,8 @@ const PAY_AS_YOU_GO_PLANS = [
 const PAY_AS_YOU_GO_BENEFITS = [
   "Visible immédiatement auprès d'un vivier de jeunes talents ciblé",
   'Salle de visioconférence intégrée pour organiser une démo ou un échange',
-  'Sans abonnement : vous ne payez que ce que vous utilisez',
+  "Valable 1 mois : passé ce délai l'offre sort de la ligne, vous la remettez en ligne quand vous voulez",
+  "Aucun prélèvement automatique : rien n'est débité sans votre accord",
 ];
 
 const WHY_JEUNCY = [
@@ -111,8 +112,8 @@ export function Pricing() {
         </h1>
         <p className="mx-auto mt-4 max-w-2xl font-inter text-lg text-muted-foreground">
           Offres illimitées, toutes vos candidatures et l'accès à la CVthèque pour
-          chercher directement les profils qui vous intéressent. Ou payez à l'annonce si
-          vous publiez rarement.
+          chercher directement les profils qui vous intéressent. Ou payez à l'annonce, au
+          mois, si vous publiez rarement.
         </p>
       </section>
 
@@ -241,11 +242,15 @@ export function Pricing() {
             Sans engagement
           </Badge>
           <h2 className="font-poppins text-2xl font-bold text-foreground md:text-3xl">
-            Ou à l'annonce, si vous publiez rarement
+            Ou au mois et à l'annonce, si vous publiez rarement
           </h2>
           <p className="mt-2 font-inter text-sm text-muted-foreground">
-            Vous ne payez que la mise en ligne de l'offre. La CVthèque et l'accès aux
-            candidatures restent réservés à l'abonnement.
+            <strong className="font-semibold text-foreground">
+              Un paiement = 1 mois de mise en ligne.
+            </strong>{' '}
+            Passé ce délai l'offre n'est plus visible des candidats, et vous la remettez
+            en ligne en repayant le même montant — uniquement si vous le décidez. La
+            CVthèque et l'accès aux candidatures restent réservés à l'abonnement.
           </p>
         </div>
         <div className="mt-8 grid gap-6 md:grid-cols-2">
@@ -270,7 +275,7 @@ export function Pricing() {
                   <CardTitle className="mt-2 text-3xl">
                     {plan.publishPrice}
                     <span className="ml-2 font-inter text-sm font-normal text-muted-foreground">
-                      par offre publiée
+                      par offre, 1 mois en ligne
                     </span>
                   </CardTitle>
                   <p className="font-inter text-sm text-muted-foreground">

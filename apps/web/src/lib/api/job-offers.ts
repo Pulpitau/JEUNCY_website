@@ -97,8 +97,14 @@ export interface JobOfferSearchFilters {
 // la CVtheque, qui passent exclusivement par l'abonnement depuis le
 // 2026-08-17 (voir lib/api/subscriptions.ts). Le deblocage a l'offre qui
 // existait entre le 2026-08-05 et cette date n'est plus vendable.
+// Depuis le 2026-09-10 ce montant achete une PERIODE de mise en ligne, pas
+// une publication definitive : passe ce delai l'offre sort de la ligne et
+// son proprietaire la remet en ligne en repayant. Aucun prelevement
+// automatique. La duree ci-dessous doit rester alignee sur
+// services.stripe.offer_publication_days cote backend.
 export const COMPANY_OFFER_PRICE_LABEL = '9,99 €';
 export const CFA_OFFER_PRICE_LABEL = '5,99 €';
+export const OFFER_PUBLICATION_DURATION_LABEL = '1 mois';
 
 export function offerPriceLabel(offer: Pick<JobOffer, 'cfa_organization_id'>): string {
   return offer.cfa_organization_id !== null

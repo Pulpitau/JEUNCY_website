@@ -95,6 +95,22 @@ class JobOfferService
     public function archiveForUser(User $user, JobOffer $jobOffer): JobOffer
     {
         $jobOffer = $this->requireOwnedOffer($user, $jobOffer);
+
+        // Une offre arrivee a echeance est DEJA hors ligne : l'archiver
+        // n'ajoute rien et lui coute la possibilite d'etre remise en ligne,
+        // puisqu'une offre archivee a la main n'est plus payable (voir
+        // requirePayableOffer). Sur l'ecran meme ou on invite le client a
+        // repayer, le bouton voisin detruirait son annonce sans le dire.
+        // La garde vit ici et pas seulement dans le composant : l'API est
+        // appelable directement.
+        if ($jobOffer->status === JobOfferStatus::EXPIRED) {
+            throw new ApiException(
+                'JOB_OFFER_ALREADY_OFFLINE',
+                "Cette offre n'est deja plus en ligne. Remets-la en ligne pour la rendre a nouveau visible.",
+                409,
+            );
+        }
+
         $jobOffer->update(['status' => JobOfferStatus::ARCHIVED]);
 
         return $jobOffer;
@@ -140,7 +156,15 @@ class JobOfferService
         $payableFromTrialArchive = $jobOffer->status === JobOfferStatus::ARCHIVED
             && $jobOffer->payment_status === PaymentStatus::TRIAL;
 
-        if ($jobOffer->status !== JobOfferStatus::DRAFT && ! $payableFromTrialArchive) {
+        // Une offre arrivee au bout de son mois de mise en ligne redevient
+        // payable : c'est le renouvellement, devenu le parcours normal
+        // depuis le 2026-09-10. Sans ce cas, une offre echue serait un
+        // cul-de-sac — son proprietaire ne pourrait plus jamais la remettre
+        // en ligne, ni donc payer. Une offre archivee A LA MAIN reste non
+        // payable : son proprietaire l'a retiree volontairement.
+        $payableFromExpiry = $jobOffer->status === JobOfferStatus::EXPIRED;
+
+        if ($jobOffer->status !== JobOfferStatus::DRAFT && ! $payableFromTrialArchive && ! $payableFromExpiry) {
             throw new ApiException('JOB_OFFER_NOT_PAYABLE', 'Cette offre ne peut pas etre payee dans son etat actuel.', 409);
         }
 
@@ -178,6 +202,13 @@ class JobOfferService
             'status' => JobOfferStatus::PUBLISHED,
             'payment_status' => PaymentStatus::TRIAL,
             'published_at' => now(),
+            // L'essai n'a pas d'echeance PORTEE PAR L'OFFRE : son retrait
+            // depend de trial_started_at du compte (voir
+            // ArchiveExpiredTrialOffers). Mis a null explicitement pour
+            // qu'une offre passee du modele paye a l'essai ne traine pas
+            // une vieille date qui la ferait retirer par la mauvaise
+            // commande.
+            'expires_at' => null,
             'applications_unlocked_at' => now(),
         ]);
 
@@ -217,6 +248,14 @@ class JobOfferService
             'status' => JobOfferStatus::PUBLISHED,
             'payment_status' => PaymentStatus::SUBSCRIPTION,
             'published_at' => now(),
+            // L'abonnement, c'est la publication illimitee : aucune
+            // echeance. Indispensable ici, car requirePayableOffer accepte
+            // desormais une offre EXPIRED — un abonne qui republie une
+            // offre anciennement payee a l'unite heriterait sinon de son
+            // echeance depassee et la verrait retiree des la nuit suivante.
+            // Le client qui paie le plus cher serait le seul a perdre son
+            // annonce.
+            'expires_at' => null,
         ]);
 
         $this->matchService->notifyMatchingCandidates($jobOffer);
@@ -263,6 +302,23 @@ class JobOfferService
     public function priceLabelFor(JobOffer $jobOffer): string
     {
         return number_format($this->priceCentsFor($jobOffer) / 100, 2, ',', ' ').' €';
+    }
+
+    // Duree de mise en ligne achetee par un paiement a l'offre.
+    public function publicationDays(): int
+    {
+        return max(1, (int) config('services.stripe.offer_publication_days'));
+    }
+
+    // Duree telle qu'on la dit a un client : « 1 mois » plutot que
+    // « 30 jours ». Une seule source pour les libelles de Stripe, des
+    // emails et des notifications — trois endroits qui doivent dire la
+    // meme chose sous peine de faire douter celui qui paie.
+    public function publicationDurationLabel(): string
+    {
+        $jours = $this->publicationDays();
+
+        return $jours === 30 ? '1 mois' : "{$jours} jours";
     }
 
     public function requireOwnedOffer(User $user, JobOffer $jobOffer): JobOffer

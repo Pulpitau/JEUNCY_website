@@ -33,7 +33,7 @@ class DeployController extends Controller
     // ne peut pas savoir si le controleur lui-meme a bien ete redeploye : c est
     // arrive le 2026-09-02, ou clear-cache continuait d echouer avec une version
     // corrigee censement en place. A incrementer a chaque changement ici.
-    public const DEPLOY_TOOLS_VERSION = 'deploy-tools-18';
+    public const DEPLOY_TOOLS_VERSION = 'deploy-tools-19';
 
     // Cle du battement du planificateur, ecrite par bootstrap/app.php a
     // chaque schedule:run. Dupliquee en dur la-bas volontairement : voir
@@ -164,6 +164,12 @@ class DeployController extends Controller
             // Leur absence de cette liste a coute quatre allers-retours :
             // une version perimee notifie simplement jamais, sans erreur.
             'app/Services/JobOfferService.php',
+            // Mise en ligne au mois : le prix achete une periode, plus une
+            // publication definitive. La commande porte le preavis ET le
+            // retrait, la config porte la duree. Une commande absente ne
+            // produit aucune erreur — le cron passe et rien ne se fait.
+            'app/Console/Commands/ExpireJobOffers.php',
+            'config/services.php',
             'app/Services/PaymentService.php',
             'app/Console/Commands/NotifyCandidatesOfMatchingOffers.php',
             // Outil de correction des noms de candidats : ces quatre fichiers

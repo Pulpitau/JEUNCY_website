@@ -31,7 +31,7 @@ function paymentLabel(payment: {
     return 'Abonnement mensuel';
   }
   if (payment.job_offer) {
-    return payment.job_offer.title;
+    return `${payment.job_offer.title} — 1 mois de mise en ligne`;
   }
   return 'Offre supprimée';
 }
