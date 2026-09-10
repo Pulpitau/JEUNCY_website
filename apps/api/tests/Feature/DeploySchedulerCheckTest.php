@@ -122,4 +122,44 @@ class DeploySchedulerCheckTest extends TestCase
 
         $this->assertSame('ABSENTE des deux cotes', $rapport['video-rooms:send-reminders']);
     }
+
+    // LE BATTEMENT. Tout ce qui precede verifie ce que Laravel a l'INTENTION de
+    // faire. Un cron OVH arrete laisserait ces controles strictement
+    // identiques — c'est cet angle mort que les trois tests suivants ferment.
+
+    public function test_heartbeat_reports_the_cron_as_alive_when_it_beat_recently(): void
+    {
+        $verdict = DeployController::verdictBattement(
+            '2026-09-10 09:00:00',
+            new \DateTimeImmutable('2026-09-10 09:12:00'),
+        );
+
+        $this->assertSame(12, $verdict['il_y_a_minutes']);
+        $this->assertStringContainsString('ok', $verdict['etat']);
+    }
+
+    // Le cron OVH passe toutes les heures : au-dela de 70 minutes, un passage a
+    // ete manque. C'est le seul signal qui distingue "planifie" de "reellement
+    // execute", et il doit crier, pas chuchoter.
+    public function test_heartbeat_denounces_a_silent_cron(): void
+    {
+        $verdict = DeployController::verdictBattement(
+            '2026-09-10 05:00:00',
+            new \DateTimeImmutable('2026-09-10 09:12:00'),
+        );
+
+        $this->assertSame(252, $verdict['il_y_a_minutes']);
+        $this->assertStringContainsString('CRON MUET', $verdict['etat']);
+    }
+
+    // Juste apres le deploiement du battement, la cle n'existe pas encore. Ne
+    // pas confondre ce cas avec une panne : le message doit enoncer les deux
+    // lectures possibles plutot que d'accuser a tort.
+    public function test_heartbeat_absent_does_not_accuse_the_cron(): void
+    {
+        $verdict = DeployController::verdictBattement(null, new \DateTimeImmutable);
+
+        $this->assertNull($verdict['il_y_a_minutes']);
+        $this->assertStringContainsString('AUCUN BATTEMENT', $verdict['etat']);
+    }
 }

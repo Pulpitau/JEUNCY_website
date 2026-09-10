@@ -9,6 +9,7 @@ use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -20,25 +21,73 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withSchedule(function (Schedule $schedule): void {
-        $schedule->command('job-offers:expire')->daily();
-        $schedule->command('job-offers:archive-expired-trials')->daily();
-        $schedule->command('cvs:archive-inactive')->daily();
+        // POURQUOI CE MONTAGE PLUTOT QUE ->daily() / ->weekly().
+        //
+        // Laravel n'execute une tache que si son expression cron correspond a
+        // la minute EXACTE ou schedule:run est lance, et il ne rattrape rien.
+        // Or le cron OVH nous appelle a une minute arbitraire : mesure le
+        // 2026-09-10, il passait a 09:41:03. Toutes les taches etaient donc
+        // planifiees en minute 0 et AUCUNE n'a jamais tourne — pendant des
+        // semaines, sans le moindre message d'erreur. Le battement, seul en
+        // * * * * * donc toujours du, est ce qui l'a revele.
+        //
+        // On rend donc chaque tache toujours due, et c'est un marqueur en
+        // cache qui garantit une passe par jour (ou par semaine). Ce montage
+        // ne depend plus ni de la minute, ni de l'heure, ni meme de la
+        // frequence a laquelle l'hebergeur nous appelle : seulement du fait
+        // qu'il nous appelle. Choisir ->cron('* 0 * * *') aurait suffi pour un
+        // cron horaire, mais aurait tout rate le jour ou OVH saute le passage
+        // de minuit.
+        $unePasseParPeriode = function (string $commande, string $periode) use ($schedule) {
+            $cle = "planificateur.derniere_passe.{$commande}";
+            $jeton = fn () => $periode === 'semaine'
+                ? now()->startOfWeek()->toDateString()
+                : now()->toDateString();
+
+            return $schedule->command($commande)
+                ->everyMinute()
+                ->withoutOverlapping()
+                ->when(fn () => Cache::get($cle) !== $jeton())
+                // Marque APRES SUCCES uniquement : une commande qui echoue est
+                // retentee au passage suivant du cron, au lieu d'etre sautee
+                // pour toute la journee sans que personne ne le sache.
+                ->onSuccess(fn () => Cache::forever($cle, $jeton()));
+        };
+
+        $unePasseParPeriode('job-offers:expire', 'jour');
+        $unePasseParPeriode('job-offers:archive-expired-trials', 'jour');
+        $unePasseParPeriode('cvs:archive-inactive', 'jour');
         // Rattrapage : les candidats deja inscrits avant qu'une offre ne soit
         // publiee sont prevenus a la publication, et ceux qui arrivent apres le
         // sont a la creation de leur profil. Restent ceux qui ne touchent plus a
         // leur profil — ce balayage les couvre. Idempotent (voir la commande).
-        $schedule->command('job-offers:notify-matching-candidates')->daily();
+        $unePasseParPeriode('job-offers:notify-matching-candidates', 'jour');
         // Applique reellement la duree de conservation de 3 ans annoncee aux
         // candidats dans la politique de confidentialite (section 4 ter).
         // Hebdomadaire et non quotidien : le delai se compte en annees, une
         // passe par semaine suffit largement.
-        $schedule->command('cv-downloads:purge')->weekly();
-        // Horaire (pas quotidien comme les 3 taches ci-dessus) : la fenetre de
-        // rappel est d'1h (voir SendVideoRoomReminders), donc alignee sur la
-        // frequence du cron OVH lui-meme (schedule:run appele toutes les
-        // heures, voir cron-schedule.php) — inutile de planifier plus souvent
-        // que ce que l'hebergement declenche reellement.
-        $schedule->command('video-rooms:send-reminders')->hourly();
+        $unePasseParPeriode('cv-downloads:purge', 'semaine');
+        // Les rappels de visio, eux, doivent partir aussi souvent que possible
+        // (fenetre de rappel d'1h, voir SendVideoRoomReminders) : pas de
+        // marqueur, la commande tourne a chaque passage du cron. Elle est
+        // idempotente (reminder_sent_at), donc une frequence plus elevee ne
+        // produirait pas de doublon.
+        $schedule->command('video-rooms:send-reminders')
+            ->everyMinute()
+            ->withoutOverlapping();
+        // BATTEMENT. Ecrit l'heure a CHAQUE passage de schedule:run, donc a
+        // chaque declenchement reel du cron OVH. C'est la seule preuve
+        // d'execution : schedule:list ne montre que l'intention et
+        // afficherait exactement la meme chose si le cron etait arrete
+        // (voir DeployController::scheduler, qui relit cette cle).
+        //
+        // La cle est ecrite en dur plutot que reprise de DeployController :
+        // un fichier absent ne doit jamais pouvoir faire tomber le cron
+        // entier. Elle doit rester identique a CLE_BATTEMENT la-bas.
+        $schedule->call(fn () => Cache::forever('planificateur.dernier_passage', now()->toDateTimeString()))
+            ->everyMinute()
+            ->name('battement-planificateur')
+            ->withoutOverlapping();
     })
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->api(append: [

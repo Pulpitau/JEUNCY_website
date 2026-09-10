@@ -16,6 +16,7 @@ use App\Services\JobOfferService;
 use App\Services\PaymentService;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Cache;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
@@ -32,7 +33,17 @@ class DeployController extends Controller
     // ne peut pas savoir si le controleur lui-meme a bien ete redeploye : c est
     // arrive le 2026-09-02, ou clear-cache continuait d echouer avec une version
     // corrigee censement en place. A incrementer a chaque changement ici.
-    public const DEPLOY_TOOLS_VERSION = 'deploy-tools-15';
+    public const DEPLOY_TOOLS_VERSION = 'deploy-tools-17';
+
+    // Cle du battement du planificateur, ecrite par bootstrap/app.php a
+    // chaque schedule:run. Dupliquee en dur la-bas volontairement : voir
+    // le commentaire de la tache pour la raison.
+    public const CLE_BATTEMENT = 'planificateur.dernier_passage';
+
+    // Le cron OVH appelle schedule:run toutes les heures. Au-dela de 70
+    // minutes sans battement, un passage a ete manque : ce n'est plus un
+    // decalage d'horloge, c'est un cron qui ne tourne plus.
+    public const BATTEMENT_TOLERANCE_MINUTES = 70;
 
     private function assertAuthorized(string $token): void
     {
@@ -119,6 +130,14 @@ class DeployController extends Controller
             // silence, dans un try/catch prevu pour proteger autre chose.
             'app/Enums/NotificationType.php',
             'app/Services/SubscriptionService.php',
+            // Suivi du chiffre d'affaires des abonnements : la valeur
+            // d'enum, le champ d'idempotence et les deux services qui
+            // enregistrent puis totalisent doivent arriver ensemble. Une
+            // seule absence et les prelevements mensuels disparaissent du
+            // CA sans qu'aucune erreur ne le signale.
+            'app/Enums/PaymentType.php',
+            'app/Models/Payment.php',
+            'database/migrations/2026_09_10_100001_record_subscription_invoices_in_payments.php',
             'app/Http/Controllers/Admin/UserController.php',
             'routes/api/cvtheque.php',
             'app/Services/CvImportService.php',
@@ -516,9 +535,38 @@ class DeployController extends Controller
 
         return response()->json([
             'taches' => self::comparerTaches(array_keys(Artisan::all()), $planifiees),
+            // Ce que schedule:list ne dira jamais : le cron tourne-t-il ?
+            'cron' => self::verdictBattement(Cache::get(self::CLE_BATTEMENT), now()),
             'sortie_brute' => $sortie,
             'heure_serveur' => now()->toDateTimeString(),
         ]);
+    }
+
+    // Extrait du controleur pour la meme raison que comparerTaches : on ne
+    // peut pas faire taire un vrai cron depuis un test HTTP, alors que
+    // c'est justement le cas degrade a couvrir.
+    public static function verdictBattement(?string $dernierPassage, \DateTimeInterface $maintenant): array
+    {
+        if ($dernierPassage === null) {
+            return [
+                'dernier_passage' => null,
+                'il_y_a_minutes' => null,
+                'etat' => 'AUCUN BATTEMENT — soit le cron ne tourne pas, soit ce battement vient d\'etre deploye et la prochaine heure n\'est pas passee.',
+            ];
+        }
+
+        // Calcul sur les horodatages plutot que diffInMinutes : le signe de
+        // cette methode a change entre versions de Carbon, et un signe
+        // inverse ferait dire "tout va bien" a un cron arrete.
+        $minutes = (int) floor(($maintenant->getTimestamp() - strtotime($dernierPassage)) / 60);
+
+        return [
+            'dernier_passage' => $dernierPassage,
+            'il_y_a_minutes' => $minutes,
+            'etat' => $minutes <= self::BATTEMENT_TOLERANCE_MINUTES
+                ? 'ok — le cron OVH tourne'
+                : "CRON MUET depuis {$minutes} minutes — plus aucune tache planifiee ne s'execute",
+        ];
     }
 
     // Taches que l'application est censee executer. Toute nouvelle commande
