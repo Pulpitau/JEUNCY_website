@@ -78,6 +78,15 @@ class DeploySchedulerCheckTest extends TestCase
         ] as $commande) {
             $response->assertJsonPath("taches.{$commande}", 'ok');
         }
+
+        // Le cablage, pas seulement les fonctions : ces deux blocs doivent
+        // REELLEMENT figurer dans la reponse. Une fonction juste mais jamais
+        // appelee est exactement ce qui a coute quatre allers-retours en
+        // septembre.
+        $response->assertJsonStructure([
+            'cron' => ['etat'],
+            'dernieres_passes' => ['job-offers:expire' => ['etat']],
+        ]);
     }
 
     // Le cas que ce controle existe pour attraper : bootstrap/app.php pas
@@ -161,5 +170,81 @@ class DeploySchedulerCheckTest extends TestCase
 
         $this->assertNull($verdict['il_y_a_minutes']);
         $this->assertStringContainsString('AUCUN BATTEMENT', $verdict['etat']);
+    }
+
+    // LES PASSES PAR TACHE. Le battement prouve que le cron passe ; il ne dit
+    // rien de ce qui s'execute pendant ce passage. C'est exactement cet ecart
+    // qui a laisse six taches muettes pendant des semaines : le cron tournait,
+    // et aucune tache ne partait.
+
+    public function test_a_task_that_ran_today_is_reported_ok(): void
+    {
+        $verdict = DeployController::verdictPasses(
+            ['job-offers:expire' => '2026-09-11'],
+            new \DateTimeImmutable('2026-09-11 13:00:00'),
+        );
+
+        $this->assertSame(0, $verdict['job-offers:expire']['il_y_a_jours']);
+        $this->assertSame('ok', $verdict['job-offers:expire']['etat']);
+    }
+
+    // Une quotidienne part au premier passage du cron apres minuit : la voir
+    // dater d'hier est normal en pleine nuit, ce n'est pas un retard.
+    public function test_a_daily_task_that_ran_yesterday_is_not_flagged(): void
+    {
+        $verdict = DeployController::verdictPasses(
+            ['job-offers:expire' => '2026-09-10'],
+            new \DateTimeImmutable('2026-09-11 00:20:00'),
+        );
+
+        $this->assertSame('ok', $verdict['job-offers:expire']['etat']);
+    }
+
+    // Au-dela, un passage a ete manque : c'est la panne qu'on veut voir crier.
+    public function test_a_daily_task_stuck_for_days_is_denounced(): void
+    {
+        $verdict = DeployController::verdictPasses(
+            ['cvs:archive-inactive' => '2026-09-05'],
+            new \DateTimeImmutable('2026-09-11 13:00:00'),
+        );
+
+        $this->assertSame(6, $verdict['cvs:archive-inactive']['il_y_a_jours']);
+        $this->assertStringContainsString('EN RETARD', $verdict['cvs:archive-inactive']['etat']);
+    }
+
+    // L'hebdomadaire a droit a six jours : son marqueur porte le lundi de la
+    // semaine en cours. La signaler en retard chaque vendredi aurait rendu le
+    // controle inutile a force de fausses alertes.
+    public function test_a_weekly_task_is_allowed_to_be_days_old(): void
+    {
+        $maintenant = new \DateTimeImmutable('2026-09-11 13:00:00');
+
+        $this->assertSame(
+            'ok',
+            DeployController::verdictPasses(['cv-downloads:purge' => '2026-09-07'], $maintenant)['cv-downloads:purge']['etat'],
+        );
+        $this->assertStringContainsString(
+            'EN RETARD',
+            DeployController::verdictPasses(['cv-downloads:purge' => '2026-08-31'], $maintenant)['cv-downloads:purge']['etat'],
+        );
+    }
+
+    // Juste apres le deploiement du correctif, aucun marqueur n'existe encore.
+    // Le message doit enoncer les deux lectures possibles plutot que d'accuser.
+    public function test_a_task_without_any_marker_is_not_accused(): void
+    {
+        $verdict = DeployController::verdictPasses([], new \DateTimeImmutable);
+
+        foreach (array_keys(DeployController::TACHES_A_MARQUEUR) as $commande) {
+            $this->assertNull($verdict[$commande]['derniere_passe']);
+            $this->assertStringContainsString('JAMAIS PASSEE', $verdict[$commande]['etat']);
+        }
+    }
+
+    // Les rappels de visio n'ont pas de marqueur : ils partent a chaque passage
+    // du cron. Les attendre ici produirait une fausse alerte permanente.
+    public function test_video_room_reminders_are_not_expected_to_have_a_marker(): void
+    {
+        $this->assertArrayNotHasKey('video-rooms:send-reminders', DeployController::TACHES_A_MARQUEUR);
     }
 }

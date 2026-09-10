@@ -33,7 +33,7 @@ class DeployController extends Controller
     // ne peut pas savoir si le controleur lui-meme a bien ete redeploye : c est
     // arrive le 2026-09-02, ou clear-cache continuait d echouer avec une version
     // corrigee censement en place. A incrementer a chaque changement ici.
-    public const DEPLOY_TOOLS_VERSION = 'deploy-tools-17';
+    public const DEPLOY_TOOLS_VERSION = 'deploy-tools-18';
 
     // Cle du battement du planificateur, ecrite par bootstrap/app.php a
     // chaque schedule:run. Dupliquee en dur la-bas volontairement : voir
@@ -44,6 +44,22 @@ class DeployController extends Controller
     // minutes sans battement, un passage a ete manque : ce n'est plus un
     // decalage d'horloge, c'est un cron qui ne tourne plus.
     public const BATTEMENT_TOLERANCE_MINUTES = 70;
+
+    // Prefixe des marqueurs ecrits par bootstrap/app.php apres chaque passe
+    // reussie d'une tache. Ecrit en dur des deux cotes, volontairement :
+    // meme raison que CLE_BATTEMENT, un fichier absent ne doit jamais
+    // pouvoir faire tomber le cron.
+    public const CLE_PASSE_PREFIXE = 'planificateur.derniere_passe.';
+
+    // Les taches a cadence, avec leur periode. Les rappels de visio n'y
+    // sont pas : ils partent a chaque passage du cron, sans marqueur.
+    public const TACHES_A_MARQUEUR = [
+        'job-offers:expire' => 'jour',
+        'job-offers:archive-expired-trials' => 'jour',
+        'cvs:archive-inactive' => 'jour',
+        'job-offers:notify-matching-candidates' => 'jour',
+        'cv-downloads:purge' => 'semaine',
+    ];
 
     private function assertAuthorized(string $token): void
     {
@@ -537,6 +553,10 @@ class DeployController extends Controller
             'taches' => self::comparerTaches(array_keys(Artisan::all()), $planifiees),
             // Ce que schedule:list ne dira jamais : le cron tourne-t-il ?
             'cron' => self::verdictBattement(Cache::get(self::CLE_BATTEMENT), now()),
+            // ... et ce que le battement lui-meme ne dit pas : chaque tache
+            // tourne-t-elle ? Un cron qui passe n'a jamais garanti qu'une
+            // tache s'execute, c'est toute la lecon du 2026-09-10.
+            'dernieres_passes' => self::verdictPasses(self::marqueursDePasse(), now()),
             'sortie_brute' => $sortie,
             'heure_serveur' => now()->toDateTimeString(),
         ]);
@@ -567,6 +587,58 @@ class DeployController extends Controller
                 ? 'ok — le cron OVH tourne'
                 : "CRON MUET depuis {$minutes} minutes — plus aucune tache planifiee ne s'execute",
         ];
+    }
+
+    /** @return array<string, ?string> */
+    private static function marqueursDePasse(): array
+    {
+        $marqueurs = [];
+        foreach (array_keys(self::TACHES_A_MARQUEUR) as $commande) {
+            $marqueurs[$commande] = Cache::get(self::CLE_PASSE_PREFIXE.$commande);
+        }
+
+        return $marqueurs;
+    }
+
+    // Extrait du controleur pour la meme raison que comparerTaches et
+    // verdictBattement : on ne peut pas faire vieillir un vrai marqueur depuis
+    // un test HTTP, alors que le cas a couvrir est justement celui d'une tache
+    // qui a cesse de passer.
+    //
+    // Tolerances. Une tache quotidienne s'execute au premier passage du cron
+    // apres minuit : la voir dater d'hier est normal en pleine nuit, la voir
+    // dater d'avant-hier ne l'est plus. Une hebdomadaire part au premier
+    // passage du lundi, donc son marqueur a au plus six jours.
+    public static function verdictPasses(array $marqueurs, \DateTimeInterface $maintenant): array
+    {
+        $aujourdhui = strtotime($maintenant->format('Y-m-d'));
+        $rapport = [];
+
+        foreach (self::TACHES_A_MARQUEUR as $commande => $periode) {
+            $marqueur = $marqueurs[$commande] ?? null;
+
+            if (! $marqueur) {
+                $rapport[$commande] = [
+                    'derniere_passe' => null,
+                    'etat' => "JAMAIS PASSEE — soit le correctif du planificateur vient d'etre deploye, soit cette tache ne s'execute pas.",
+                ];
+
+                continue;
+            }
+
+            $jours = (int) floor(($aujourdhui - strtotime($marqueur)) / 86400);
+            $limite = $periode === 'semaine' ? 7 : 1;
+
+            $rapport[$commande] = [
+                'derniere_passe' => $marqueur,
+                'il_y_a_jours' => $jours,
+                'etat' => $jours <= $limite
+                    ? 'ok'
+                    : "EN RETARD — {$jours} jours sans passage, cadence attendue : une fois par {$periode}",
+            ];
+        }
+
+        return $rapport;
     }
 
     // Taches que l'application est censee executer. Toute nouvelle commande
