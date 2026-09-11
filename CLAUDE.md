@@ -888,8 +888,12 @@ ACCOUNT_SUSPENDED`, 403). Un access token déjà émis est **aussi** coupé
   consentement — une colonne en base reste à ajouter avant la soumission.
 - Vérifié : `expo export --platform ios` produit un bundle complet (Metro
   résout les alias `@/`, le paquet du workspace et les assets), types et lint
-  propres, Metro démarre. **Pas encore vérifié sur un vrai iPhone** : le
-  backend n'était pas déployé au moment de l'écriture.
+  propres, Metro démarre. **Vérifié sur l'iPhone de Pierre le 2026-09-11**
+  (Expo Go, backend déployé) : inscription refusée sans la case des 15 ans,
+  doublon d'email refusé, connexion avec un compte existant du site (même
+  base — l'exigence « même compte web et mobile » est prouvée), **session
+  conservée après fermeture complète de l'app** (le coffre fonctionne),
+  clair/sombre/système, déconnexion.
 - Deux pièges natifs traités : une police custom n'a pas de graisse (chaque
   graisse est un fichier, `fontWeight` est sans effet sur Android — d'où les
   constantes de `theme/typography.ts`) ; et importer les polices depuis la
