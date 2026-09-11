@@ -6,6 +6,7 @@ import {
   Phone,
   MapPin,
   Car,
+  Cake,
   Briefcase,
   GraduationCap,
   Linkedin,
@@ -103,6 +104,12 @@ export function CvthequeCandidate() {
               <p className="font-inter text-muted-foreground">{c.headline}</p>
             )}
             <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 font-inter text-sm text-muted-foreground">
+              {c.age !== null && (
+                <span className="inline-flex items-center gap-1.5">
+                  <Cake className="h-4 w-4" aria-hidden="true" />
+                  {c.age} ans
+                </span>
+              )}
               {c.city && (
                 <span className="inline-flex items-center gap-1.5">
                   <MapPin className="h-4 w-4" aria-hidden="true" />

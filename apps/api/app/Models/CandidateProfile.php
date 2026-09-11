@@ -18,6 +18,17 @@ class CandidateProfile extends Model
 {
     protected $table = 'candidate_profiles';
 
+    // L'age est ajoute a chaque serialisation du profil. C'est l'AGE qui
+    // interesse un recruteur — le cout d'un alternant depend de sa tranche
+    // d'age — pas la date exacte : exposer l'un permet de garder l'autre
+    // privee (voir CvthequeService, qui masque birth_date).
+    protected $appends = ['age'];
+
+    public function getAgeAttribute(): ?int
+    {
+        return $this->birth_date?->age;
+    }
+
     protected function casts(): array
     {
         return [

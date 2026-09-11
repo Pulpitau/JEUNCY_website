@@ -1,0 +1,264 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Jeuncy — Plaquette entreprises et CFA</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700&family=Inter:wght@400;500;600&display=swap">
+{{CSS}}
+<style>
+  @page { size: A4; margin: 0; }
+  .kicker { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
+  .kicker .accent { width: 32px; }
+  .story p { font-size: 10.5pt; line-height: 1.6; }
+  .story p + p { margin-top: 10px; }
+  .bigq { font-family: Poppins, sans-serif; font-size: 17pt; line-height: 1.3; font-weight: 600; color: var(--on-navy); }
+  .bigq em { font-style: normal; color: var(--orange); }
+  .vs { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .vs .col h3 { display: flex; align-items: center; gap: 8px; font-size: 11pt; padding-bottom: 6px; border-bottom: 2px solid var(--line); margin-bottom: 6px; }
+  .vs .col.coral h3 { border-bottom-color: var(--coral); }
+  .founder { display: flex; align-items: center; gap: 16px; padding: 14px 18px; background: var(--tint); border: 1px solid var(--tint-line); border-radius: 10px; }
+  .founder .big { font-family: Poppins, sans-serif; font-size: 24pt; font-weight: 700; color: var(--coral); line-height: 1; }
+  .founder .big s { font-size: 11pt; color: var(--ink-faint); margin-left: 8px; font-weight: 500; }
+  .founder .txt { display: flex; flex-direction: column; gap: 2px; }
+  .founder .txt strong { font-family: Poppins, sans-serif; font-size: 10.5pt; }
+  .founder .txt span { font-size: 9pt; color: var(--ink-soft); }
+  .faq { display: flex; flex-direction: column; }
+  .faq .objection { grid-template-columns: 1fr 1.6fr; }
+  .contact { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  .contact .card { align-items: flex-start; }
+  .contact .card .ic { color: var(--orange); }
+  .contact .card b { font-family: Poppins, sans-serif; color: var(--on-navy); font-size: 11pt; }
+  .usecase { display: flex; gap: 12px; align-items: flex-start; padding: 10px 0; border-bottom: 1px solid var(--line-soft); font-size: 9.5pt; }
+  .usecase .who { font-family: Poppins, sans-serif; font-weight: 600; color: var(--ink); width: 38%; flex: none; }
+  .band { background: var(--navy); color: var(--on-navy-soft); border-radius: 10px; padding: 14px 18px; display: flex; gap: 14px; align-items: center; }
+  .band .num { font-family: Poppins, sans-serif; font-size: 22pt; font-weight: 700; color: var(--orange); line-height: 1; flex: none; }
+  .band p { font-size: 9.5pt; }
+  .band strong { color: var(--on-navy); }
+</style>
+</head>
+<body>
+{{ICONS}}
+
+<!-- 1. Couverture -->
+<section class="page navy cover">
+  <div class="glow"></div>
+  <div class="brand"><img src="{{LOGO_DARK}}" alt=""><span class="wordmark">Jeuncy</span></div>
+  <div>
+    <p class="eyebrow on-navy">Plaquette · Entreprises &amp; CFA</p>
+    <h1 style="margin-top:14px;">Recruter un alternant, sans y passer la semaine.</h1>
+    <p class="lead" style="margin-top:18px;">Jeuncy est l'agence de recrutement nouvelle génération des alternants, saisonniers et bénévoles. Vous publiez ; les profils qui correspondent sont prévenus le jour même ; vous choisissez.</p>
+    <div class="grid cols-3" style="margin-top: 28px;">
+      <div class="stat"><span class="num" style="color:var(--orange)">15 j</span><span class="lab">de première offre gratuite, sans carte bancaire</span></div>
+      <div class="stat"><span class="num" style="color:var(--on-navy)">J+0</span><span class="lab">les candidats correspondants sont prévenus le jour de la publication</span></div>
+      <div class="stat"><span class="num" style="color:var(--on-navy)">299 €</span><span class="lab">par mois, tout illimité, tarif fondateur — 50 places</span></div>
+    </div>
+  </div>
+  <div class="meta">
+    <div><b>Site</b>jeuncy.com</div>
+    <div><b>Contact</b>go@jeuncy.com</div>
+    <div><b>Téléphone</b>07 43 68 99 11</div>
+    <div><b>Agence</b>46 bd Clemenceau, Perpignan</div>
+  </div>
+</section>
+
+<!-- 2. Le constat -->
+<section class="page">
+  <div class="head"><div class="brand"><img src="{{LOGO_LIGHT}}" alt=""><span class="wordmark">Jeuncy</span></div><span class="section">Le constat</span></div>
+  <div class="kicker"><div class="accent"></div><p class="eyebrow">L'alternance en France, en 2026</p></div>
+  <h2>Des jeunes sans entreprise. Des entreprises sans candidats. Au même moment, dans la même ville.</h2>
+  <p class="lead" style="margin-top: 10px;">Le paradoxe de l'alternance n'est pas un manque de candidats ni un manque de postes. C'est que les deux ne se voient pas — ou trop tard.</p>
+  <div class="grid cols-2" style="margin-top: 18px;">
+    <div class="feature"><div class="icon-badge"><svg class="ic"><use href="#i-clock"/></svg></div><div><h4>Le compte à rebours du CFA</h4><p>Un jeune admis en formation a quelques mois pour signer avec un employeur. Passé ce délai, il perd sa place, et le CFA perd un apprenant qu'il avait recruté.</p></div></div>
+    <div class="feature"><div class="icon-badge"><svg class="ic"><use href="#i-trend"/></svg></div><div><h4>Des aides en recul, un risque en hausse</h4><p>Depuis 2025, les aides à l'embauche d'apprentis ont baissé. Un recrutement raté coûte plus cher qu'avant : il faut recruter mieux, et plus vite.</p></div></div>
+    <div class="feature"><div class="icon-badge"><svg class="ic"><use href="#i-layers"/></svg></div><div><h4>Noyés dans les grandes plateformes</h4><p>Sur les sites généralistes, une offre d'alternance disparaît parmi des milliers d'annonces, et l'employeur reçoit des candidatures en masse, sans tri, souvent sans CV lisible.</p></div></div>
+    <div class="feature"><div class="icon-badge"><svg class="ic"><use href="#i-pin"/></svg></div><div><h4>Hors des métropoles, le réseau avant le mérite</h4><p>Loin des grandes villes, les offres se transmettent de bouche à oreille. Un jeune sans carnet d'adresses part avec un handicap qui n'a rien à voir avec ses compétences.</p></div></div>
+  </div>
+  <div class="hair" style="margin: 22px 0 18px;"></div>
+  <div class="kicker"><div class="accent"></div><p class="eyebrow">Ce que nous sommes</p></div>
+  <h2 style="font-size: 16pt;">Une agence de recrutement nouvelle génération : visible, accessible, humaine, efficace.</h2>
+  <p style="margin-top: 8px; max-width: 66ch;">Pas un site d'annonces de plus. Une plateforme qui fait le travail d'une agence — présenter les bons profils aux bons employeurs — au prix d'un abonnement, avec une adresse à Perpignan et une équipe joignable.</p>
+  <div class="grid cols-3" style="margin-top: 14px;">
+    <div class="card"><h4>Mission</h4><p>Créer des rencontres professionnelles utiles et accélérer le recrutement d'alternants.</p></div>
+    <div class="card"><h4>Promesse</h4><p>Simplifier la recherche d'une entreprise, et présenter aux employeurs des profils pertinents — pas une pile de CV.</p></div>
+    <div class="card"><h4>Personnalité</h4><p>Jeune sans être adolescente. Professionnelle sans être froide. Directe, optimiste et humaine.</p></div>
+  </div>
+  <div class="foot"><span>Jeuncy · Plaquette entreprises &amp; CFA</span><span class="pageno">2</span></div>
+</section>
+
+<!-- 3. Notre histoire -->
+<section class="page navy">
+  <div class="head"><div class="brand"><img src="{{LOGO_DARK}}" alt=""><span class="wordmark">Jeuncy</span></div><span class="section">Notre histoire</span></div>
+  <div class="kicker"><div class="accent"></div><p class="eyebrow on-navy">Perpignan, rentrée 2024</p></div>
+  <h2>Jeuncy est né d'une file d'attente.</h2>
+  <div class="story" style="margin-top: 16px;">
+    <p>Tout a commencé par une phrase entendue à la sortie d'un CFA : <strong>« Vous avez trois mois pour trouver une entreprise, sinon nous ne pourrons pas vous garder. »</strong> Les fondateurs de Jeuncy étaient étudiants. Dossier accepté, formation choisie, pas d'employeur. Comme la moitié de leur promotion.</p>
+    <p>Ce qui a suivi, tous ceux qui ont cherché une alternance le connaissent. Des dizaines de candidatures envoyées depuis les mêmes grands sites. Un CV bricolé sur un modèle trouvé en ligne. Des « nous reviendrons vers vous » qui ne reviennent jamais. Et cette impression tenace que les places existent, mais qu'elles se donnent ailleurs, entre gens qui se connaissent.</p>
+    <p>Le déclic est venu de l'autre côté du comptoir. Un patron de PME, rencontré par hasard, qui cherchait un alternant depuis six mois sans y arriver. Pas le temps de trier cent CV. Pas envie de payer un cabinet au tarif d'un cadre. Et plus très sûr, avec la baisse des aides, que ça vaille encore le risque.</p>
+    <p><strong>Deux besoins qui se cherchaient dans la même ville sans jamais se croiser.</strong> Ce jour-là, l'idée a tenu en une phrase : ce qui manque, ce n'est ni des candidats ni des postes, c'est le moment où les deux se voient.</p>
+    <p>Jeuncy est la réponse. Une plateforme où le jeune construit un profil sérieux et où son CV se génère tout seul, propre et lisible. Où l'entreprise publie en dix minutes, sans engagement. Et où, dès la mise en ligne, les profils qui correspondent sont prévenus le jour même — pas une semaine plus tard, pas noyés au milieu de mille annonces.</p>
+    <p>Une agence de recrutement, donc. Mais nouvelle génération : visible, accessible, humaine, avec une adresse au 46 boulevard Clemenceau où l'on peut passer. Née dans un département où trouver sa place est plus dur qu'ailleurs. Faite pour que ça devienne plus simple partout.</p>
+  </div>
+  <div class="quote" style="margin-top: 22px;">
+    <svg class="ic"><use href="#i-quote"/></svg>
+    <span class="bigq">Nous ne vendons pas de la visibilité. Nous vendons <em>le moment où le bon jeune et la bonne entreprise se voient.</em></span>
+  </div>
+  <div class="foot"><span>Jeuncy · Plaquette entreprises &amp; CFA</span><span class="pageno">3</span></div>
+</section>
+
+<!-- 4. Comment ça marche -->
+<section class="page">
+  <div class="head"><div class="brand"><img src="{{LOGO_LIGHT}}" alt=""><span class="wordmark">Jeuncy</span></div><span class="section">Fonctionnement</span></div>
+  <div class="kicker"><div class="accent"></div><p class="eyebrow">Comment ça marche</p></div>
+  <h2>Trois étapes, et la rencontre a lieu le jour de la publication.</h2>
+  <div class="steps" style="margin-top: 18px;">
+    <div class="step"><div class="n">1</div><div><h3>Le candidat construit son profil</h3><p>Expériences, formations, compétences, logiciels, ville, type de contrat recherché. Jeuncy génère un CV professionnel à partir de ces informations — ou l'importe depuis un CV existant. Chaque profil est lisible, complet, comparable aux autres.</p></div></div>
+    <div class="step"><div class="n">2</div><div><h3>L'entreprise publie en dix minutes</h3><p>Intitulé, contrat, ville, rythme, rémunération, compétences attendues. La première offre est gratuite pendant 15 jours, sans carte bancaire. Ensuite, 9,99 € par mois de mise en ligne, ou l'abonnement pour publier sans limite.</p></div></div>
+    <div class="step"><div class="n">3</div><div><h3>Les bons profils sont prévenus le jour même</h3><p>Dès la mise en ligne, chaque candidat dont le profil correspond — même ville ou même métier — reçoit une notification. Son CV est prêt : il postule en un clic. L'entreprise suit chaque candidature, statut par statut, et peut organiser un entretien en visio sans rien installer.</p></div></div>
+  </div>
+  <div class="hair" style="margin: 20px 0 16px;"></div>
+  <div class="kicker"><div class="accent"></div><p class="eyebrow">Ce que vous obtenez</p></div>
+  <div class="grid cols-2" style="margin-top: 10px;">
+    <div class="feature"><div class="icon-badge"><svg class="ic"><use href="#i-bell"/></svg></div><div><h4>Candidats prévenus à la publication</h4><p>Ville ou métier en commun : les profils correspondants reçoivent l'offre le jour même. Aucune diffusion à acheter, aucune relance à faire.</p></div></div>
+    <div class="feature"><div class="icon-badge"><svg class="ic"><use href="#i-file"/></svg></div><div><h4>Des CV lisibles, tous au même format</h4><p>Chaque candidature arrive avec un CV généré par Jeuncy : même structure, même clarté. On compare en trente secondes.</p></div></div>
+    <div class="feature"><div class="icon-badge"><svg class="ic"><use href="#i-list"/></svg></div><div><h4>Suivi des candidatures</h4><p>Vue, entretien, acceptée, refusée. Le candidat est prévenu à chaque changement : plus de relances à écrire, plus de jeunes sans réponse.</p></div></div>
+    <div class="feature"><div class="icon-badge"><svg class="ic"><use href="#i-search"/></svg></div><div><h4>La CVthèque, avec l'abonnement</h4><p>Filtrez par compétence, ville, langue, permis, logiciel. Consultez le CV, contactez directement. Sans attendre qu'un candidat postule.</p></div></div>
+    <div class="feature"><div class="icon-badge"><svg class="ic"><use href="#i-video"/></svg></div><div><h4>Entretien en visio intégré</h4><p>Un lien à envoyer, le candidat rejoint depuis son navigateur. Partage d'écran inclus. Rien à installer.</p></div></div>
+    <div class="feature"><div class="icon-badge"><svg class="ic"><use href="#i-shield"/></svg></div><div><h4>Paiement sécurisé, données protégées</h4><p>Paiement par Stripe, aucune donnée bancaire stockée par Jeuncy. Données hébergées en France, conformité RGPD.</p></div></div>
+  </div>
+  <div class="foot"><span>Jeuncy · Plaquette entreprises &amp; CFA</span><span class="pageno">4</span></div>
+</section>
+
+<!-- 5. Pour les entreprises -->
+<section class="page">
+  <div class="head"><div class="brand"><img src="{{LOGO_LIGHT}}" alt=""><span class="wordmark">Jeuncy</span></div><span class="section">Entreprises</span></div>
+  <div class="kicker"><div class="accent"></div><p class="eyebrow">Pour les entreprises</p></div>
+  <h2>Vous voulez un alternant. Pas cent CV à trier.</h2>
+  <div class="vs" style="margin-top: 16px;">
+    <div class="col">
+      <h3><svg class="ic sm" style="color:var(--ink-faint)"><use href="#i-alert"/></svg>Ce qui vous pèse</h3>
+      <ul class="checks">
+        <li><svg class="ic"><use href="#i-x"/></svg><span><strong>Le temps.</strong> Trier des candidatures hors sujet, relancer, répondre. Pour un poste d'alternant, personne n'a une journée à y consacrer.</span></li>
+        <li><svg class="ic"><use href="#i-x"/></svg><span><strong>Le coût.</strong> Un cabinet facture un alternant comme un cadre. Une plateforme généraliste fait payer la visibilité sans garantir la pertinence.</span></li>
+        <li><svg class="ic"><use href="#i-x"/></svg><span><strong>Le risque.</strong> Avec des aides plus faibles, un mauvais recrutement se paie cash. Il faut voir de vrais profils avant de s'engager.</span></li>
+      </ul>
+    </div>
+    <div class="col coral">
+      <h3><svg class="ic sm" style="color:var(--coral)"><use href="#i-check"/></svg>Ce que Jeuncy répond</h3>
+      <ul class="checks">
+        <li><svg class="ic"><use href="#i-check"/></svg><span><strong>Dix minutes pour publier, zéro pour diffuser.</strong> Les profils qui correspondent sont prévenus le jour même. Les candidatures arrivent avec un CV lisible.</span></li>
+        <li><svg class="ic"><use href="#i-check"/></svg><span><strong>9,99 € par mois de mise en ligne.</strong> Ou 299 € par mois pour tout, sans limite, tarif fondateur. La première offre est gratuite 15 jours.</span></li>
+        <li><svg class="ic"><use href="#i-check"/></svg><span><strong>Vous voyez avant de choisir.</strong> Profil complet, CV, statuts de candidature, entretien en visio. Rien n'est engagé tant que vous n'avez pas dit oui.</span></li>
+      </ul>
+    </div>
+  </div>
+  <div class="hair" style="margin: 18px 0 14px;"></div>
+  <div class="kicker"><div class="accent"></div><p class="eyebrow">Qui recrute avec Jeuncy</p></div>
+  <div class="usecase"><span class="who">La TPE qui recrute son premier alternant</span><span>Elle n'a pas de service RH. Elle publie une offre gratuite, reçoit trois candidatures avec CV au même format, fait un entretien en visio, décide. Deux heures en tout.</span></div>
+  <div class="usecase"><span class="who">La PME qui recrute chaque année</span><span>Trois à cinq alternants par an, plusieurs métiers. L'abonnement lui donne les offres illimitées, toutes les candidatures et la CVthèque pour aller chercher des profils sans attendre.</span></div>
+  <div class="usecase"><span class="who">Le commerce saisonnier</span><span>Un pic d'activité, des jobs d'été ou de fin d'année. Il publie à l'annonce quand il en a besoin, sans abonnement, et cible les jeunes de sa ville.</span></div>
+  <div class="usecase" style="border-bottom: 0;"><span class="who">L'association</span><span>Des missions de bénévolat à pourvoir. Même plateforme, même simplicité : elle est vue par des jeunes qui cherchent à s'engager.</span></div>
+  <div class="band" style="margin-top: 18px;">
+    <span class="num">15 j</span>
+    <p><strong>Votre première offre est gratuite.</strong> En ligne quinze jours, candidatures incluses, sans carte bancaire et sans reconduction. Si personne ne postule, vous n'aurez rien payé — et nous regardons avec vous pourquoi.</p>
+  </div>
+  <div class="foot"><span>Jeuncy · Plaquette entreprises &amp; CFA</span><span class="pageno">5</span></div>
+</section>
+
+<!-- 6. Pour les CFA -->
+<section class="page">
+  <div class="head"><div class="brand"><img src="{{LOGO_LIGHT}}" alt=""><span class="wordmark">Jeuncy</span></div><span class="section">CFA</span></div>
+  <div class="kicker"><div class="accent"></div><p class="eyebrow">Pour les CFA</p></div>
+  <h2>Chaque apprenant sans entreprise est une place qui se perd.</h2>
+  <p class="lead" style="margin-top: 8px;">Pour un CFA, Jeuncy n'est pas un site de recrutement : c'est un outil de placement. Vos apprenants y sont visibles, vos filières aussi, et vous suivez qui a postulé où.</p>
+  <div class="vs" style="margin-top: 16px;">
+    <div class="col">
+      <h3><svg class="ic sm" style="color:var(--ink-faint)"><use href="#i-alert"/></svg>Ce qui vous pèse</h3>
+      <ul class="checks">
+        <li><svg class="ic"><use href="#i-x"/></svg><span><strong>Les « sans contrat ».</strong> Des jeunes admis, motivés, qui n'ont pas trouvé d'employeur dans les délais. Chacun est un décrochage, et une place financée qui s'évapore.</span></li>
+        <li><svg class="ic"><use href="#i-x"/></svg><span><strong>Le placement à la main.</strong> Un chargé de relations entreprises, un tableur, des appels. Ça ne passe pas à l'échelle quand on a dix filières.</span></li>
+        <li><svg class="ic"><use href="#i-x"/></svg><span><strong>La visibilité des formations.</strong> Les entreprises du bassin ne savent pas ce que vous proposez, ni quand vos jeunes sont disponibles.</span></li>
+      </ul>
+    </div>
+    <div class="col coral">
+      <h3><svg class="ic sm" style="color:var(--coral)"><use href="#i-check"/></svg>Ce que Jeuncy répond</h3>
+      <ul class="checks">
+        <li><svg class="ic"><use href="#i-check"/></svg><span><strong>Vos apprenants sur la plateforme, avec un CV prêt.</strong> Dès qu'une entreprise du bassin publie, ceux qui correspondent sont prévenus. Vous n'êtes plus le seul canal.</span></li>
+        <li><svg class="ic"><use href="#i-check"/></svg><span><strong>Une vue du placement.</strong> Qui a postulé où, avec quel statut, filière par filière. Le suivi devient un tableau de bord, pas une charge.</span></li>
+        <li><svg class="ic"><use href="#i-check"/></svg><span><strong>Une offre par filière, à 5,99 € par mois.</strong> Vos besoins visibles par les entreprises et les jeunes. Et la CVthèque pour proposer vous-même des profils à vos partenaires.</span></li>
+      </ul>
+    </div>
+  </div>
+  <div class="hair" style="margin: 18px 0 14px;"></div>
+  <div class="grid cols-2">
+    <div class="feature"><div class="icon-badge"><svg class="ic"><use href="#i-layers"/></svg></div><div><h4>Publiez les besoins de chaque filière</h4><p>Une offre par formation, avec le rythme d'alternance, le niveau visé et la rémunération. Les jeunes qui correspondent sont prévenus aussitôt.</p></div></div>
+    <div class="feature"><div class="icon-badge"><svg class="ic"><use href="#i-users"/></svg></div><div><h4>Suivez le placement de vos apprenants</h4><p>Une vue d'ensemble pour votre chargé de relations entreprises, au lieu d'un tableur tenu à la main.</p></div></div>
+    <div class="feature"><div class="icon-badge"><svg class="ic"><use href="#i-video"/></svg></div><div><h4>Réunions d'information en visio</h4><p>Présentez une formation à un groupe de candidats ou à une entreprise sans déplacement. Partage d'écran pour montrer le programme.</p></div></div>
+    <div class="feature"><div class="icon-badge"><svg class="ic"><use href="#i-pin"/></svg></div><div><h4>Une équipe sur le terrain</h4><p>Une agence à Perpignan, une équipe joignable. Nous rencontrons les CFA, nous ne les laissons pas seuls devant un écran.</p></div></div>
+  </div>
+  <div class="band" style="margin-top: 18px;">
+    <span class="num">5,99 €</span>
+    <p><strong>Un tarif pensé pour les CFA.</strong> 5,99 € par mois de mise en ligne par offre, contre 9,99 € pour les entreprises. Première offre gratuite quinze jours, et le même abonnement à 299 € par mois pour tout, sans limite.</p>
+  </div>
+  <div class="foot"><span>Jeuncy · Plaquette entreprises &amp; CFA</span><span class="pageno">6</span></div>
+</section>
+
+<!-- 7. Tarifs -->
+<section class="page">
+  <div class="head"><div class="brand"><img src="{{LOGO_LIGHT}}" alt=""><span class="wordmark">Jeuncy</span></div><span class="section">Tarifs</span></div>
+  <div class="kicker"><div class="accent"></div><p class="eyebrow">Deux façons de recruter · tarifs HT · sans engagement</p></div>
+  <h2>À l'annonce si vous publiez rarement. En abonnement si vous recrutez toute l'année.</h2>
+  <table class="hl" style="margin-top: 18px;">
+    <thead><tr><th></th><th>À l'annonce</th><th>Abonnement</th></tr></thead>
+    <tbody>
+      <tr><th>Prix</th><td><span class="price">9,99 €<small> / offre / mois</small></span><br><span class="small muted">5,99 € pour les CFA</span></td><td><span class="price">499 €<small> / mois</small></span><br><span class="small muted">299 € au tarif fondateur</span></td></tr>
+      <tr><th>Durée de mise en ligne</th><td>1 mois par paiement. À renouveler si vous le décidez : aucun prélèvement automatique.</td><td>Illimitée, tant que l'abonnement est actif</td></tr>
+      <tr><th>Offres publiées</th><td>À l'unité</td><td>Illimitées</td></tr>
+      <tr><th>Candidatures</th><td>Celles de l'offre payée</td><td>Toutes, y compris les anciennes</td></tr>
+      <tr><th>CVthèque</th><td>Non incluse</td><td>Incluse : recherche par compétence, ville, langue, permis, logiciel</td></tr>
+      <tr><th>Visioconférence</th><td>Non incluse</td><td>Incluse</td></tr>
+      <tr><th>Engagement</th><td>Aucun</td><td>Aucun, résiliable à tout moment depuis votre espace</td></tr>
+      <tr><th>Pour qui</th><td>Un ou deux recrutements par an</td><td>Vous recrutez toute l'année</td></tr>
+    </tbody>
+  </table>
+  <div class="founder" style="margin-top: 16px;">
+    <div class="big">299 € <s>499 €</s></div>
+    <div class="txt"><strong>Tarif fondateur, par mois</strong><span>Réservé aux 50 premières entreprises et CFA. Le tarif reste acquis tant que l'abonnement continue — même quand le prix public repassera à 499 €.</span></div>
+    <span class="pill" style="margin-left:auto;">50 places</span>
+  </div>
+  <div class="hair" style="margin: 18px 0 14px;"></div>
+  <div class="kicker"><div class="accent"></div><p class="eyebrow">Pour commencer</p></div>
+  <div class="grid cols-3">
+    <div class="card tint"><div class="icon-badge"><svg class="ic"><use href="#i-gift"/></svg></div><h4>Première offre gratuite</h4><p>15 jours en ligne, candidatures incluses, sans carte bancaire et sans reconduction.</p></div>
+    <div class="card"><div class="icon-badge"><svg class="ic"><use href="#i-euro"/></svg></div><h4>Puis à l'annonce</h4><p>9,99 € (5,99 € CFA) pour un mois. Vous repayez seulement si vous le décidez.</p></div>
+    <div class="card"><div class="icon-badge"><svg class="ic"><use href="#i-zap"/></svg></div><h4>Ou l'abonnement</h4><p>Tout illimité, CVthèque et visio comprises. 299 € par mois pour les 50 premiers.</p></div>
+  </div>
+  <div class="foot"><span>Jeuncy · Plaquette entreprises &amp; CFA</span><span class="pageno">7</span></div>
+</section>
+
+<!-- 8. Questions & contact -->
+<section class="page navy">
+  <div class="glow"></div>
+  <div class="head"><div class="brand"><img src="{{LOGO_DARK}}" alt=""><span class="wordmark">Jeuncy</span></div><span class="section">Questions fréquentes</span></div>
+  <div class="faq">
+    <div class="objection"><span class="q" style="color:var(--on-navy)">Combien de candidats avez-vous ?</span><span class="a">Plus d'une centaine de jeunes déjà inscrits, avec un profil complet et un CV prêt, et de nouveaux profils chaque jour. Ce qui compte pour vous, c'est qu'un candidat correspondant soit prévenu : dites-nous la ville et le métier, on vous montre.</span></div>
+    <div class="objection"><span class="q" style="color:var(--on-navy)">Vos candidats sont-ils sérieux ?</span><span class="a">Chaque profil est construit par le jeune lui-même : expériences, formations, compétences. Vous voyez le CV avant de répondre, vous faites l'entretien en visio quand vous voulez. Rien n'est engagé sans vous.</span></div>
+    <div class="objection"><span class="q" style="color:var(--on-navy)">Et si personne ne postule ?</span><span class="a">Alors vous n'aurez rien payé — la première offre est gratuite. Et si vous avez publié, nous regardons avec vous pourquoi : intitulé, ville, rémunération. C'est le travail d'une agence.</span></div>
+    <div class="objection"><span class="q" style="color:var(--on-navy)">Nous passons déjà par un CFA.</span><span class="a">Gardez-le. Jeuncy vous ouvre aussi les jeunes qui ne sont pas dans ce CFA, et ceux qui cherchent avant la rentrée. Beaucoup de CFA utilisent Jeuncy pour placer leurs propres apprenants.</span></div>
+    <div class="objection"><span class="q" style="color:var(--on-navy)">Que se passe-t-il au bout d'un mois ?</span><span class="a">Votre offre sort de la ligne. Vous êtes prévenu trois jours avant, par email et sur la plateforme. Vous la remettez en ligne en un clic si vous le souhaitez — rien n'est prélevé sans votre accord.</span></div>
+    <div class="objection" style="border-bottom:0;"><span class="q" style="color:var(--on-navy)">Et mes données ?</span><span class="a">Paiement par Stripe, Jeuncy ne stocke aucune donnée bancaire. Données hébergées en France, export et suppression de votre compte à tout moment. Les candidats gardent la main sur leur visibilité dans la CVthèque.</span></div>
+  </div>
+  <div class="mt-auto">
+    <h2 style="font-size: 20pt;">Publiez votre première offre. Gratuitement. Aujourd'hui.</h2>
+    <div class="contact" style="margin-top: 16px;">
+      <div class="card"><svg class="ic lg"><use href="#i-globe"/></svg><b>jeuncy.com</b><p>Créer un compte entreprise ou CFA en deux minutes</p></div>
+      <div class="card"><svg class="ic lg"><use href="#i-mail"/></svg><b>go@jeuncy.com</b><p>Réponse sous 24 h</p></div>
+      <div class="card"><svg class="ic lg"><use href="#i-phone"/></svg><b>07 43 68 99 11</b><p>Agence : 46 bd Clemenceau, 66000 Perpignan</p></div>
+    </div>
+  </div>
+  <div class="foot"><span>SAS Jeuncy · Ton alternance commence ici.</span><span class="pageno">8</span></div>
+</section>
+
+</body>
+</html>

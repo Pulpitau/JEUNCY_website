@@ -41,9 +41,13 @@ class CvthequeService
     // address, ni birth_date, ni l'email du compte. La ville reste exposee, un
     // recruteur devant pouvoir filtrer geographiquement — c'est une donnee de
     // localisation grossiere, pas une adresse postale.
+    //
+    // birth_date est selectionnee UNIQUEMENT pour calculer l'age (accesseur
+    // du modele) : elle est masquee de la reponse dans search() et find().
+    // Le recruteur voit « 22 ans », jamais la date de naissance.
     private const LIST_COLUMNS = [
         'id', 'user_id', 'first_name', 'last_name', 'headline', 'city',
-        'photo_url', 'bio', 'driving_license',
+        'photo_url', 'bio', 'driving_license', 'birth_date',
     ];
 
     // hasPaidAccess et non hasActiveSubscription : un compte ADMIN consulte la
@@ -82,6 +86,21 @@ class CvthequeService
             $query->whereNotNull('driving_license')->where('driving_license', '!=', '');
         }
 
+        // Filtre par age. Le cout d'un alternant depend de sa tranche d'age,
+        // c'est un critere de selection a part entiere. Calcule sur la date
+        // de naissance, sans jamais l'exposer. Un profil sans date de
+        // naissance est exclu des qu'un filtre d'age est pose : on ne peut
+        // pas affirmer qu'il correspond.
+        if (! empty($filters['age_min'])) {
+            $query->whereNotNull('birth_date')
+                ->whereDate('birth_date', '<=', now()->subYears((int) $filters['age_min'])->toDateString());
+        }
+        if (! empty($filters['age_max'])) {
+            // « 25 ans au plus » = ne pas avoir encore 26 ans.
+            $query->whereNotNull('birth_date')
+                ->whereDate('birth_date', '>', now()->subYears((int) $filters['age_max'] + 1)->toDateString());
+        }
+
         // Compétences et logiciels : un profil doit posséder TOUTES celles
         // demandées (un whereIn unique donnerait un OU, beaucoup trop large
         // pour un recruteur qui coche trois compétences précises).
@@ -115,7 +134,10 @@ class CvthequeService
             });
         }
 
-        return $query->paginate(12)->withQueryString();
+        return $query->paginate(12)
+            ->withQueryString()
+            // La date a servi a calculer l'age : elle ne sort pas d'ici.
+            ->through(fn (CandidateProfile $profile) => $profile->makeHidden('birth_date'));
     }
 
     // Fiche complete : coordonnees incluses, parce que c'est precisement ce que
@@ -147,7 +169,9 @@ class CvthequeService
         // contournant downloadCv(), donc sans passer par la garde d'abonnement
         // ni par le journal de telechargement — et la partager telle quelle.
         // Le telechargement passe exclusivement par cvtheque/{id}/cv.
-        $profile->makeHidden(['cv_file_url']);
+        // birth_date masquee elle aussi : la fiche porte l'age (accesseur du
+        // modele), qui suffit au recruteur. La date exacte reste au candidat.
+        $profile->makeHidden(['cv_file_url', 'birth_date']);
 
         // Le recruteur voit en revanche si le CV est celui que le candidat a
         // lui-meme depose, et de quand il date : un CV choisi par le candidat

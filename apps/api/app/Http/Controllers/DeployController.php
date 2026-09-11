@@ -33,7 +33,7 @@ class DeployController extends Controller
     // ne peut pas savoir si le controleur lui-meme a bien ete redeploye : c est
     // arrive le 2026-09-02, ou clear-cache continuait d echouer avec une version
     // corrigee censement en place. A incrementer a chaque changement ici.
-    public const DEPLOY_TOOLS_VERSION = 'deploy-tools-19';
+    public const DEPLOY_TOOLS_VERSION = 'deploy-tools-20';
 
     // Cle du battement du planificateur, ecrite par bootstrap/app.php a
     // chaque schedule:run. Dupliquee en dur la-bas volontairement : voir
@@ -139,6 +139,12 @@ class DeployController extends Controller
             'routes/web.php',
             'app/Services/CvService.php',
             'app/Services/CvthequeService.php',
+            // Age du candidat dans la CVtheque : l'accesseur, la selection
+            // de la date et les regles de validation doivent arriver ensemble.
+            'app/Models/CandidateProfile.php',
+            'app/Http/Requests/Cvtheque/SearchCvthequeRequest.php',
+            'app/Http/Requests/CandidateProfile/StoreCandidateProfileRequest.php',
+            'app/Http/Requests/CandidateProfile/UpdateCandidateProfileRequest.php',
             // Role STAFF : equipe Jeuncy, lecture de la CVtheque sans admin.
             'app/Enums/UserRole.php',
             // Son absence a coute une matinee : une valeur d'enum manquante ne

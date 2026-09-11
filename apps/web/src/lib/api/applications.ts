@@ -25,6 +25,7 @@ export interface ApplicantSummary {
   id: number;
   user_id: number;
   first_name: string;
+  age?: number | null;
   last_name: string;
   city: string | null;
   photo_url: string | null;

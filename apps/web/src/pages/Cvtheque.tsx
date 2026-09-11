@@ -5,6 +5,7 @@ import {
   Search,
   MapPin,
   Car,
+  Cake,
   Lock,
   Sparkles,
   Languages as LanguagesIcon,
@@ -33,6 +34,8 @@ function filtersFromParams(params: URLSearchParams): CvthequeSearchFilters {
     city: params.get('city') ?? undefined,
     language: params.get('language') ?? undefined,
     driving_license: params.get('driving_license') === '1' || undefined,
+    age_min: Number(params.get('age_min')) || undefined,
+    age_max: Number(params.get('age_max')) || undefined,
     skills: params.getAll('skills').filter(Boolean),
     page: Number(params.get('page') ?? '1') || 1,
   };
@@ -144,6 +147,12 @@ function CandidateCard({ candidate }: { candidate: CvthequeCandidate }) {
             {candidate.city}
           </span>
         )}
+        {candidate.age !== null && (
+          <span className="inline-flex items-center gap-1">
+            <Cake className="h-3.5 w-3.5" aria-hidden="true" />
+            {candidate.age} ans
+          </span>
+        )}
         {candidate.driving_license && (
           <span className="inline-flex items-center gap-1">
             <Car className="h-3.5 w-3.5" aria-hidden="true" />
@@ -186,6 +195,8 @@ export function Cvtheque() {
   const [city, setCity] = useState(filters.city ?? '');
   const [language, setLanguage] = useState(filters.language ?? '');
   const [hasLicense, setHasLicense] = useState(Boolean(filters.driving_license));
+  const [ageMin, setAgeMin] = useState(filters.age_min ? String(filters.age_min) : '');
+  const [ageMax, setAgeMax] = useState(filters.age_max ? String(filters.age_max) : '');
 
   const query = useQuery({
     queryKey: ['cvtheque', searchParams.toString()],
@@ -202,6 +213,8 @@ export function Cvtheque() {
     if (city.trim()) next.set('city', city.trim());
     if (language.trim()) next.set('language', language.trim());
     if (hasLicense) next.set('driving_license', '1');
+    if (ageMin.trim()) next.set('age_min', ageMin.trim());
+    if (ageMax.trim()) next.set('age_max', ageMax.trim());
     setSearchParams(next);
   }
 
@@ -272,6 +285,37 @@ export function Cvtheque() {
                   value={language}
                   onChange={(e) => setLanguage(e.target.value)}
                   placeholder="Langue (ex : anglais)"
+                />
+              </div>
+              {/* L'age : le cout d'un alternant depend de sa tranche d'age,
+                  c'est un critere de selection a part entiere. */}
+              <div className="flex items-center gap-2">
+                <label htmlFor="cvtheque-age-min" className="sr-only">
+                  Âge minimum
+                </label>
+                <Input
+                  id="cvtheque-age-min"
+                  type="number"
+                  min={15}
+                  max={99}
+                  inputMode="numeric"
+                  value={ageMin}
+                  onChange={(e) => setAgeMin(e.target.value)}
+                  placeholder="Âge min"
+                />
+                <span className="font-inter text-sm text-muted-foreground">à</span>
+                <label htmlFor="cvtheque-age-max" className="sr-only">
+                  Âge maximum
+                </label>
+                <Input
+                  id="cvtheque-age-max"
+                  type="number"
+                  min={15}
+                  max={99}
+                  inputMode="numeric"
+                  value={ageMax}
+                  onChange={(e) => setAgeMax(e.target.value)}
+                  placeholder="Âge max"
                 />
               </div>
             </div>

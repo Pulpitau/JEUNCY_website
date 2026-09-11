@@ -109,9 +109,17 @@ export function ApplicationsForOfferSection({
                 {application.candidate_profile.first_name}{' '}
                 {application.candidate_profile.last_name}
               </p>
-              {application.candidate_profile.city && (
+              {(application.candidate_profile.city ||
+                application.candidate_profile.age) && (
                 <p className="text-xs text-muted-foreground">
-                  {application.candidate_profile.city}
+                  {[
+                    application.candidate_profile.age
+                      ? `${application.candidate_profile.age} ans`
+                      : null,
+                    application.candidate_profile.city,
+                  ]
+                    .filter(Boolean)
+                    .join(' · ')}
                 </p>
               )}
             </div>

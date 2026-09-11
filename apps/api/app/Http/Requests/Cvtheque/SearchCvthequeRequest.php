@@ -18,6 +18,10 @@ class SearchCvthequeRequest extends FormRequest
             'city' => ['sometimes', 'string', 'max:255'],
             'language' => ['sometimes', 'string', 'max:100'],
             'driving_license' => ['sometimes', 'boolean'],
+            // Bornes d'age. 15 est l'age minimum pour un compte, 99 une borne
+            // de bon sens contre une URL forgee.
+            'age_min' => ['sometimes', 'integer', 'min:15', 'max:99'],
+            'age_max' => ['sometimes', 'integer', 'min:15', 'max:99', 'gte:age_min'],
             // Bornees a 10 : chaque entree ajoute un whereHas, donc une
             // sous-requete. Sans plafond, une URL forgee avec 500 competences
             // suffirait a faire ramer la base.

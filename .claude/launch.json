@@ -1,4 +1,4 @@
-{
+﻿{
   "version": "0.0.1",
   "configurations": [
     {
@@ -20,6 +20,17 @@
         "4173"
       ],
       "port": 4173
+    },
+    {
+      "name": "docs",
+      "runtimeExecutable": "php",
+      "runtimeArgs": [
+        "-S",
+        "127.0.0.1:8765",
+        "-t",
+        "C:/Users/Pierre/AppData/Local/Temp/claude/C--Users-Pierre-Documents-JEUNCY/798c87b6-0fa1-4466-a3e2-ff666b523f6a/scratchpad/docs"
+      ],
+      "port": 8765
     },
     {
       "name": "api",

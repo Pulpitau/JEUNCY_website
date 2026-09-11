@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Jeuncy — Ton alternance commence ici</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700&family=Inter:wght@400;500;600&display=swap">
+{{CSS}}
+<style>
+  @page { size: A4; margin: 0; }
+  .page { padding: 15mm 17mm 14mm; }
+  .hero { display: grid; grid-template-columns: 1.2fr 0.8fr; gap: 20px; align-items: center; margin-top: 8px; }
+  .hero h1 { font-size: 30pt; }
+  .hero h1 em { font-style: normal; background: var(--grad); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .hero .lead { font-size: 11.5pt; margin-top: 12px; }
+  .free {
+    background: var(--navy); color: var(--on-navy); border-radius: 12px; padding: 16px 18px;
+    display: flex; flex-direction: column; gap: 6px;
+  }
+  .free .big { font-family: Poppins, sans-serif; font-size: 26pt; font-weight: 700; color: var(--orange); line-height: 1; }
+  .free p { font-size: 9.5pt; color: var(--on-navy-soft); }
+  .free strong { color: var(--on-navy); }
+  .steps3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: 22px; }
+  .steps3 .step { flex-direction: column; gap: 8px; background: var(--paper); border: 1px solid var(--line-soft); border-radius: 10px; padding: 16px 16px; }
+  .steps3 .step h3 { font-size: 11pt; }
+  .steps3 .step p { font-size: 9.5pt; }
+  .atouts { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px 20px; margin-top: 22px; }
+  .atouts .feature p { font-size: 9.5pt; }
+  .atouts h4 { font-size: 10pt; }
+  .figs { display: grid; grid-template-columns: repeat(4, 1fr); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); margin-top: 22px; }
+  .figs .stat { padding: 14px 14px; border-left: 1px solid var(--line-soft); }
+  .figs .stat:first-child { border-left: 0; padding-left: 0; }
+  .figs .num { font-size: 22pt; }
+  .figs .lab { font-size: 8pt; }
+  .cta-band { margin-top: 22px; background: var(--tint); border: 1px solid var(--tint-line); border-radius: 12px; padding: 14px 18px; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+  .cta-band h3 { font-size: 12pt; }
+  .cta-band p { font-size: 9pt; }
+  .contact-line { display: flex; gap: 18px; flex-wrap: wrap; font-size: 8.5pt; color: var(--ink-faint); }
+  .contact-line b { color: var(--ink); font-weight: 600; }
+</style>
+</head>
+<body>
+{{ICONS}}
+
+<section class="page">
+  <div class="head" style="margin-bottom: 12px;"><div class="brand"><img src="{{LOGO_LIGHT}}" alt=""><span class="wordmark">Jeuncy</span></div><span class="section">Candidats</span></div>
+
+  <div class="hero">
+    <div>
+      <p class="eyebrow">Alternance · Stage · Job étudiant · Saisonnier · Bénévolat</p>
+      <h1 style="margin-top: 8px;">Ton alternance <em>commence ici.</em></h1>
+      <p class="lead">Crée ton profil, on génère ton CV, et dès qu'une offre te correspond, tu es prévenu le jour même. Tu postules en un clic. <strong>On a peut-être déjà ton futur employeur.</strong></p>
+    </div>
+    <div class="free">
+      <span class="big">0 €</span>
+      <p><strong>Gratuit, pour toujours.</strong> Créer un profil, générer un CV, postuler : rien n'est payant pour les candidats, et ça ne le sera jamais. Ce sont les entreprises qui paient pour publier.</p>
+    </div>
+  </div>
+
+  <div class="steps3">
+    <div class="step"><div class="n">1</div><h3>Crée ton profil</h3><p>Deux minutes. Tes expériences, tes formations, tes compétences, ta ville, le contrat que tu cherches. Tu as déjà un CV ? Envoie-le, on pré-remplit tout.</p></div>
+    <div class="step"><div class="n">2</div><h3>On génère ton CV</h3><p>Un CV professionnel, propre, mis en page pour toi. Téléchargeable en PDF. Les recruteurs le lisent en trente secondes — c'est ce qu'ils veulent.</p></div>
+    <div class="step"><div class="n">3</div><h3>Tu es prévenu, tu postules</h3><p>Quand une offre de ta ville ou de ton métier est publiée, tu reçois une notification. Ton CV est prêt : un clic, et ta candidature est partie.</p></div>
+  </div>
+
+  <div class="atouts">
+    <div class="feature"><div class="icon-badge"><svg class="ic"><use href="#i-bell"/></svg></div><div><h4>L'offre vient à toi</h4><p>Plus besoin de rafraîchir dix sites. Les offres qui te correspondent te sont envoyées le jour de leur publication.</p></div></div>
+    <div class="feature"><div class="icon-badge"><svg class="ic"><use href="#i-list"/></svg></div><div><h4>Tu sais où en est ta candidature</h4><p>Vue, entretien, acceptée, refusée : l'entreprise met à jour le statut, tu es prévenu. Fini les candidatures sans réponse.</p></div></div>
+    <div class="feature"><div class="icon-badge"><svg class="ic"><use href="#i-search"/></svg></div><div><h4>Les recruteurs te trouvent</h4><p>Ton profil est visible des entreprises et CFA abonnés, qui peuvent te contacter directement. Tu peux t'en retirer en un clic, quand tu veux.</p></div></div>
+    <div class="feature"><div class="icon-badge"><svg class="ic"><use href="#i-shield"/></svg></div><div><h4>Tes données t'appartiennent</h4><p>Tu peux les exporter ou supprimer ton compte à tout moment. Hébergées en France. Personne ne télécharge ton CV sans que ce soit enregistré.</p></div></div>
+  </div>
+
+  <div class="figs">
+    <div class="stat"><span class="num coral">0 €</span><span class="lab">pour toi, à vie</span></div>
+    <div class="stat"><span class="num">2 min</span><span class="lab">pour créer ton profil</span></div>
+    <div class="stat"><span class="num">5</span><span class="lab">types de contrat</span></div>
+    <div class="stat"><span class="num">J+0</span><span class="lab">prévenu le jour de la publication</span></div>
+  </div>
+
+  <div class="cta-band">
+    <div>
+      <h3>Inscris-toi sur jeuncy.com</h3>
+      <p>Avec ton email ou ton compte Google. Une agence à Perpignan, une équipe qui répond. Et bientôt l'application sur ton téléphone.</p>
+    </div>
+    <span class="cta">jeuncy.com/register</span>
+  </div>
+
+  <div class="foot">
+    <div class="contact-line"><span><b>jeuncy.com</b></span><span><b>go@jeuncy.com</b></span><span><b>07 43 68 99 11</b></span><span>46 bd Clemenceau, 66000 Perpignan</span></div>
+    <span>SAS Jeuncy</span>
+  </div>
+</section>
+
+</body>
+</html>

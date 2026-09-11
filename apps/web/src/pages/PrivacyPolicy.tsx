@@ -152,11 +152,12 @@ export function PrivacyPolicy() {
             <p className="mt-3">
               <strong>Ce qu'ils voient :</strong> dans les résultats de recherche, votre
               prénom, votre nom, votre titre professionnel, votre ville, votre photo si
-              vous en avez ajouté une, vos compétences, logiciels et langues. Vos
-              coordonnées directes (adresse e-mail, numéro de téléphone, adresse postale,
-              date de naissance) ne sont <strong>pas</strong> affichées dans la liste :
-              elles n'apparaissent qu'après ouverture de votre fiche complète, avec votre
-              parcours détaillé.
+              vous en avez ajouté une, votre âge, vos compétences, logiciels et langues.
+              Votre âge est calculé à partir de votre date de naissance, qui n'est
+              elle-même <strong>jamais</strong> transmise aux recruteurs. Vos coordonnées
+              directes (adresse e-mail, numéro de téléphone, adresse postale) ne sont
+              <strong>pas</strong> affichées dans la liste : elles n'apparaissent qu'après
+              ouverture de votre fiche complète, avec votre parcours détaillé.
             </p>
             <p className="mt-3">
               <strong>Comment vous y opposer :</strong> vous pouvez vous retirer de la

@@ -1,0 +1,376 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Jeuncy — Guide commercial (usage interne)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700&family=Inter:wght@400;500;600&display=swap">
+{{CSS}}
+<style>
+  @page { size: A4; margin: 0; }
+  body { font-size: 10pt; }
+  .kicker { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
+  .kicker .accent { width: 32px; }
+  h2 { font-size: 17pt; }
+  .page .head { margin-bottom: 16px; }
+  .interne { display: inline-flex; align-items: center; gap: 6px; font-family: Poppins, sans-serif; font-size: 7.5pt; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--coral); border: 1px solid var(--tint-line); background: var(--tint); padding: 4px 10px; border-radius: 999px; }
+  .navy .interne { background: rgba(255,45,85,0.15); border-color: rgba(255,45,85,0.4); color: #ffb3c1; }
+  .script { background: var(--paper); border: 1px solid var(--line-soft); border-left: 4px solid var(--coral); border-radius: 0 10px 10px 0; padding: 12px 16px; font-size: 9.5pt; line-height: 1.55; color: var(--ink); }
+  .script .lab { display: block; font-family: Poppins, sans-serif; font-size: 7.5pt; letter-spacing: 0.12em; text-transform: uppercase; color: var(--coral); margin-bottom: 6px; }
+  .script p + p { margin-top: 8px; }
+  .script .dir { color: var(--ink-faint); font-style: italic; }
+  .rule { display: grid; grid-template-columns: 30% 1fr; gap: 4px 12px; padding: 5px 0; border-bottom: 1px solid var(--line-soft); font-size: 9pt; line-height: 1.4; }
+  .rule b { font-family: Poppins, sans-serif; font-weight: 600; color: var(--ink); }
+  .warn { background: var(--tint); border: 1px solid var(--tint-line); border-radius: 10px; padding: 12px 16px; display: flex; gap: 12px; align-items: flex-start; font-size: 9.5pt; }
+  .warn .ic { color: var(--coral); margin-top: 2px; }
+  .warn strong { color: var(--ink); }
+  .objection { grid-template-columns: 1fr 1.7fr; padding: 6px 0; font-size: 9pt; }
+  .objection .q { font-size: 9pt; }
+  .questions li { display: flex; gap: 8px; padding: 4px 0; font-size: 9.5pt; }
+  .questions li .n { font-family: Poppins, sans-serif; font-weight: 700; color: var(--coral); flex: none; width: 18px; }
+  .process { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; position: relative; }
+  .process::before { content: ''; position: absolute; left: 14px; right: 14px; top: 14px; height: 2px; background: var(--line); }
+  .process .step { flex-direction: column; gap: 6px; position: relative; }
+  .process .step h4 { font-size: 9.5pt; }
+  .process .step p { font-size: 8.5pt; }
+  .three { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  .contact { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  .contact .card { align-items: flex-start; }
+  .contact .card .ic { color: var(--orange); }
+  .contact .card b { font-family: Poppins, sans-serif; color: var(--on-navy); font-size: 11pt; }
+</style>
+</head>
+<body>
+{{ICONS}}
+
+<!-- 1. Couverture -->
+<section class="page navy cover">
+  <div class="glow"></div>
+  <div class="brand"><img src="{{LOGO_DARK}}" alt=""><span class="wordmark">Jeuncy</span></div>
+  <div>
+    <span class="interne"><svg class="ic sm"><use href="#i-lock"/></svg>Document interne · ne pas diffuser</span>
+    <h1 style="margin-top:16px;">Guide commercial</h1>
+    <p class="lead" style="margin-top:14px;">Tout ce qu'il faut avoir sous la main pour démarcher une entreprise ou un CFA : l'histoire, le produit dans le détail, les règles de tarif exactes, les scripts, les objections, et ce qu'il ne faut jamais promettre.</p>
+    <div class="grid cols-2" style="margin-top: 26px; max-width: 120mm;">
+      <div class="stat"><span class="num" style="color:var(--orange)">11</span><span class="lab">pages, de l'argumentaire au process</span></div>
+      <div class="stat"><span class="num" style="color:var(--on-navy)">V1</span><span class="lab">septembre 2026 — à mettre à jour à chaque évolution du produit</span></div>
+    </div>
+  </div>
+  <div class="meta">
+    <div><b>Contact commercial</b>go@jeuncy.com · 07 43 68 99 11</div>
+    <div><b>Agence</b>46 bd Clemenceau, 66000 Perpignan</div>
+    <div><b>Site</b>jeuncy.com</div>
+  </div>
+</section>
+
+<!-- 2. Jeuncy en deux minutes -->
+<section class="page">
+  <div class="head"><div class="brand"><img src="{{LOGO_LIGHT}}" alt=""><span class="wordmark">Jeuncy</span></div><span class="section">Jeuncy en deux minutes</span></div>
+  <div class="kicker"><div class="accent"></div><p class="eyebrow">Ce qu'on vend</p></div>
+  <h2>Le moment où le bon jeune et la bonne entreprise se voient.</h2>
+  <p class="lead" style="margin-top: 8px;">Jeuncy est une agence de recrutement nouvelle génération pour les alternants, saisonniers, bénévoles, stagiaires et jobs étudiants. Une plateforme, une agence à Perpignan, une équipe joignable. Pas un site d'annonces de plus.</p>
+  <div class="grid cols-2" style="margin-top: 16px;">
+    <div class="card">
+      <h4>Ce qu'on vend</h4>
+      <ul class="checks">
+        <li><svg class="ic"><use href="#i-check"/></svg><span>La mise en relation <strong>le jour même</strong> : les candidats correspondants sont prévenus à la publication</span></li>
+        <li><svg class="ic"><use href="#i-check"/></svg><span>Des <strong>CV lisibles et comparables</strong>, tous générés au même format</span></li>
+        <li><svg class="ic"><use href="#i-check"/></svg><span>Le <strong>suivi des candidatures</strong> et l'<strong>entretien en visio</strong> sans rien installer</span></li>
+        <li><svg class="ic"><use href="#i-check"/></svg><span>La <strong>CVthèque</strong> pour aller chercher des profils (abonnement)</span></li>
+        <li><svg class="ic"><use href="#i-check"/></svg><span>Une <strong>équipe humaine</strong> qui regarde avec le client pourquoi une offre ne marche pas</span></li>
+      </ul>
+    </div>
+    <div class="card tint">
+      <h4>Ce qu'on ne vend pas</h4>
+      <ul class="checks">
+        <li><svg class="ic"><use href="#i-x"/></svg><span>Une <strong>garantie</strong> de candidatures ou d'embauche — on ne promet jamais un nombre</span></li>
+        <li><svg class="ic"><use href="#i-x"/></svg><span>De la <strong>visibilité au kilo</strong> : on ne vend pas des vues, on vend des profils qui correspondent</span></li>
+        <li><svg class="ic"><use href="#i-x"/></svg><span>Un <strong>cabinet de chasse</strong> : l'entreprise choisit et décide, nous ne recrutons pas à sa place</span></li>
+        <li><svg class="ic"><use href="#i-x"/></svg><span>Une <strong>candidature automatique</strong> au nom du jeune : c'est lui qui postule, toujours</span></li>
+      </ul>
+    </div>
+  </div>
+  <div class="hair" style="margin: 18px 0 14px;"></div>
+  <div class="kicker"><div class="accent"></div><p class="eyebrow">Les chiffres qu'on peut dire</p></div>
+  <div class="grid cols-4">
+    <div class="stat"><span class="num coral">100+</span><span class="lab">jeunes inscrits — dire « plus d'une centaine, et de nouveaux profils chaque jour » ; passer à « des centaines » au-delà de 200</span></div>
+    <div class="stat"><span class="num">5</span><span class="lab">types de contrat : alternance, stage, job étudiant, saisonnier, bénévolat</span></div>
+    <div class="stat"><span class="num">15 j</span><span class="lab">de première offre gratuite, sans carte bancaire</span></div>
+    <div class="stat"><span class="num">50</span><span class="lab">places au tarif fondateur, 299 € au lieu de 499 €</span></div>
+  </div>
+  <div class="warn" style="margin-top: 18px;">
+    <svg class="ic"><use href="#i-alert"/></svg>
+    <p><strong>Le chiffre des candidats vieillit vite.</strong> Avant chaque rendez-vous, vérifier le nombre exact dans le back-office (<em>/admin</em>, carte « Candidats ») et dire un chiffre à jour. Un prospect qui vérifie et trouve moins que ce qu'on lui a dit ne revient pas.</p>
+  </div>
+  <div class="foot"><span>Jeuncy · Guide commercial · usage interne</span><span class="pageno">2</span></div>
+</section>
+
+<!-- 3. L'histoire -->
+<section class="page navy">
+  <div class="head"><div class="brand"><img src="{{LOGO_DARK}}" alt=""><span class="wordmark">Jeuncy</span></div><span class="section">Notre histoire</span></div>
+  <div class="kicker"><div class="accent"></div><p class="eyebrow on-navy">La version à raconter</p></div>
+  <h2>Jeuncy est né d'une file d'attente.</h2>
+  <div style="margin-top: 12px; font-size: 10pt; line-height: 1.55;">
+    <p>Perpignan, rentrée 2024. Tout a commencé par une phrase entendue à la sortie d'un CFA : <strong>« Vous avez trois mois pour trouver une entreprise, sinon nous ne pourrons pas vous garder. »</strong> Les fondateurs de Jeuncy étaient étudiants. Dossier accepté, formation choisie, pas d'employeur. Comme la moitié de leur promotion.</p>
+    <p style="margin-top:10px;">Ce qui a suivi, tous ceux qui ont cherché une alternance le connaissent. Des dizaines de candidatures envoyées depuis les mêmes grands sites. Un CV bricolé sur un modèle trouvé en ligne. Des « nous reviendrons vers vous » qui ne reviennent jamais. Et cette impression tenace que les places existent, mais qu'elles se donnent ailleurs, entre gens qui se connaissent.</p>
+    <p style="margin-top:10px;">Le déclic est venu de l'autre côté du comptoir. Un patron de PME, rencontré par hasard, qui cherchait un alternant depuis six mois sans y arriver. Pas le temps de trier cent CV. Pas envie de payer un cabinet au tarif d'un cadre. Et plus très sûr, avec la baisse des aides, que ça vaille encore le risque. <strong>Deux besoins qui se cherchaient dans la même ville sans jamais se croiser.</strong></p>
+    <p style="margin-top:10px;">Ce jour-là, l'idée a tenu en une phrase : ce qui manque, ce n'est ni des candidats ni des postes, c'est le moment où les deux se voient. Jeuncy est la réponse. Une plateforme où le jeune construit un profil sérieux et où son CV se génère tout seul. Où l'entreprise publie en dix minutes, sans engagement. Et où, dès la mise en ligne, les profils qui correspondent sont prévenus le jour même.</p>
+    <p style="margin-top:10px;">Une agence de recrutement, donc. Mais nouvelle génération : visible, accessible, humaine, avec une adresse où l'on peut passer. Née dans un département où trouver sa place est plus dur qu'ailleurs. Faite pour que ça devienne plus simple partout.</p>
+  </div>
+  <div class="hair" style="margin: 18px 0 14px;"></div>
+  <div class="kicker"><div class="accent"></div><p class="eyebrow on-navy">Comment la raconter</p></div>
+  <div class="grid cols-3">
+    <div class="card"><h4>En 20 secondes</h4><p>« On a créé Jeuncy parce qu'on a été ces étudiants qui ne trouvent pas d'entreprise — et qu'on a rencontré des patrons qui ne trouvaient pas d'alternant. Les deux existaient, ils ne se voyaient pas. »</p></div>
+    <div class="card"><h4>Ce qui doit rester</h4><p>Le CFA et son délai. Le patron de PME. La phrase « ils ne se voyaient pas ». Perpignan. C'est le squelette : le reste peut varier avec l'interlocuteur.</p></div>
+    <div class="card"><h4>Ce qu'il faut adapter</h4><p>Devant un CFA, insister sur les « sans contrat ». Devant une entreprise, sur le patron qui n'a pas le temps. Devant un jeune, sur les candidatures sans réponse.</p></div>
+  </div>
+  <div class="warn" style="margin-top: 14px; background: rgba(255,45,85,0.10); border-color: rgba(255,45,85,0.35);">
+    <svg class="ic" style="color:#ffb3c1"><use href="#i-alert"/></svg>
+    <p style="color:var(--on-navy)"><strong>À faire valider par la direction avant tout usage externe.</strong> Les détails biographiques (rentrée 2024, la rencontre avec le patron de PME) sont une mise en récit : ils doivent être ajustés pour correspondre à ce que les fondateurs ont réellement vécu et acceptent de raconter. Une histoire vraie se défend en rendez-vous ; une histoire inventée se retourne contre celui qui la raconte.</p>
+  </div>
+  <div class="foot"><span>Jeuncy · Guide commercial · usage interne</span><span class="pageno">3</span></div>
+</section>
+
+<!-- 4. Le produit côté candidat -->
+<section class="page">
+  <div class="head"><div class="brand"><img src="{{LOGO_LIGHT}}" alt=""><span class="wordmark">Jeuncy</span></div><span class="section">Le produit · côté candidat</span></div>
+  <div class="kicker"><div class="accent"></div><p class="eyebrow">Ce que fait un candidat sur Jeuncy</p></div>
+  <h2>Gratuit, pour toujours. C'est la condition pour que le vivier existe.</h2>
+  <p class="lead" style="margin-top: 8px;">Il faut connaître ce parcours même quand on vend aux entreprises : c'est ce qui fait la qualité des profils qu'elles reçoivent.</p>
+  <div class="grid cols-2" style="margin-top: 16px;">
+    <div class="feature"><div class="icon-badge"><svg class="ic"><use href="#i-user-plus"/></svg></div><div><h4>Inscription en deux minutes</h4><p>Email et mot de passe, ou compte Google. Un email de bienvenue explique les trois étapes. Âge minimum : 15 ans (déclaré dans l'application mobile, pas encore demandé sur le site).</p></div></div>
+    <div class="feature"><div class="icon-badge"><svg class="ic"><use href="#i-file"/></svg></div><div><h4>Profil complet</h4><p>Identité, ville, téléphone, bio, expériences, formations, compétences, logiciels, langues, permis. Type de contrat recherché. Photo facultative.</p></div></div>
+    <div class="feature"><div class="icon-badge"><svg class="ic"><use href="#i-download"/></svg></div><div><h4>CV généré ou importé</h4><p>Jeuncy génère un CV PDF aux couleurs de la plateforme depuis le profil — ou lit un CV existant pour pré-remplir le profil. Historique des CV conservé.</p></div></div>
+    <div class="feature"><div class="icon-badge"><svg class="ic"><use href="#i-bell"/></svg></div><div><h4>Prévenu des offres qui correspondent</h4><p>À la publication d'une offre, et à chaque mise à jour de son profil, le candidat est notifié des offres de sa ville ou de son métier. Une notification par offre, jamais deux.</p></div></div>
+    <div class="feature"><div class="icon-badge"><svg class="ic"><use href="#i-send"/></svg></div><div><h4>Postule en un clic</h4><p>Le formulaire pré-remplit le téléphone et sélectionne le dernier CV. Lettre de motivation facultative. Une candidature par offre.</p></div></div>
+    <div class="feature"><div class="icon-badge"><svg class="ic"><use href="#i-list"/></svg></div><div><h4>Suivi de ses candidatures</h4><p>Envoyée, vue, entretien, acceptée, refusée. Le candidat est prévenu à chaque changement de statut par l'entreprise.</p></div></div>
+    <div class="feature"><div class="icon-badge"><svg class="ic"><use href="#i-eye"/></svg></div><div><h4>Visible dans la CVthèque — ou pas</h4><p>Par défaut visible des abonnés. Il peut s'en retirer en un clic depuis son profil, à tout moment.</p></div></div>
+    <div class="feature"><div class="icon-badge"><svg class="ic"><use href="#i-shield"/></svg></div><div><h4>RGPD : il garde la main</h4><p>Export de ses données, suppression du compte, conservation limitée à 3 ans d'inactivité. Chaque téléchargement de son CV par un recruteur est journalisé.</p></div></div>
+  </div>
+  <div class="hair" style="margin: 18px 0 14px;"></div>
+  <div class="kicker"><div class="accent"></div><p class="eyebrow">Ce qu'il faut savoir pour bien vendre</p></div>
+  <ul class="checks">
+    <li><svg class="ic"><use href="#i-check"/></svg><span><strong>La règle de correspondance</strong> : un candidat est prévenu si l'offre est dans sa ville <em>ou</em> si un mot significatif de l'intitulé se retrouve dans son profil (titre, bio, compétences). Les mots trop courants (« alternance », « poste », « stage ») ne comptent pas. Un type de contrat explicitement exclu par le candidat l'exclut de l'offre.</span></li>
+    <li><svg class="ic"><use href="#i-check"/></svg><span><strong>Un candidat déjà candidat n'est jamais renotifié</strong> pour la même offre, et une offre remise en ligne ne renvoie pas la même notification aux mêmes jeunes.</span></li>
+    <li><svg class="ic"><use href="#i-check"/></svg><span><strong>Les applis mobiles</strong> (iOS, Android) sont en développement. Ne pas donner de date tant qu'elle n'est pas confirmée par la direction.</span></li>
+  </ul>
+  <div class="foot"><span>Jeuncy · Guide commercial · usage interne</span><span class="pageno">4</span></div>
+</section>
+
+<!-- 5. Le produit côté entreprise / CFA -->
+<section class="page">
+  <div class="head"><div class="brand"><img src="{{LOGO_LIGHT}}" alt=""><span class="wordmark">Jeuncy</span></div><span class="section">Le produit · côté entreprise et CFA</span></div>
+  <div class="kicker"><div class="accent"></div><p class="eyebrow">Ce que fait une entreprise ou un CFA sur Jeuncy</p></div>
+  <h2>Trois manières de publier, un seul tableau de bord.</h2>
+  <div class="three" style="margin-top: 16px;">
+    <div class="card tint">
+      <span class="pill">Essai gratuit</span>
+      <h4 style="margin-top:6px;">1 offre, 15 jours</h4>
+      <p>Une seule offre par compte, sans carte bancaire. Candidatures <strong>incluses</strong>. Au bout de 15 jours, l'offre est archivée automatiquement, avec un email et une notification. Elle redevient payable.</p>
+    </div>
+    <div class="card">
+      <span class="pill outline">À l'annonce</span>
+      <h4 style="margin-top:6px;">9,99 € / 5,99 € par mois</h4>
+      <p>Paiement par carte via Stripe. Met l'offre en ligne <strong>30 jours</strong>. Candidatures de <strong>cette offre</strong> incluses. Préavis 3 jours avant la fin, puis l'offre sort de la ligne. Aucun prélèvement automatique : le client repaie s'il le décide.</p>
+    </div>
+    <div class="card">
+      <span class="pill outline">Abonnement</span>
+      <h4 style="margin-top:6px;">499 € / mois · 299 € fondateur</h4>
+      <p>Prélèvement mensuel par Stripe. Offres <strong>illimitées</strong> et sans échéance, <strong>toutes</strong> les candidatures (anciennes comprises), <strong>CVthèque</strong>, <strong>visio</strong>. Résiliable à tout moment, accès jusqu'à la fin du mois payé.</p>
+    </div>
+  </div>
+  <div class="hair" style="margin: 18px 0 14px;"></div>
+  <div class="grid cols-2">
+    <div class="feature"><div class="icon-badge"><svg class="ic"><use href="#i-briefcase"/></svg></div><div><h4>Créer et publier une offre</h4><p>Intitulé, description, type de contrat, mode (présentiel, hybride, distanciel), ville, rémunération, niveau visé, rythme (CFA), compétences. Brouillon modifiable avant publication.</p></div></div>
+    <div class="feature"><div class="icon-badge"><svg class="ic"><use href="#i-list"/></svg></div><div><h4>Gérer les candidatures</h4><p>Liste par offre, changement de statut (vue, entretien, acceptée, refusée). Le candidat est prévenu à chaque changement. Téléchargement du CV, journalisé.</p></div></div>
+    <div class="feature"><div class="icon-badge"><svg class="ic"><use href="#i-search"/></svg></div><div><h4>CVthèque (abonnés)</h4><p>Recherche par nom, compétence, ville, langue, permis, logiciel, type de contrat. Fiche candidat complète, CV téléchargeable, contact direct.</p></div></div>
+    <div class="feature"><div class="icon-badge"><svg class="ic"><use href="#i-video"/></svg></div><div><h4>Visioconférence (abonnés)</h4><p>Création d'une salle, lien d'invitation, date facultative. Le candidat rejoint depuis son navigateur, sans compte. Partage d'écran. Rappel une heure avant.</p></div></div>
+    <div class="feature"><div class="icon-badge"><svg class="ic"><use href="#i-euro"/></svg></div><div><h4>Paiements</h4><p>Historique dans « Mes paiements » : publications et prélèvements d'abonnement. Reçus envoyés par Stripe. Remboursement possible uniquement par l'équipe Jeuncy.</p></div></div>
+    <div class="feature"><div class="icon-badge"><svg class="ic"><use href="#i-building"/></svg></div><div><h4>Fiche publique</h4><p>Chaque entreprise et CFA a une fiche visible des candidats, avec ses offres en ligne. Les annuaires « Entreprises » et « CFA » sont publics.</p></div></div>
+  </div>
+  <div class="warn" style="margin-top: 16px;">
+    <svg class="ic"><use href="#i-alert"/></svg>
+    <p><strong>La différence qu'un client doit comprendre avant de payer :</strong> à l'annonce, il voit les candidatures de l'offre payée. La CVthèque et la visio sont réservées à l'abonnement. Un client qui paie 9,99 € et cherche la CVthèque se sentira trompé — le dire avant.</p>
+  </div>
+  <div class="foot"><span>Jeuncy · Guide commercial · usage interne</span><span class="pageno">5</span></div>
+</section>
+
+<!-- 6. Règles de tarif exactes -->
+<section class="page">
+  <div class="head"><div class="brand"><img src="{{LOGO_LIGHT}}" alt=""><span class="wordmark">Jeuncy</span></div><span class="section">Tarifs · règles exactes</span></div>
+  <div class="kicker"><div class="accent"></div><p class="eyebrow">Ce que fait réellement la plateforme</p></div>
+  <h2>Les règles, telles qu'elles sont codées. Pas d'interprétation.</h2>
+  <div style="margin-top: 14px;">
+    <div class="rule"><b>Essai gratuit</b><span>Une seule offre par compte entreprise ou CFA, publiée sans carte. Durée : 15 jours à partir de la première publication. L'offre d'essai donne accès aux candidatures de cette offre, et cet accès reste acquis même après l'archivage.</span></div>
+    <div class="rule"><b>Fin d'essai</b><span>Au 15<sup>e</sup> jour, l'offre est archivée automatiquement, avec une notification et un email indiquant le tarif pour la republier. Elle redevient payable (9,99 € / 5,99 €).</span></div>
+    <div class="rule"><b>À l'annonce · prix</b><span>9,99 € HT par offre pour une entreprise, 5,99 € HT pour un CFA. Le tarif dépend du type de compte, pas du type de contrat. <strong>Tous les prix s'entendent HT</strong> : le dire dès la première mention évite la mauvaise surprise sur le reçu.</span></div>
+    <div class="rule"><b>À l'annonce · durée</b><span>30 jours de mise en ligne à partir du paiement. Un renouvellement repart pour 30 jours pleins, jamais pour le reliquat.</span></div>
+    <div class="rule"><b>À l'annonce · fin</b><span>3 jours avant : notification + email de préavis, une seule fois. À l'échéance : l'offre passe hors ligne, notification + email. Elle redevient payable en un clic. Aucun prélèvement automatique.</span></div>
+    <div class="rule"><b>À l'annonce · inclus</b><span>Les candidatures de l'offre payée. Pas la CVthèque, pas la visio.</span></div>
+    <div class="rule"><b>Abonnement · prix</b><span>499 € HT par mois, entreprise ou CFA. Prélèvement mensuel par Stripe. Résiliable à tout moment depuis « Mes offres » ; l'accès dure jusqu'à la fin du mois déjà payé.</span></div>
+    <div class="rule"><b>Abonnement · inclus</b><span>Offres illimitées et sans échéance, toutes les candidatures de toutes les offres (anciennes comprises), CVthèque, visioconférence.</span></div>
+    <div class="rule"><b>Tarif fondateur</b><span>299 € HT par mois au lieu de 499 €, pour les 50 premiers abonnés, entreprises et CFA confondus. Le tarif est figé à la souscription et reste acquis tant que l'abonnement continue. Une place consommée ne se libère pas, même en cas de résiliation. Compteur public sur la page Tarifs.</span></div>
+    <div class="rule"><b>Abonné + offres à l'unité</b><span>Une entreprise qui s'abonne alors qu'elle a des offres payées à l'unité en cours ne les voit pas tomber : elles restent en ligne tant que l'abonnement est actif.</span></div>
+    <div class="rule"><b>Impayé d'abonnement</b><span>Si le prélèvement échoue, Stripe réessaie. Pendant ce temps, l'accès payant (CVthèque, candidatures, offres illimitées) est fermé. Il rouvre dès que le paiement passe.</span></div>
+    <div class="rule"><b>Remboursement</b><span>Uniquement par l'équipe Jeuncy, depuis le back-office. Un client ne peut pas se rembourser lui-même. Rembourser une publication retire l'offre de la ligne. Rembourser un mois d'abonnement ne résilie pas l'abonnement.</span></div>
+    <div class="rule" style="border-bottom:0;"><b>Candidats</b><span>Gratuit, sans limite, pour toujours. C'est un engagement public : il figure sur la page Tarifs et sur la page d'accueil.</span></div>
+  </div>
+  <div class="foot"><span>Jeuncy · Guide commercial · usage interne</span><span class="pageno">6</span></div>
+</section>
+
+<!-- 7. Argumentaire entreprises -->
+<section class="page">
+  <div class="head"><div class="brand"><img src="{{LOGO_LIGHT}}" alt=""><span class="wordmark">Jeuncy</span></div><span class="section">Argumentaire · entreprises</span></div>
+  <div class="kicker"><div class="accent"></div><p class="eyebrow">Démarcher une entreprise</p></div>
+  <h2>Vous voulez un alternant. Pas cent CV à trier.</h2>
+  <div class="two" style="margin-top: 14px;">
+    <div>
+      <h4 style="margin-bottom: 6px;">Questions de découverte</h4>
+      <ul class="questions">
+        <li><span class="n">1</span><span>Vous recrutez des alternants ? Combien par an, sur quels métiers ?</span></li>
+        <li><span class="n">2</span><span>Comment vous y prenez-vous aujourd'hui ? Par un CFA, un site, le bouche à oreille ?</span></li>
+        <li><span class="n">3</span><span>Qu'est-ce qui vous a fait perdre le plus de temps la dernière fois ?</span></li>
+        <li><span class="n">4</span><span>Avec la baisse des aides, est-ce que ça a changé votre façon de recruter ?</span></li>
+        <li><span class="n">5</span><span>Si vous aviez trois profils correspondants demain, vous seriez prêt à faire un entretien ?</span></li>
+      </ul>
+    </div>
+    <div>
+      <h4 style="margin-bottom: 6px;">Douleur → réponse</h4>
+      <ul class="checks">
+        <li><svg class="ic"><use href="#i-check"/></svg><span><strong>Pas le temps de trier</strong> → les profils correspondants sont prévenus, les CV sont au même format, on compare en trente secondes.</span></li>
+        <li><svg class="ic"><use href="#i-check"/></svg><span><strong>Trop cher</strong> → première offre gratuite, puis 9,99 € pour un mois. Rien n'est prélevé sans accord.</span></li>
+        <li><svg class="ic"><use href="#i-check"/></svg><span><strong>Peur de se tromper</strong> → profil complet, CV, entretien en visio avant tout engagement.</span></li>
+        <li><svg class="ic"><use href="#i-check"/></svg><span><strong>Les jeunes ne répondent pas</strong> → ils sont prévenus par notification, et le suivi des statuts les tient informés : ils reviennent.</span></li>
+      </ul>
+    </div>
+  </div>
+  <div class="script" style="margin-top: 16px;">
+    <span class="lab">Pitch · 30 secondes</span>
+    <p>« Jeuncy, c'est l'agence de recrutement des alternants, née à Perpignan. Vous publiez votre offre en dix minutes ; le jour même, les jeunes dont le profil correspond sont prévenus et postulent avec un CV propre, tous au même format. Vous suivez tout depuis un tableau de bord, vous faites l'entretien en visio si vous voulez. La première offre est gratuite quinze jours, sans carte bancaire. Si ça ne vous apporte rien, ça ne vous aura rien coûté. »</p>
+  </div>
+  <div class="script" style="margin-top: 12px;">
+    <span class="lab">Pitch · 2 minutes · rendez-vous</span>
+    <p><span class="dir">[Ouvrir sur eux]</span> « Vous m'avez dit que vous cherchiez un alternant en [métier] pour [période]. Comment ça se passe d'habitude ? » <span class="dir">[Écouter. Reprendre leur mot.]</span></p>
+    <p><span class="dir">[Le problème]</span> « Ce que vous décrivez, c'est ce qu'on entend partout : les candidatures arrivent en masse ou pas du tout, jamais les bonnes au bon moment. Et depuis que les aides ont baissé, on n'a plus envie de se tromper. »</p>
+    <p><span class="dir">[La réponse, en montrant l'écran]</span> « Voilà une offre publiée ce matin. Voilà les candidats qui ont été prévenus — même ville, même métier. Voilà une candidature : le CV a la même structure que tous les autres, vous voyez tout de suite si ça colle. Voilà le suivi : vue, entretien, accepté. Le jeune est prévenu à chaque étape, vous n'avez rien à écrire. »</p>
+    <p><span class="dir">[Le prix, sans détour]</span> « La première offre est gratuite quinze jours, sans carte. Ensuite c'est 9,99 € HT pour un mois en ligne, à renouveler seulement si vous le décidez. Et si vous recrutez toute l'année, l'abonnement fait tout, sans limite, CVthèque comprise — 299 € par mois pour les cinquante premiers, au lieu de 499. »</p>
+    <p><span class="dir">[La suite]</span> « Je vous propose qu'on publie votre offre ensemble maintenant, ça prend dix minutes. Et je vous rappelle dans quinze jours pour voir ce qui est arrivé. »</p>
+  </div>
+  <div class="foot"><span>Jeuncy · Guide commercial · usage interne</span><span class="pageno">7</span></div>
+</section>
+
+<!-- 8. Argumentaire CFA -->
+<section class="page">
+  <div class="head"><div class="brand"><img src="{{LOGO_LIGHT}}" alt=""><span class="wordmark">Jeuncy</span></div><span class="section">Argumentaire · CFA</span></div>
+  <div class="kicker"><div class="accent"></div><p class="eyebrow">Démarcher un CFA</p></div>
+  <h2>Chaque apprenant sans entreprise est une place qui se perd.</h2>
+  <p class="lead" style="margin-top: 6px; font-size: 10.5pt;">Le CFA n'achète pas du recrutement : il achète du placement. Le bon interlocuteur est le chargé de relations entreprises, ou la direction.</p>
+  <div class="two" style="margin-top: 14px;">
+    <div>
+      <h4 style="margin-bottom: 6px;">Questions de découverte</h4>
+      <ul class="questions">
+        <li><span class="n">1</span><span>Combien d'apprenants admis sont encore sans entreprise à cette date ?</span></li>
+        <li><span class="n">2</span><span>Qui s'occupe du placement, et avec quels outils ?</span></li>
+        <li><span class="n">3</span><span>Combien de filières ? Lesquelles peinent le plus à placer ?</span></li>
+        <li><span class="n">4</span><span>Comment les entreprises du bassin apprennent-elles que vous avez des jeunes disponibles ?</span></li>
+        <li><span class="n">5</span><span>Qu'est-ce qui vous ferait gagner le plus de temps à la rentrée ?</span></li>
+      </ul>
+    </div>
+    <div>
+      <h4 style="margin-bottom: 6px;">Douleur → réponse</h4>
+      <ul class="checks">
+        <li><svg class="ic"><use href="#i-check"/></svg><span><strong>Les « sans contrat »</strong> → vos apprenants créent un profil et un CV en quelques minutes ; dès qu'une entreprise du bassin publie, ceux qui correspondent sont prévenus.</span></li>
+        <li><svg class="ic"><use href="#i-check"/></svg><span><strong>Le placement à la main</strong> → une vue de qui a postulé où, avec quel statut. Le suivi devient un tableau de bord.</span></li>
+        <li><svg class="ic"><use href="#i-check"/></svg><span><strong>Les entreprises ne vous voient pas</strong> → une offre par filière, 5,99 € par mois, visible des entreprises et des jeunes. Fiche CFA publique dans l'annuaire.</span></li>
+        <li><svg class="ic"><use href="#i-check"/></svg><span><strong>Proposer des profils aux partenaires</strong> → avec la CVthèque, le CFA cherche lui-même les jeunes qui correspondent à un besoin remonté par une entreprise.</span></li>
+      </ul>
+    </div>
+  </div>
+  <div class="script" style="margin-top: 16px;">
+    <span class="lab">Pitch · 30 secondes</span>
+    <p>« Jeuncy est une plateforme de placement pour l'alternance, née à Perpignan. Vos apprenants y créent un profil et un CV en quelques minutes ; quand une entreprise du bassin publie une offre qui leur correspond, ils sont prévenus le jour même. De votre côté, vous publiez les besoins de chaque filière, vous suivez qui a postulé où, et vous pouvez chercher vous-même des profils pour vos entreprises partenaires. Ça commence par une offre gratuite quinze jours, et une équipe qui vient vous voir. »</p>
+  </div>
+  <div class="script" style="margin-top: 12px;">
+    <span class="lab">Le levier propre aux CFA</span>
+    <p>Un CFA a deux clients : les jeunes et les entreprises. Jeuncy sert les deux à la fois. Proposer un <strong>atelier d'une heure</strong> dans le CFA pour inscrire une promotion entière et générer les CV sur place : c'est le moyen le plus rapide de rendre la plateforme utile au CFA — et de faire grandir le vivier que verront les entreprises. Une promo inscrite, c'est un argument concret pour le prochain rendez-vous entreprise : « nous avons vingt profils en [filière] à Perpignan, disponibles en septembre. »</p>
+  </div>
+  <div class="foot"><span>Jeuncy · Guide commercial · usage interne</span><span class="pageno">8</span></div>
+</section>
+
+<!-- 9. Objections -->
+<section class="page">
+  <div class="head"><div class="brand"><img src="{{LOGO_LIGHT}}" alt=""><span class="wordmark">Jeuncy</span></div><span class="section">Objections</span></div>
+  <div class="kicker"><div class="accent"></div><p class="eyebrow">Ce qu'on nous répond, et ce qu'on répond</p></div>
+  <h2>Dix objections, dix réponses. Toujours vraies, jamais agressives.</h2>
+  <div style="margin-top: 10px;">
+    <div class="objection"><span class="q">« On a déjà Indeed et LinkedIn. »</span><span class="a">Vous y êtes une annonce parmi des milliers, et les candidatures arrivent sans tri. Chez Jeuncy, les profils correspondants sont prévenus le jour même, et chaque CV a le même format. Gardez les deux — la première offre est gratuite.</span></div>
+    <div class="objection"><span class="q">« On passe par le CFA. »</span><span class="a">Tant mieux, gardez-le. Jeuncy vous ouvre aussi les jeunes qui ne sont pas dans ce CFA, et ceux qui cherchent avant la rentrée. Des CFA utilisent Jeuncy pour placer leurs propres apprenants.</span></div>
+    <div class="objection"><span class="q">« Combien de candidats ? »</span><span class="a">Plus d'une centaine de jeunes déjà inscrits, avec un profil complet et un CV prêt, et de nouveaux profils chaque jour. Ce qui compte pour vous, c'est qu'un candidat correspondant soit prévenu : dites-moi la ville et le métier, je vous montre.</span></div>
+    <div class="objection"><span class="q">« On n'a pas de budget. »</span><span class="a">La première offre est gratuite quinze jours. Ensuite 9,99 € HT pour un mois — rien n'est prélevé sans votre accord, aucun engagement.</span></div>
+    <div class="objection"><span class="q">« Vos candidats sont-ils sérieux ? »</span><span class="a">Chaque profil est construit par le jeune lui-même. Vous voyez le CV avant de répondre, vous faites l'entretien en visio quand vous voulez. Rien n'est engagé sans vous.</span></div>
+    <div class="objection"><span class="q">« Et si personne ne postule ? »</span><span class="a">Vous n'aurez rien payé. Et nous regardons ensemble pourquoi : intitulé, ville, rémunération. C'est le travail d'une agence.</span></div>
+    <div class="objection"><span class="q">« Vous êtes trop récents. »</span><span class="a">Oui, et c'est pour ça que les cinquante premiers abonnés paient 299 € à vie au lieu de 499. Vous ne prenez aucun risque avec l'offre gratuite, et vous avez une équipe joignable à Perpignan, pas un formulaire de contact.</span></div>
+    <div class="objection"><span class="q">« Pourquoi payer chaque mois pour une annonce ? »</span><span class="a">Parce qu'une annonce qui reste en ligne six mois sans être pourvue, ça n'existe pas. Trente jours, c'est le temps d'un recrutement. Et vous ne repayez que si vous le décidez — aucun prélèvement automatique.</span></div>
+    <div class="objection"><span class="q">« La CVthèque n'est pas incluse à 9,99 € ? »</span><span class="a">Non, et je préfère vous le dire maintenant. À l'annonce, vous recevez les candidatures de votre offre. La CVthèque, c'est aller chercher les profils vous-même, sans attendre : c'est l'abonnement. Si vous recrutez plus d'une fois par an, il est vite rentabilisé.</span></div>
+    <div class="objection" style="border-bottom:0;"><span class="q">« Envoyez-moi une plaquette, je regarde. »</span><span class="a">Bien sûr, je vous l'envoie aujourd'hui. Mais le plus parlant, c'est de voir votre offre en ligne : ça prend dix minutes, c'est gratuit, et dans quinze jours vous saurez. On le fait maintenant ?</span></div>
+  </div>
+  <div class="foot"><span>Jeuncy · Guide commercial · usage interne</span><span class="pageno">9</span></div>
+</section>
+
+<!-- 10. Process -->
+<section class="page">
+  <div class="head"><div class="brand"><img src="{{LOGO_LIGHT}}" alt=""><span class="wordmark">Jeuncy</span></div><span class="section">Process de prospection</span></div>
+  <div class="kicker"><div class="accent"></div><p class="eyebrow">De la prise de contact au tarif fondateur</p></div>
+  <h2>Cinq étapes. La quatrième fait la vente.</h2>
+  <div class="process" style="margin-top: 18px;">
+    <div class="step"><div class="n">1</div><h4>Contact</h4><p>Appel ou visite. Une question, pas un monologue. Objectif : un rendez-vous de vingt minutes, ou publier l'offre tout de suite.</p></div>
+    <div class="step"><div class="n">2</div><h4>Rendez-vous</h4><p>Pitch 2 minutes, écran partagé ou tablette. Montrer une vraie offre, une vraie candidature, le suivi. Envoyer la plaquette le jour même.</p></div>
+    <div class="step"><div class="n">3</div><h4>Offre gratuite</h4><p>Créer le compte avec eux, publier ensemble. Vérifier que l'intitulé contient le métier et que la ville est renseignée : c'est ce qui déclenche les notifications.</p></div>
+    <div class="step"><div class="n">4</div><h4>Point J+15</h4><p>Rappeler. Regarder ensemble les candidatures reçues. S'il y en a : proposer l'abonnement fondateur. S'il n'y en a pas : corriger l'offre et relancer.</p></div>
+    <div class="step"><div class="n">5</div><h4>Suivi</h4><p>Un message à chaque nouvelle fonctionnalité. Demander une recommandation vers un autre employeur du bassin.</p></div>
+  </div>
+  <div class="script" style="margin-top: 18px;">
+    <span class="lab">Script d'appel · 40 secondes</span>
+    <p>« Bonjour, [prénom] de Jeuncy, l'agence de recrutement des alternants à Perpignan. Je vous appelle parce que vous recrutez en [métier] — est-ce que vous cherchez un alternant en ce moment ? » <span class="dir">[Oui]</span> « Comment vous y prenez-vous ? » <span class="dir">[Écouter]</span> « Ce qu'on fait, c'est simple : vous publiez votre offre, et le jour même les jeunes dont le profil correspond sont prévenus. La première offre est gratuite quinze jours. Je peux passer vingt minutes vous montrer, ou on la publie ensemble au téléphone, maintenant ? »</p>
+  </div>
+  <div class="script" style="margin-top: 12px;">
+    <span class="lab">Mail type · après un premier contact</span>
+    <p>Objet : Votre offre d'alternance en ligne dès aujourd'hui</p>
+    <p>Bonjour [Prénom Nom],<br>Merci pour notre échange de ce matin. Comme convenu, voici en pièce jointe la présentation de Jeuncy.<br>Pour résumer : vous publiez votre offre en dix minutes, les candidats dont le profil correspond sont prévenus le jour même, et vous suivez les candidatures depuis un tableau de bord. La première offre est gratuite pendant quinze jours, sans carte bancaire.<br>Vous pouvez créer votre compte ici : jeuncy.com/register — ou me dire un créneau, et on le fait ensemble.<br>Je vous rappelle dans quinze jours pour faire le point sur les candidatures reçues.<br>Bien à vous,<br>[Prénom] · Jeuncy · 07 43 68 99 11</p>
+  </div>
+  <div class="warn" style="margin-top: 14px;">
+    <svg class="ic"><use href="#i-alert"/></svg>
+    <p><strong>Ce qu'on ne promet jamais.</strong> Un nombre de candidatures. Un délai d'embauche. Une date pour l'application mobile. Une fonctionnalité qui n'existe pas encore. Un prix hors de la grille. En cas de doute : « je vérifie et je vous reviens » vaut toujours mieux qu'une promesse qu'on ne tiendra pas.</p>
+  </div>
+  <div class="foot"><span>Jeuncy · Guide commercial · usage interne</span><span class="pageno">10</span></div>
+</section>
+
+<!-- 11. FAQ technique & contacts -->
+<section class="page navy">
+  <div class="glow"></div>
+  <div class="head"><div class="brand"><img src="{{LOGO_DARK}}" alt=""><span class="wordmark">Jeuncy</span></div><span class="section">Questions techniques &amp; RGPD</span></div>
+  <div class="kicker"><div class="accent"></div><p class="eyebrow on-navy">Pour répondre sans hésiter</p></div>
+  <div style="margin-top: 6px;">
+    <div class="objection"><span class="q" style="color:var(--on-navy)">Où sont hébergées les données ?</span><span class="a">En France, chez OVH. Le paiement passe par Stripe : Jeuncy ne voit ni ne stocke aucune donnée bancaire.</span></div>
+    <div class="objection"><span class="q" style="color:var(--on-navy)">Que peut faire un candidat de ses données ?</span><span class="a">Les exporter, supprimer son compte, se retirer de la CVthèque en un clic. Conservation limitée à trois ans d'inactivité. Chaque téléchargement de son CV par un recruteur est journalisé.</span></div>
+    <div class="objection"><span class="q" style="color:var(--on-navy)">Et les données de l'entreprise ?</span><span class="a">Export et suppression du compte à tout moment. Les pièces comptables (paiements) sont conservées comme la loi l'exige, le reste est effacé.</span></div>
+    <div class="objection"><span class="q" style="color:var(--on-navy)">Faut-il installer quelque chose pour la visio ?</span><span class="a">Non. Le candidat rejoint depuis son navigateur avec un lien, sans compte. L'hôte se connecte avec un compte Google, GitHub ou Facebook — contrainte de l'outil de visio, pas de Jeuncy.</span></div>
+    <div class="objection"><span class="q" style="color:var(--on-navy)">Comment se passe le paiement ?</span><span class="a">Par carte, sur une page Stripe sécurisée. Le reçu est envoyé par Stripe. Pas de virement, pas de chèque pour l'instant.</span></div>
+    <div class="objection"><span class="q" style="color:var(--on-navy)">Peut-on avoir plusieurs utilisateurs sur un compte ?</span><span class="a">Non, un compte = un utilisateur. Si un prospect en a besoin, le noter et le remonter : c'est une demande à faire valider par la direction.</span></div>
+    <div class="objection" style="border-bottom:0;"><span class="q" style="color:var(--on-navy)">Et l'application mobile ?</span><span class="a">En développement pour iOS et Android, pour les trois publics. Aucune date à annoncer tant qu'elle n'est pas confirmée.</span></div>
+  </div>
+  <div class="mt-auto">
+    <div class="hair"></div>
+    <div class="kicker"><div class="accent"></div><p class="eyebrow on-navy">Qui contacter</p></div>
+    <div class="contact">
+      <div class="card"><svg class="ic lg"><use href="#i-mail"/></svg><b>go@jeuncy.com</b><p>Boîte commerciale. Y mettre en copie chaque prospect contacté.</p></div>
+      <div class="card"><svg class="ic lg"><use href="#i-phone"/></svg><b>07 43 68 99 11</b><p>Ligne commerciale, à donner aux prospects.</p></div>
+      <div class="card"><svg class="ic lg"><use href="#i-pin"/></svg><b>46 bd Clemenceau</b><p>66000 Perpignan. L'agence, pour recevoir un prospect ou un CFA.</p></div>
+    </div>
+  </div>
+  <div class="foot"><span>SAS Jeuncy · Guide commercial · usage interne · V1 septembre 2026</span><span class="pageno">11</span></div>
+</section>
+
+</body>
+</html>

@@ -14,6 +14,9 @@ export interface CvthequeCandidate {
   photo_url: string | null;
   bio: string | null;
   driving_license: string | null;
+  // Calcule cote serveur a partir de la date de naissance, qui elle n'est
+  // jamais transmise. Null pour les profils qui ne l'ont pas renseignee.
+  age: number | null;
   skills: { id: number; name: string }[];
   software: { id: number; name: string }[];
   languages: { id: number; name: string; level: string | null }[];
@@ -24,7 +27,6 @@ export interface CvthequeCandidateDetail extends CvthequeCandidate {
   phone: string | null;
   address: string | null;
   postal_code: string | null;
-  birth_date: string | null;
   hobbies: string | null;
   video_url: string | null;
   portfolio_url: string | null;
@@ -59,6 +61,8 @@ export interface CvthequeSearchFilters {
   city?: string;
   language?: string;
   driving_license?: boolean;
+  age_min?: number;
+  age_max?: number;
   skills?: string[];
   software?: string[];
   page?: number;
@@ -77,6 +81,8 @@ function toQueryString(filters: CvthequeSearchFilters): string {
   if (filters.city) params.set('city', filters.city);
   if (filters.language) params.set('language', filters.language);
   if (filters.driving_license) params.set('driving_license', '1');
+  if (filters.age_min) params.set('age_min', String(filters.age_min));
+  if (filters.age_max) params.set('age_max', String(filters.age_max));
   if (filters.page && filters.page > 1) params.set('page', String(filters.page));
   // Tableaux serialises en skills[]= : c'est la forme que Laravel parse en
   // tableau cote Form Request.

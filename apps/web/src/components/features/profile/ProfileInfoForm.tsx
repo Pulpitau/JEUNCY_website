@@ -20,7 +20,9 @@ const profileSchema = z.object({
     .regex(/^[0-9 .+-]*$/, 'Le téléphone ne doit contenir que des chiffres.')
     .optional()
     .or(z.literal('')),
-  birth_date: z.string().optional().or(z.literal('')),
+  // Obligatoire : l'age est un critere de selection pour les entreprises
+  // (le cout d'un alternant en depend). Le serveur impose 15 ans minimum.
+  birth_date: z.string().min(1, 'Indique ta date de naissance.'),
   address: z.string().optional().or(z.literal('')),
   city: z.string().optional().or(z.literal('')),
   postal_code: z
@@ -159,13 +161,19 @@ export function ProfileInfoForm({
           )}
         </div>
         <div className="flex flex-col gap-2">
-          <Label htmlFor="birth_date">Date de naissance</Label>
+          <Label htmlFor="birth_date">Date de naissance *</Label>
           <Input
             id="birth_date"
             type="date"
             autoComplete="bday"
+            required
+            aria-describedby="birth_date_help"
             {...register('birth_date')}
           />
+          <p id="birth_date_help" className="font-inter text-xs text-muted-foreground">
+            Seul ton âge est visible des recruteurs, jamais la date. Ils en ont besoin :
+            la rémunération d'un alternant dépend de son âge.
+          </p>
         </div>
         <div className="flex flex-col gap-2 sm:col-span-2">
           {/* « Adresse postale » et non « Adresse » : en francais, « ton

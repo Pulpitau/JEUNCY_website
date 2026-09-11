@@ -11,6 +11,15 @@ class UpdateCandidateProfileRequest extends FormRequest
         return true;
     }
 
+    public function messages(): array
+    {
+        return [
+            'birth_date.required' => 'Indique ta date de naissance : les entreprises en ont besoin pour te proposer un contrat.',
+            'birth_date.before_or_equal' => 'Il faut avoir au moins 15 ans pour utiliser Jeuncy.',
+            'birth_date.after' => 'Cette date de naissance ne semble pas correcte.',
+        ];
+    }
+
     public function rules(): array
     {
         return [
@@ -18,7 +27,9 @@ class UpdateCandidateProfileRequest extends FormRequest
             'last_name' => ['sometimes', 'string', 'max:255'],
             'headline' => ['sometimes', 'nullable', 'string', 'max:255'],
             'phone' => ['sometimes', 'nullable', 'string', 'max:20', 'regex:/^[0-9 .+-]*$/'],
-            'birth_date' => ['sometimes', 'nullable', 'date'],
+            // Peut etre omise (mise a jour partielle) mais plus jamais videe :
+            // voir StoreCandidateProfileRequest.
+            'birth_date' => array_merge(['sometimes'], ['required', 'date', 'before_or_equal:'.now()->subYears(15)->toDateString(), 'after:'.now()->subYears(100)->toDateString()]),
             'address' => ['sometimes', 'nullable', 'string', 'max:255'],
             'city' => ['sometimes', 'nullable', 'string', 'max:255'],
             'postal_code' => ['sometimes', 'nullable', 'string', 'max:10', 'regex:/^[0-9]*$/'],
