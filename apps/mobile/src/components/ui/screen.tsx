@@ -15,6 +15,11 @@ export interface ScreenProps {
   children: React.ReactNode;
   /** Rend le contenu defilant. A desactiver pour un ecran qui gere son propre defilement. */
   scroll?: boolean;
+  /**
+   * L'ecran est pousse dans une pile avec un en-tete natif : celui-ci occupe
+   * deja la zone de l'encoche, il ne faut pas la reserver une seconde fois.
+   */
+  hasHeader?: boolean;
   contentStyle?: ViewStyle;
 }
 
@@ -22,12 +27,17 @@ export interface ScreenProps {
 // d'accueil respectees, et surtout remontee du contenu quand le clavier
 // s'ouvre — sans quoi le champ en cours de saisie passe sous le clavier sur
 // les petits iPhone.
-export function Screen({ children, scroll = true, contentStyle }: ScreenProps) {
+export function Screen({
+  children,
+  scroll = true,
+  hasHeader = false,
+  contentStyle,
+}: ScreenProps) {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
 
   const padding: ViewStyle = {
-    paddingTop: insets.top + spacing.lg,
+    paddingTop: (hasHeader ? 0 : insets.top) + spacing.lg,
     paddingBottom: insets.bottom + spacing.xl,
     paddingHorizontal: spacing.xl,
   };
