@@ -915,3 +915,60 @@ ACCOUNT_SUSPENDED`, 403). Un access token déjà émis est **aussi** coupé
   paquets Expo 57, ajoutés automatiquement par pnpm : sa politique par défaut
   refuse les paquets publiés trop récemment (protection chaîne
   d'approvisionnement). Assouplissement assumé, à relire aux montées de version.
+
+**Application mobile — phase 1, lots A et B (2026-09-11) : terminés et
+validés sur iPhone**
+
+- **Lot A — navigation et offres.** Pile (écrans de détail avec retour natif)
+  au-dessus d'une barre d'onglets Offres / Candidatures / Notifications /
+  Profil ; les onglets propres au candidat sont masqués (`href: null`) pour
+  les autres rôles, qui voient « Compte » à la place de « Profil ».
+  Recherche publique : mot-clé et ville temporisés (400 ms), type de contrat
+  et mode de travail en puces, pagination infinie, tirer pour rafraîchir,
+  états vide et erreur avec issue. Détail aligné sur `PublicJobOfferView`
+  (rubriques entreprise vs CFA), 404 expliqué. Libellés des enums centralisés
+  dans `lib/labels.ts` (Record exhaustif : une valeur ajoutée à
+  `packages/shared` refuse de compiler sans libellé). `formatCompensation`
+  copié à l'identique du web. `age_confirmed` envoyé à l'inscription.
+- **Lot B — profil candidat.** Identité avec photo, sections expériences,
+  formations, compétences, logiciels, langues ; un compte sans profil est
+  invité à le créer (prénom, nom, date de naissance — 15 ans minimum, borne
+  du sélecteur alignée sur `StoreCandidateProfileRequest`). Un écran par
+  sujet, poussé dans la pile ; expérience et formation servent à l'ajout et à
+  la modification (élément lu dans le cache TanStack). Compétences et
+  logiciels : éditeur de puces, un seul `PUT` à l'enregistrement. Niveau de
+  langue guidé (CECRL + « Natif »). Dates : sélecteur natif, conversions ISO
+  dans `lib/dates.ts` à midi local (évite le décalage d'un jour).
+- **Validé sur iPhone par Pierre** (compte candidat de test créé depuis
+  l'app) : lot A en entier, y compris filtres excluants et mode sombre ; lot B
+  en entier **sauf la photo** — et surtout, **cohérence vérifiée avec le
+  site** : les saisies faites sur l'iPhone apparaissent à l'identique sur
+  jeuncy.com avec le même compte.
+- État de la production au moment des tests : **une seule offre publiée**
+  (IDA, CFA, Perpignan). Pagination et défilement infini écrits et compilés
+  mais non observables avant 13 offres.
+- Piège rencontré : le générateur de routes typées d'Expo Router, en mode
+  veille pendant `expo start`, a pris les fichiers créés dans `src/lib`,
+  `src/components` et `src/hooks` pour des écrans (`/../lib/labels`). Sans
+  effet à l'exécution, `.expo/` est ignoré par git, et un redémarrage du
+  serveur régénère le fichier proprement. Conséquence pratique : après
+  l'ajout de fichiers hors `src/app`, `npx expo start` doit être relancé
+  avant de faire confiance à `tsc`.
+- Commande de lancement : `cd apps/mobile` puis `npx expo start` — `pnpm`
+  n'est pas accessible depuis le terminal PowerShell de Pierre (voir
+  `apps/mobile/README.md`).
+
+**Connu et à traiter en premier (mobile, lot B)**
+
+- **Upload de la photo de profil : échoue sur iPhone** avec le message
+  `NETWORK_ERROR` de l'app (« Connexion impossible ») — `fetch` rejette, donc
+  aucune réponse HTTP n'arrive. Tout le reste du profil fonctionne avec le
+  même client, le même compte et le même réseau : le problème est propre à
+  l'envoi multipart d'un fichier. **Ne pas deviner** : instrumenter d'abord
+  (message natif de l'erreur, taille et URI du fichier choisi, essai avec
+  une image minuscule), puis seulement corriger. Piste à vérifier en premier
+  : taille du fichier (une photo iPhone recadrée à `quality: 0.8` peut
+  dépasser ce que l'hébergement accepte avant de couper la connexion, ce qui
+  produit exactement un échec réseau sans réponse). Correctif probable quelle
+  que soit la cause : redimensionner à ~800 px avant l'envoi
+  (`expo-image-manipulator`), une photo de profil n'a pas besoin de plus.

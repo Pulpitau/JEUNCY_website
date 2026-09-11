@@ -190,15 +190,15 @@ Abonnements en achat intégré · Visioconférence (à évaluer) · Administrati
 
 ## 7. Découpage du travail
 
-| Phase                | Contenu                                                                                                                                                            |
-| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 0 — Socle ✅         | **Terminée le 2026-09-09, validée sur iPhone le 2026-09-11.** Projet Expo, navigation, thème Jeuncy, client API, auth, stockage sécurisé — détail dans `CLAUDE.md` |
-| 1 — Candidat         | Tous les écrans candidat, y compris CV et candidatures                                                                                                             |
-| 2 — Push             | Jetons d'appareil, envoi depuis PHP, branchement sur les notifications existantes                                                                                  |
-| 3 — Entreprise / CFA | Profil, offres, candidatures reçues, CVthèque                                                                                                                      |
-| 4 — Achats à l'unité | Déclaration des produits, achat, vérification des reçus, réconciliation avec Stripe                                                                                |
-| 5 — Publication      | Icônes, captures, fiches des stores, politique de confidentialité, comptes de test, soumission                                                                     |
-| 6 — Après            | Abonnements en achat intégré                                                                                                                                       |
+| Phase                | Contenu                                                                                                                                                                                 |
+| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 0 — Socle ✅         | **Terminée le 2026-09-09, validée sur iPhone le 2026-09-11.** Projet Expo, navigation, thème Jeuncy, client API, auth, stockage sécurisé — détail dans `CLAUDE.md`                      |
+| 1 — Candidat 🔄      | **En cours.** Lots A (offres) et B (profil) terminés et validés sur iPhone le 2026-09-11, sauf photo. Restent : C (CV, candidature, suivi) et D (notifications, confidentialité, légal) |
+| 2 — Push             | Jetons d'appareil, envoi depuis PHP, branchement sur les notifications existantes                                                                                                       |
+| 3 — Entreprise / CFA | Profil, offres, candidatures reçues, CVthèque                                                                                                                                           |
+| 4 — Achats à l'unité | Déclaration des produits, achat, vérification des reçus, réconciliation avec Stripe                                                                                                     |
+| 5 — Publication      | Icônes, captures, fiches des stores, politique de confidentialité, comptes de test, soumission                                                                                          |
+| 6 — Après            | Abonnements en achat intégré                                                                                                                                                            |
 
 **Ordre de grandeur : plusieurs mois**, pas plusieurs semaines. L'application
 reprend l'équivalent des six phases construites sur le web. Le calendrier réel
