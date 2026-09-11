@@ -60,4 +60,44 @@ class RegisterValidationTest extends TestCase
 
         $this->assertSame(1, User::count());
     }
+
+    // --- Age minimum (15 ans) ---
+    //
+    // La case « j'ai 15 ans ou plus » est facultative cote serveur : le client
+    // mobile ne l'envoie pas encore, et l'exiger casserait son inscription. Si
+    // elle est envoyee, elle doit etre vraie. La verification reelle est la
+    // date de naissance, imposee >= 15 ans a la creation du profil.
+
+    public function test_a_declared_age_below_15_is_refused(): void
+    {
+        $this->postJson('/api/auth/register', [
+            'email' => 'lea.girard@example.com',
+            'password' => 'Password123!',
+            'role' => 'CANDIDATE',
+            'age_confirmed' => false,
+        ])->assertStatus(400)->assertJsonPath('error.code', 'INVALID_INPUT');
+
+        $this->assertSame(0, User::count());
+    }
+
+    public function test_a_confirmed_age_is_accepted(): void
+    {
+        $this->postJson('/api/auth/register', [
+            'email' => 'lea.girard@example.com',
+            'password' => 'Password123!',
+            'role' => 'CANDIDATE',
+            'age_confirmed' => true,
+        ])->assertCreated();
+    }
+
+    // Le client mobile n'envoie pas encore la case : son absence ne doit pas
+    // bloquer. Le jour ou il l'enverra, le serveur la validera deja.
+    public function test_registration_without_the_age_field_still_works(): void
+    {
+        $this->postJson('/api/auth/register', [
+            'email' => 'lea.girard@example.com',
+            'password' => 'Password123!',
+            'role' => 'CANDIDATE',
+        ])->assertCreated();
+    }
 }

@@ -25,6 +25,12 @@ class RegisterRequest extends FormRequest
             'password' => ['required', 'string', 'min:8'],
             // ADMIN est volontairement exclu : ce role n'est jamais auto-attribuable.
             'role' => ['required', Rule::in(['CANDIDATE', 'COMPANY', 'CFA'])],
+            // Declaration « j'ai 15 ans ou plus ». Facultative ici : le client
+            // mobile ne l'envoie pas encore, et l'exiger casserait son
+            // inscription. Si elle est envoyee, elle doit etre vraie. La
+            // verification REELLE est la date de naissance, imposee >= 15 ans
+            // a la creation du profil (voir StoreCandidateProfileRequest).
+            'age_confirmed' => ['sometimes', 'accepted'],
         ];
     }
 
@@ -35,6 +41,7 @@ class RegisterRequest extends FormRequest
             'email.not_regex' => "Cette adresse email n'est pas autorisée.",
             'password.min' => 'Le mot de passe doit contenir au moins 8 caractères.',
             'role.in' => 'Choisis un type de compte valide.',
+            'age_confirmed.accepted' => 'Tu dois avoir 15 ans ou plus pour créer un compte.',
         ];
     }
 }

@@ -7,7 +7,12 @@ interface AuthResponse {
   accessToken: string;
 }
 
-export function register(input: { email: string; password: string; role: UserRole }) {
+export function register(input: {
+  email: string;
+  password: string;
+  role: UserRole;
+  age_confirmed?: boolean;
+}) {
   return apiRequest<AuthResponse>('/auth/register', { method: 'POST', body: input });
 }
 

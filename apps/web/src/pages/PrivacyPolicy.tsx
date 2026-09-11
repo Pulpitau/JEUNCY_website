@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { ContactEmail } from '@/components/ContactEmail';
 
-const LAST_UPDATED = '2 septembre 2026';
+const LAST_UPDATED = '12 septembre 2026';
 
 const DATA_CATEGORIES = [
   {
@@ -126,6 +126,20 @@ export function PrivacyPolicy() {
               (participation à une visioconférence de démonstration) et, ponctuellement,
               sur l'intérêt légitime de Jeuncy à assurer la sécurité et le bon
               fonctionnement de la plateforme.
+            </p>
+            {/* Paragraphe ajoute le 2026-09-12. Jeuncy s'adresse a des jeunes,
+                dont des mineurs de 15 a 17 ans : la regle etait appliquee
+                (date de naissance verifiee) mais n'etait ecrite nulle part. */}
+            <p className="mt-3">
+              <strong>Âge minimum.</strong> Jeuncy est réservé aux personnes de 15 ans et
+              plus. En France, un mineur peut consentir seul au traitement de ses données
+              personnelles à partir de 15 ans (article 45 de la loi Informatique et
+              Libertés) : les candidats de 15 à 17 ans peuvent donc créer un compte et
+              utiliser Jeuncy sans autorisation parentale. Cette condition est déclarée à
+              l'inscription et vérifiée par la date de naissance renseignée sur le profil.
+              Si vous avez moins de 15 ans, vous ne pouvez pas créer de compte ; un parent
+              ou un titulaire de l'autorité parentale peut nous écrire à <ContactEmail />{' '}
+              pour toute question.
             </p>
           </section>
 

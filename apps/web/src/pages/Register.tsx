@@ -47,12 +47,25 @@ function landingRouteAfterSignup(role: string): string {
 const registerSchema = z.object({
   email: z.string().email('Adresse email invalide.'),
   password: z.string().min(8, 'Le mot de passe doit contenir au moins 8 caractères.'),
+  // Age minimum de 15 ans (loi Informatique et Libertes, art. 45 : un mineur
+  // peut consentir seul au traitement de ses donnees a partir de 15 ans).
+  // Demande aux seuls candidats : entreprises et CFA sont des personnes
+  // morales. La verification reelle est la date de naissance du profil.
+  age_confirmed: z.boolean().optional(),
   role: z.enum(['CANDIDATE', 'COMPANY', 'CFA'], {
     errorMap: () => ({ message: 'Choisis un type de compte.' }),
   }),
 });
 
 type RegisterFormValues = z.infer<typeof registerSchema>;
+
+const registerSchemaWithAge = registerSchema.refine(
+  (values) => values.role !== 'CANDIDATE' || values.age_confirmed === true,
+  {
+    message: 'Tu dois avoir 15 ans ou plus pour créer un compte.',
+    path: ['age_confirmed'],
+  },
+);
 
 const VALID_ROLES = ROLE_OPTIONS.map((option) => option.value);
 
@@ -73,7 +86,7 @@ export function Register() {
     watch,
     formState: { errors, isSubmitting },
   } = useForm<RegisterFormValues>({
-    resolver: zodResolver(registerSchema),
+    resolver: zodResolver(registerSchemaWithAge),
     defaultValues: { role: defaultRole },
   });
 
@@ -82,12 +95,22 @@ export function Register() {
   // — Google cree donc desormais un compte du bon type des la premiere
   // connexion, plus seulement un compte Candidat par defaut.
   const selectedRole = watch('role');
+  const ageConfirmed = watch('age_confirmed') === true;
+  // Un candidat doit cocher la case AVANT de partir chez Google : le
+  // parcours OAuth ne repasse pas par ce formulaire.
+  const googleBlocked = selectedRole === 'CANDIDATE' && !ageConfirmed;
   const googleHref = `${API_URL}/auth/google?role=${selectedRole}`;
 
   async function onSubmit(values: RegisterFormValues) {
     setServerError(null);
     try {
-      const { user, accessToken } = await registerRequest(values);
+      const { user, accessToken } = await registerRequest({
+        email: values.email,
+        password: values.password,
+        role: values.role,
+        // Envoyee seulement quand elle a un sens : un CFA n'a pas d'age.
+        ...(values.role === 'CANDIDATE' ? { age_confirmed: true } : {}),
+      });
       setSession(user, accessToken);
       navigate(landingRouteAfterSignup(user.role));
     } catch (error) {
@@ -141,9 +164,48 @@ export function Register() {
               )}
             </fieldset>
 
+            {selectedRole === 'CANDIDATE' && (
+              <div className="flex flex-col gap-1">
+                <label className="flex cursor-pointer items-start gap-2 font-inter text-sm text-foreground">
+                  <input
+                    type="checkbox"
+                    className="mt-0.5 h-4 w-4 rounded border-border accent-jeuncy-coral"
+                    aria-invalid={!!errors.age_confirmed}
+                    aria-describedby={
+                      errors.age_confirmed ? 'age-confirmed-error' : undefined
+                    }
+                    {...registerField('age_confirmed')}
+                  />
+                  <span>
+                    J'ai 15 ans ou plus.{' '}
+                    <span className="text-muted-foreground">
+                      Jeuncy est réservé aux personnes de 15 ans et plus.
+                    </span>
+                  </span>
+                </label>
+                {errors.age_confirmed && (
+                  <p
+                    id="age-confirmed-error"
+                    role="alert"
+                    className="text-sm text-destructive"
+                  >
+                    {errors.age_confirmed.message}
+                  </p>
+                )}
+              </div>
+            )}
+
             <a
-              href={googleHref}
-              className={cn(buttonVariants({ variant: 'outline' }), 'w-full gap-2')}
+              href={googleBlocked ? undefined : googleHref}
+              aria-disabled={googleBlocked || undefined}
+              onClick={(event) => {
+                if (googleBlocked) event.preventDefault();
+              }}
+              className={cn(
+                buttonVariants({ variant: 'outline' }),
+                'w-full gap-2',
+                googleBlocked && 'pointer-events-none opacity-50',
+              )}
             >
               <GoogleIcon className="h-4 w-4" />
               Continuer avec Google en tant que{' '}
