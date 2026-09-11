@@ -33,7 +33,7 @@ class DeployController extends Controller
     // ne peut pas savoir si le controleur lui-meme a bien ete redeploye : c est
     // arrive le 2026-09-02, ou clear-cache continuait d echouer avec une version
     // corrigee censement en place. A incrementer a chaque changement ici.
-    public const DEPLOY_TOOLS_VERSION = 'deploy-tools-20';
+    public const DEPLOY_TOOLS_VERSION = 'deploy-tools-21';
 
     // Cle du battement du planificateur, ecrite par bootstrap/app.php a
     // chaque schedule:run. Dupliquee en dur la-bas volontairement : voir
@@ -196,6 +196,8 @@ class DeployController extends Controller
             // aucune erreur visible — panne exactement du genre de celles qui
             // ont coute quatre allers-retours en septembre.
             'app/Http/Controllers/Auth/AuthController.php',
+            // Age minimum a l'inscription (case « 15 ans ou plus »).
+            'app/Http/Requests/Auth/RegisterRequest.php',
             'resources/views/cv/template.blade.php',
             'bootstrap/app.php',
             'config/cors.php',
