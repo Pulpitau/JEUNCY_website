@@ -1014,8 +1014,9 @@ validés sur iPhone — la phase 1 est complète**
   intégrées avec retour à l'app, bouton de suppression grisé sans le bon
   email puis compte réellement supprimé. **Non observé** : la mécanique de
   l'onglet Notifications (badge, marquage lu, navigation) — un candidat
-  fraîchement créé n'en a aucune, et c'est exact ; à vérifier avec
-  ou naturellement en phase 2.
+  fraîchement créé n'en a aucune, et c'est exact ; à vérifier avec l'outil
+  `/deploy/{token}/match/{id}?profil=N&envoyer=1` (une notification de
+  correspondance à un seul profil) ou naturellement en phase 2.
 - **Retours à traiter côté serveur** (hors app, envoi FTP à grouper) : le CV
   généré a trop de blanc en haut de page (photo et nom à remonter,
   `resources/views/cv/template.blade.php`) ; la lecture des CV importés est
