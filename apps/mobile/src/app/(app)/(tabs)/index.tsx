@@ -1,6 +1,6 @@
 import { ContractType, WorkMode } from '@jeuncy/shared';
 import { useInfiniteQuery } from '@tanstack/react-query';
-import { useRouter } from 'expo-router';
+import { Redirect, useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -17,6 +17,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { Field } from '@/components/ui/field';
 import { Text } from '@/components/ui/text';
 import { useDebouncedValue } from '@/hooks/use-debounced-value';
+import { useOrganizationRole } from '@/hooks/use-organization';
 import { searchPublicOffers, type PublicJobOffer } from '@/lib/api/job-offers';
 import { CONTRACT_TYPE_LABELS, WORK_MODE_LABELS } from '@/lib/labels';
 import { useTheme } from '@/theme/theme-provider';
@@ -35,6 +36,16 @@ const WORK_MODE_OPTIONS = (Object.keys(WORK_MODE_LABELS) as WorkMode[]).map((val
 }));
 
 export default function OffresScreen() {
+  const organizationRole = useOrganizationRole();
+
+  // L'accueil d'une entreprise ou d'un CFA, c'est la gestion de ses offres,
+  // pas la recherche publique (dont l'onglet lui est masque).
+  if (organizationRole) return <Redirect href="/mes-offres" />;
+
+  return <OffresSearch />;
+}
+
+function OffresSearch() {
   const router = useRouter();
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();

@@ -14,6 +14,7 @@ import { statusTone } from '@/components/features/applications/status';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/empty-state';
+import { Screen } from '@/components/ui/screen';
 import { Text } from '@/components/ui/text';
 import {
   useInvalidateApplications,
@@ -23,12 +24,34 @@ import { withdrawApplication, type ApplicationWithOffer } from '@/lib/api/applic
 import { ApiError } from '@/lib/api/client';
 import { formatDateFr } from '@/lib/dates';
 import { APPLICATION_STATUS_LABELS, CONTRACT_TYPE_LABELS } from '@/lib/labels';
+import { useOrganizationRole } from '@/hooks/use-organization';
 import { useTheme } from '@/theme/theme-provider';
 import { spacing } from '@/theme/typography';
 
+// Un onglet, deux contenus : le suivi de ses candidatures pour un candidat,
+// les candidatures recues pour une entreprise ou un CFA (lot G).
+export default function CandidaturesScreen() {
+  const organizationRole = useOrganizationRole();
+
+  return organizationRole ? <CandidaturesRecues /> : <MesCandidatures />;
+}
+
+// Provisoire : les candidatures recues arrivent avec le lot G.
+function CandidaturesRecues() {
+  return (
+    <Screen>
+      <Text variant="hero">Candidatures reçues</Text>
+      <EmptyState
+        title="Bientôt ici"
+        description="Les candidatures à tes offres, avec le CV de chaque candidat et le suivi de ta réponse : prochaine étape."
+      />
+    </Screen>
+  );
+}
+
 // Suivi des candidatures, equivalent de /mes-candidatures (web). Un tap
 // ouvre l'offre ; un appui long propose le retrait, definitif.
-export default function CandidaturesScreen() {
+function MesCandidatures() {
   const router = useRouter();
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();

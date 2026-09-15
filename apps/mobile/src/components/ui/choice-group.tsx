@@ -14,7 +14,8 @@ export interface Choice<T extends string> {
 export interface ChoiceGroupProps<T extends string> {
   label: string;
   choices: readonly Choice<T>[];
-  value: T;
+  /** null = aucune option choisie. */
+  value: T | null;
   onChange: (value: T) => void;
 }
 

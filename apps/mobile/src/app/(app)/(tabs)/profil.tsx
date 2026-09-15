@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 import { ActivityIndicator, Alert, StyleSheet, View } from 'react-native';
 
 import { BrandHeader } from '@/components/brand-header';
+import { OrganizationAccount } from '@/components/features/organization/organization-account';
 import { CvSection } from '@/components/features/profile/cv-section';
 import { ProfilePhoto } from '@/components/features/profile/profile-photo';
 import { ThemeSwitch } from '@/components/theme-switch';
@@ -15,6 +16,7 @@ import { Screen } from '@/components/ui/screen';
 import { ItemRow, Section, SectionEmpty } from '@/components/ui/section';
 import { Text } from '@/components/ui/text';
 import { useCandidateProfile, useInvalidateProfile } from '@/hooks/use-candidate-profile';
+import { useOrganizationRole } from '@/hooks/use-organization';
 import { logout } from '@/lib/api/auth';
 import {
   deleteEducation,
@@ -39,17 +41,21 @@ export default function ProfilScreen() {
   );
 }
 
-// Autres roles (entreprise, CFA, staff, admin) : pas de profil candidat, juste
-// le compte. L'espace entreprise / CFA arrive en phase 3.
+// Entreprise et CFA : la fiche de l'organisation. Staff et admin : pas de
+// fiche, juste le compte — l'administration reste sur le site.
 function AccountScreen({ email }: { email: string }) {
+  const organizationRole = useOrganizationRole();
+
+  if (organizationRole) return <OrganizationAccount email={email} footer={<Footer />} />;
+
   return (
     <Screen>
       <BrandHeader title="Mon compte" subtitle={email} />
       <Card>
-        <Text variant="sectionTitle">Espace entreprise et CFA</Text>
+        <Text variant="sectionTitle">Administration</Text>
         <Text variant="small" tone="muted">
-          La gestion des offres et des candidatures reçues arrive dans une prochaine
-          version. En attendant, tout reste disponible sur jeuncy.com.
+          L&apos;administration de la plateforme reste sur jeuncy.com : elle n&apos;a pas
+          d&apos;usage sur mobile.
         </Text>
       </Card>
       <Footer />

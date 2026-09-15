@@ -38,6 +38,8 @@ export default function AppLayout() {
         name="profil/confidentialite"
         options={{ title: 'Confidentialité et données' }}
       />
+      {/* Le titre (entreprise ou CFA) est pose par l'ecran. */}
+      <Stack.Screen name="organisation/informations" options={{ title: 'Ma fiche' }} />
     </Stack>
   );
 }

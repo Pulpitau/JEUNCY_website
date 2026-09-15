@@ -4,6 +4,7 @@ import { Tabs } from 'expo-router';
 import type { ColorValue } from 'react-native';
 
 import { unreadCount, useNotifications } from '@/hooks/use-notifications';
+import { isOrganizationRole } from '@/lib/api/organization';
 import { useAuthStore } from '@/store/auth-store';
 import { useTheme } from '@/theme/theme-provider';
 import { fonts } from '@/theme/typography';
@@ -34,6 +35,7 @@ export default function TabsLayout() {
   const { colors } = useTheme();
   const role = useAuthStore((state) => state.user?.role);
   const isCandidate = role === UserRole.CANDIDATE;
+  const isOrganization = isOrganizationRole(role);
   // Le badge de l'onglet suit le meme compteur que l'ecran : une seule
   // requete, partagee par TanStack Query.
   const nonLues = unreadCount(useNotifications().data);
@@ -52,7 +54,16 @@ export default function TabsLayout() {
         name="index"
         options={{
           title: 'Offres',
+          tabBarIcon: tabIcon('search', 'search-outline'),
+          href: isOrganization ? null : undefined,
+        }}
+      />
+      <Tabs.Screen
+        name="mes-offres"
+        options={{
+          title: 'Mes offres',
           tabBarIcon: tabIcon('briefcase', 'briefcase-outline'),
+          href: isOrganization ? undefined : null,
         }}
       />
       <Tabs.Screen
@@ -60,7 +71,15 @@ export default function TabsLayout() {
         options={{
           title: 'Candidatures',
           tabBarIcon: tabIcon('paper-plane', 'paper-plane-outline'),
-          href: isCandidate ? undefined : null,
+          href: isCandidate || isOrganization ? undefined : null,
+        }}
+      />
+      <Tabs.Screen
+        name="cvtheque"
+        options={{
+          title: 'CVthèque',
+          tabBarIcon: tabIcon('people', 'people-outline'),
+          href: isOrganization ? undefined : null,
         }}
       />
       <Tabs.Screen
