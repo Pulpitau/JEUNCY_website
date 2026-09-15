@@ -972,3 +972,55 @@ validés sur iPhone**
   produit exactement un échec réseau sans réponse). Correctif probable quelle
   que soit la cause : redimensionner à ~800 px avant l'envoi
   (`expo-image-manipulator`), une photo de profil n'a pas besoin de plus.
+
+**Application mobile — phase 1, lots C et D (2026-09-15) : code terminé,
+lot C validé sur iPhone, lot D à tester**
+
+- **Photo de profil corrigée** — cause prouvée dans le code source d'Expo :
+  le SDK 54+ remplace le `fetch` de React Native par `expo/fetch`
+  (`expo/src/winter/runtime.native.ts`), qui assemble lui-même le multipart et
+  n'accepte qu'une chaîne, un `Blob`, ou un objet doté de `bytes()` — le `File`
+  d'`expo-file-system`. Le format historique `{ uri, name, type }` échoue avec
+  « Unsupported FormDataPart implementation ». Mesuré avant de corriger : le
+  serveur acceptait 4 Mo sans broncher, la taille n'était pas en cause.
+  `toFormDataPart()` (`lib/api/candidate-profile.ts`) sert désormais à tous
+  les envois de fichiers (photo, CV déposé, CV joint, import). `ApiError`
+  conserve l'erreur native dans `cause` : sans elle, un upload raté est
+  indistinguable d'un Wi-Fi coupé.
+- **Lot C1 — CV et candidature.** Profil : dépôt d'un PDF, génération du CV
+  Jeuncy (ouvert aussitôt), historique. Détail d'offre : barre fixe
+  « Postuler » / « Tu as déjà postulé · statut ». Écran de candidature :
+  téléphone pré-rempli, CV = dernière version Jeuncy ou PDF joint, lettre
+  facultative. Onglet Candidatures : statut coloré, appui long pour retirer.
+  **Validé sur iPhone (6/6)**, y compris la cohérence avec le site : la
+  candidature envoyée depuis l'app est complète sur jeuncy.com, CV et lettre
+  compris.
+- **Lot C2 — import de CV.** Le serveur lit le PDF, l'app impose une
+  **relecture** (cases cochées par défaut, le candidat décoche) avant
+  d'appliquer — leçon du 2026-09-04. Ce que le profil a déjà n'est pas
+  proposé. **Validé sur iPhone** ; qualité de lecture jugée ~70 % par Pierre
+  sur son propre CV, ce qui relève de `CvImportService` (partagé avec le
+  site), pas de l'app.
+- **Lot D — notifications, confidentialité, légal.** Onglet Notifications
+  avec badge de non-lus et rafraîchissement 30 s ; les liens du site sont
+  traduits en écrans de l'app (`hrefForNotification`). Écran « Confidentialité
+  et données » : retrait de la CVthèque, export JSON via la feuille de partage
+  iOS, suppression du compte (email en confirmation, exigence Apple 5.1.1(v)).
+  **Textes légaux en feuille Safari intégrée, pas recopiés** — écart assumé
+  par rapport à `MOBILE.md` §9.2 : la politique a changé le 2026-09-11, une
+  copie serait périmée à la première évolution. À revoir si Apple l'exige.
+  **Pas encore testé sur iPhone.**
+- **Retours à traiter côté serveur** (hors app, envoi FTP à grouper) : le CV
+  généré a trop de blanc en haut de page (photo et nom à remonter,
+  `resources/views/cv/template.blade.php`) ; la lecture des CV importés est
+  imprécise (~30 % d'erreurs sur un CV réel, `CvImportService`).
+
+**Connu et à traiter plus tard (mobile phase 1)**
+
+- Pas de réglage de désactivation des notifications (prévu avec le push,
+  phase 2, `MOBILE.md` §9.5).
+- Le formulaire de candidature ne propose que la **dernière** version du CV
+  Jeuncy, là où le site laisse choisir parmi toutes. Simplification mobile
+  délibérée : regénérer prend deux secondes.
+- Le CV déposé au profil (`cv_file_url`) n'est pas proposé comme CV de
+  candidature — même limite que le site, l'API ne l'accepte pas directement.
