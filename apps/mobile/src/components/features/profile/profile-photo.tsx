@@ -30,11 +30,18 @@ export function ProfilePhoto({ photoUrl, firstName, lastName }: ProfilePhotoProp
   const upload = useMutation({
     mutationFn: uploadProfilePhoto,
     onSuccess: () => void invalidate(),
-    onError: (error) =>
+    onError: (error, file) => {
+      // L'erreur native (error.cause) reste dans les logs Metro : c'est elle
+      // qui a permis de trouver la cause reelle le 2026-09-15 (voir
+      // toFormDataPart dans lib/api/candidate-profile.ts), la ou le message
+      // affiche a l'utilisateur ne disait que « connexion impossible ».
+      const native = error instanceof ApiError && error.cause ? String(error.cause) : '';
+      console.log(`[photo] echec upload de ${file.uri} : ${error.message} ${native}`);
       Alert.alert(
         'Photo non enregistrée',
         error instanceof ApiError ? error.message : 'Réessaie.',
-      ),
+      );
+    },
   });
 
   const remove = useMutation({
@@ -43,6 +50,9 @@ export function ProfilePhoto({ photoUrl, firstName, lastName }: ProfilePhotoProp
   });
 
   const envoyer = (asset: ImagePicker.ImagePickerAsset) => {
+    console.log(
+      `[photo] choisie : ${asset.width}x${asset.height}, ${asset.fileSize ?? '?'} octets, ${asset.mimeType ?? '?'}, ${asset.uri}`,
+    );
     upload.mutate({
       uri: asset.uri,
       name: asset.fileName ?? 'photo.jpg',

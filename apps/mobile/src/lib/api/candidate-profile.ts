@@ -1,3 +1,5 @@
+import { File } from 'expo-file-system';
+
 import { apiRequest } from './client';
 
 // Types alignes sur apps/web/src/lib/api/candidate-profile.ts : meme API,
@@ -122,13 +124,28 @@ export interface LanguageInput {
   level: string;
 }
 
-// Fichier a envoyer en multipart depuis React Native. Contrairement au
-// navigateur, il n'y a pas d'objet File : FormData accepte un objet
-// { uri, name, type } que la couche native lit directement sur le disque.
+// Fichier local a envoyer en multipart : ce que renvoient expo-image-picker
+// et expo-document-picker.
 export interface NativeFile {
   uri: string;
   name: string;
   type: string;
+}
+
+// Convertit un fichier local en une part acceptee par le fetch d'Expo.
+//
+// POURQUOI. Expo SDK 54+ remplace le fetch de React Native par le sien
+// (expo/src/winter/runtime.native.ts), qui assemble lui-meme le multipart
+// et n'accepte qu'une chaine, un Blob, ou un objet dote de bytes() — le File
+// d'expo-file-system. Le format historique de React Native { uri, name,
+// type } n'entre dans aucune de ces cases et echoue avec « Unsupported
+// FormDataPart implementation » : c'est ce qui a bloque la photo de profil
+// le 2026-09-11, sans reponse du serveur puisque rien n'etait envoye.
+//
+// Le cast est necessaire : File implemente l'interface Blob sans etendre la
+// classe, et les types de FormData sont ceux du DOM.
+function toFormDataPart(file: NativeFile): Blob {
+  return new File(file.uri) as unknown as Blob;
 }
 
 export function getMyProfile() {
@@ -220,9 +237,7 @@ export function syncSoftware(names: string[]) {
 
 export function uploadProfilePhoto(file: NativeFile) {
   const formData = new FormData();
-  // Le cast est necessaire : les types de FormData sont ceux du web (Blob),
-  // alors que React Native accepte un descripteur { uri, name, type }.
-  formData.append('photo', file as unknown as Blob);
+  formData.append('photo', toFormDataPart(file));
 
   return apiRequest<CandidateProfile>('/candidate-profile/photo', {
     method: 'POST',

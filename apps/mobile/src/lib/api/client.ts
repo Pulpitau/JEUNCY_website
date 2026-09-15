@@ -133,17 +133,21 @@ export async function apiRequest<T>(
 
   try {
     response = await requestWithRetry(path, options);
-  } catch {
+  } catch (cause) {
     // fetch ne rejette que sur un probleme reseau : hors ligne, DNS, TLS.
     // Un message explicite vaut mieux que l'echec brut de la couche native,
-    // illisible pour l'utilisateur.
-    throw new ApiError(
+    // illisible pour l'utilisateur — mais cet echec brut est conserve dans
+    //  : c'est la seule trace de ce qui s'est reellement passe, et
+    // sans elle un upload qui echoue est indistinguable d'un Wi-Fi coupe.
+    const error = new ApiError(
       {
         code: 'NETWORK_ERROR',
         message: 'Connexion impossible. Vérifie ta connexion internet.',
       },
       0,
     );
+    error.cause = cause;
+    throw error;
   }
 
   const body = (await response.json().catch(() => null)) as
