@@ -144,7 +144,7 @@ export interface NativeFile {
 //
 // Le cast est necessaire : File implemente l'interface Blob sans etendre la
 // classe, et les types de FormData sont ceux du DOM.
-function toFormDataPart(file: NativeFile): Blob {
+export function toFormDataPart(file: NativeFile): Blob {
   return new File(file.uri) as unknown as Blob;
 }
 
@@ -247,4 +247,31 @@ export function uploadProfilePhoto(file: NativeFile) {
 
 export function removeProfilePhoto() {
   return apiRequest<CandidateProfile>('/candidate-profile/photo', { method: 'DELETE' });
+}
+
+// --- CV -------------------------------------------------------------------
+
+/** Genere un CV PDF a partir du profil (rendu cote serveur, dompdf). */
+export function generateCv() {
+  return apiRequest<GeneratedCv>('/candidate-profile/cv', { method: 'POST' });
+}
+
+export function listGeneratedCvs() {
+  return apiRequest<GeneratedCv[]>('/candidate-profile/cv');
+}
+
+// CV depose par le candidat lui-meme, propose aux recruteurs en priorite sur
+// un CV genere : c'est le document qu'il a choisi (CvthequeService).
+export function uploadOwnCv(file: NativeFile) {
+  const formData = new FormData();
+  formData.append('cv_file', toFormDataPart(file));
+
+  return apiRequest<CandidateProfile>('/candidate-profile/cv-file', {
+    method: 'POST',
+    body: formData,
+  });
+}
+
+export function removeOwnCv() {
+  return apiRequest<CandidateProfile>('/candidate-profile/cv-file', { method: 'DELETE' });
 }

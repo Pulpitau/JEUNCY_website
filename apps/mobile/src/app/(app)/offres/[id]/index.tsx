@@ -1,8 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { ApplyBar } from '@/components/features/applications/apply-bar';
 import { PublisherAvatar } from '@/components/features/job-offers/publisher-avatar';
 import { Badge } from '@/components/ui/badge';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -30,12 +30,11 @@ function Fact({ label, value }: { label: string; value: string | null | undefine
 
 // Rendu public d'une offre, aligne sur PublicJobOfferView (web) : memes
 // rubriques, meme ordre, memes intitules selon qu'il s'agit d'une entreprise
-// ou d'un CFA. Le bouton « Postuler » arrive avec le lot C (candidature).
+// ou d'un CFA. La barre « Postuler » est fixe en bas, hors du defilement.
 export default function OffreDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { colors } = useTheme();
-  const insets = useSafeAreaInsets();
   const offerId = Number(id);
 
   const query = useQuery({
@@ -87,71 +86,72 @@ export default function OffreDetailScreen() {
   return (
     <>
       <Stack.Screen options={{ title: publisher?.name ?? 'Offre' }} />
-      <ScrollView
-        contentContainerStyle={[
-          styles.content,
-          { paddingBottom: insets.bottom + spacing.xxl },
-        ]}
-        style={{ backgroundColor: colors.background }}
-      >
-        <Badge label={CONTRACT_TYPE_LABELS[offer.contract_type]} tone="accent" />
-        <Text variant="title">{offer.title}</Text>
+      <View style={[styles.page, { backgroundColor: colors.background }]}>
+        <ScrollView
+          contentContainerStyle={[styles.content, { paddingBottom: spacing.xxl }]}
+          style={{ backgroundColor: colors.background }}
+        >
+          <Badge label={CONTRACT_TYPE_LABELS[offer.contract_type]} tone="accent" />
+          <Text variant="title">{offer.title}</Text>
 
-        <View style={styles.publisher}>
-          <PublisherAvatar publisher={publisher} size={36} />
-          <Text variant="body" tone="muted" style={styles.publisherName}>
-            {publisher?.name}
-            {offer.city ? ` · ${offer.city}` : ''}
+          <View style={styles.publisher}>
+            <PublisherAvatar publisher={publisher} size={36} />
+            <Text variant="body" tone="muted" style={styles.publisherName}>
+              {publisher?.name}
+              {offer.city ? ` · ${offer.city}` : ''}
+            </Text>
+          </View>
+
+          <View style={styles.facts}>
+            <Fact
+              label="Type d'offre"
+              value={offer.work_mode && WORK_MODE_LABELS[offer.work_mode]}
+            />
+            <Fact label="Rémunération" value={remuneration} />
+            {!cfa ? (
+              <Fact label="Expérience requise" value={offer.experience_level} />
+            ) : null}
+            {cfa ? <Fact label="Niveau visé" value={offer.diploma_level} /> : null}
+            {cfa ? (
+              <Fact label="Rythme de l'alternance" value={offer.training_rhythm} />
+            ) : null}
+          </View>
+
+          <Text variant="body" style={styles.description}>
+            {offer.description}
           </Text>
-        </View>
 
-        <View style={styles.facts}>
-          <Fact
-            label="Type d'offre"
-            value={offer.work_mode && WORK_MODE_LABELS[offer.work_mode]}
-          />
-          <Fact label="Rémunération" value={remuneration} />
-          {!cfa ? (
-            <Fact label="Expérience requise" value={offer.experience_level} />
-          ) : null}
-          {cfa ? <Fact label="Niveau visé" value={offer.diploma_level} /> : null}
-          {cfa ? (
-            <Fact label="Rythme de l'alternance" value={offer.training_rhythm} />
-          ) : null}
-        </View>
-
-        <Text variant="body" style={styles.description}>
-          {offer.description}
-        </Text>
-
-        {offer.skills.length > 0 ? (
-          <View style={styles.section}>
-            <Text variant="sectionTitle">
-              {cfa ? 'Compétences et expériences acquises' : 'Compétences recherchées'}
-            </Text>
-            <View style={styles.skills}>
-              {offer.skills.map((skill) => (
-                <Badge key={skill.id} label={skill.name} />
-              ))}
+          {offer.skills.length > 0 ? (
+            <View style={styles.section}>
+              <Text variant="sectionTitle">
+                {cfa ? 'Compétences et expériences acquises' : 'Compétences recherchées'}
+              </Text>
+              <View style={styles.skills}>
+                {offer.skills.map((skill) => (
+                  <Badge key={skill.id} label={skill.name} />
+                ))}
+              </View>
             </View>
-          </View>
-        ) : null}
+          ) : null}
 
-        {!cfa && offer.benefits ? (
-          <View style={styles.section}>
-            <Text variant="sectionTitle">Avantages</Text>
-            <Text variant="body" tone="muted">
-              {offer.benefits}
-            </Text>
-          </View>
-        ) : null}
-      </ScrollView>
+          {!cfa && offer.benefits ? (
+            <View style={styles.section}>
+              <Text variant="sectionTitle">Avantages</Text>
+              <Text variant="body" tone="muted">
+                {offer.benefits}
+              </Text>
+            </View>
+          ) : null}
+        </ScrollView>
+        <ApplyBar offerId={offer.id} />
+      </View>
     </>
   );
 }
 
 const styles = StyleSheet.create({
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  page: { flex: 1 },
   content: {
     padding: spacing.xl,
     gap: spacing.md,

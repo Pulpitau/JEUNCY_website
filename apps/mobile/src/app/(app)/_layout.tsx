@@ -23,7 +23,8 @@ export default function AppLayout() {
       }}
     >
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-      <Stack.Screen name="offres/[id]" options={{ title: 'Offre' }} />
+      <Stack.Screen name="offres/[id]/index" options={{ title: 'Offre' }} />
+      <Stack.Screen name="offres/[id]/postuler" options={{ title: 'Postuler' }} />
       <Stack.Screen name="profil/informations" options={{ title: 'Mes informations' }} />
       {/* Les titres de experience et formation dependent du mode (ajout ou
           modification) : chaque ecran pose le sien via <Stack.Screen>. */}

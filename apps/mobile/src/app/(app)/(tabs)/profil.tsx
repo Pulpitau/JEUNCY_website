@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 import { ActivityIndicator, Alert, StyleSheet, View } from 'react-native';
 
 import { BrandHeader } from '@/components/brand-header';
+import { CvSection } from '@/components/features/profile/cv-section';
 import { ProfilePhoto } from '@/components/features/profile/profile-photo';
 import { ThemeSwitch } from '@/components/theme-switch';
 import { Badge } from '@/components/ui/badge';
@@ -279,11 +280,7 @@ function ProfileSummary({ profile }: { profile: CandidateProfile }) {
         )}
       </Section>
 
-      <Section title="CV">
-        <SectionEmpty>
-          Import de ton CV, génération et téléchargement : prochaine étape.
-        </SectionEmpty>
-      </Section>
+      <CvSection profile={profile} />
 
       <Footer />
     </Screen>

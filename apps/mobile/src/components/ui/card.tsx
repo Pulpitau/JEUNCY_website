@@ -13,11 +13,18 @@ export interface CardProps {
   children: React.ReactNode;
   /** Rend la carte tactile entiere ; sans onPress, c'est un simple conteneur. */
   onPress?: () => void;
+  onLongPress?: () => void;
   accessibilityLabel?: string;
   style?: StyleProp<ViewStyle>;
 }
 
-export function Card({ children, onPress, accessibilityLabel, style }: CardProps) {
+export function Card({
+  children,
+  onPress,
+  onLongPress,
+  accessibilityLabel,
+  style,
+}: CardProps) {
   const { colors } = useTheme();
   const base = [
     styles.card,
@@ -32,6 +39,7 @@ export function Card({ children, onPress, accessibilityLabel, style }: CardProps
   return (
     <Pressable
       onPress={onPress}
+      onLongPress={onLongPress}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
       style={({ pressed }) => [
