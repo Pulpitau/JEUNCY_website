@@ -26,6 +26,25 @@ class ArchiveExpiredTrialOffers extends Command
 
     public function handle(): int
     {
+        // Jeuncy gratuit (2026-09-15) : une fin d'essai ne retire plus rien.
+        // L'offre d'essai devient simplement une offre gratuite, sans email
+        // ni notification — annoncer a une entreprise que « sa periode
+        // d'essai est terminee » sur un service gratuit serait absurde, et
+        // la premiere offre concernee est celle de l'ecole partenaire.
+        if (JobOfferService::gratuit()) {
+            // Uniquement les offres EN LIGNE : une offre d'essai deja
+            // archivee garde TRIAL, c'est ce qui la rend republiable (voir
+            // JobOfferService::requirePayableOffer).
+            $converties = JobOffer::query()
+                ->where('status', JobOfferStatus::PUBLISHED)
+                ->where('payment_status', PaymentStatus::TRIAL)
+                ->update(['payment_status' => PaymentStatus::FREE->value]);
+
+            $this->info("{$converties} offre(s) d'essai passee(s) en publication gratuite.");
+
+            return self::SUCCESS;
+        }
+
         // Une offre publiee via l'essai est reperee par payment_status TRIAL
         // (jamais touche par ExpireJobOffers, qui ne regarde que expires_at) :
         // l'entreprise/le CFA proprietaire determine si SON essai (15 jours

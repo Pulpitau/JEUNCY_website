@@ -18,16 +18,16 @@ import { ApiError } from '@/lib/api/client';
 import { spacing } from '@/theme/typography';
 
 // ADMIN et STAFF sont volontairement absents : ce sont des roles internes,
-// attribues en base, jamais choisis a l'inscription. Le serveur applique la
-// meme garde de son cote (RegisterRequest).
-const ROLES: readonly Choice<'CANDIDATE' | 'COMPANY' | 'CFA'>[] = [
+// attribues en base, jamais choisis a l'inscription. CFA absent aussi depuis
+// le 2026-09-15 : l'inscription des CFA est fermee (ecole partenaire), le
+// serveur la refuse de son cote (AuthService::assertRoleOpenForRegistration).
+const ROLES: readonly Choice<'CANDIDATE' | 'COMPANY'>[] = [
   {
     value: UserRole.CANDIDATE,
     label: 'Je cherche',
     hint: 'Alternance, job saisonnier, bénévolat',
   },
-  { value: UserRole.COMPANY, label: 'Je recrute', hint: 'Entreprise' },
-  { value: UserRole.CFA, label: 'Je forme', hint: 'Centre de formation (CFA)' },
+  { value: UserRole.COMPANY, label: 'Je recrute', hint: 'Entreprise — gratuit' },
 ] as const;
 
 const schema = z.object({
@@ -36,7 +36,7 @@ const schema = z.object({
     .min(1, 'Renseigne ton adresse email.')
     .email('Adresse email invalide.'),
   password: z.string().min(8, 'Le mot de passe doit faire au moins 8 caractères.'),
-  role: z.enum([UserRole.CANDIDATE, UserRole.COMPANY, UserRole.CFA]),
+  role: z.enum([UserRole.CANDIDATE, UserRole.COMPANY]),
   // Age minimum de 15 ans : en France, un mineur peut consentir seul au
   // traitement de ses donnees a partir de cet age. En dessous, l'accord d'un
   // titulaire de l'autorite parentale serait requis (MOBILE.md section 9.3).

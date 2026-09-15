@@ -21,10 +21,13 @@ import { useAuthStore } from '@/store/auth-store';
 import { cn } from '@/lib/utils';
 import { GoogleIcon } from '@/components/icons/GoogleIcon';
 
+// Plus de choix « CFA » depuis le 2026-09-15 : l'inscription CFA est fermee
+// (Jeuncy travaille avec une ecole partenaire, voir AuthService cote API,
+// qui refuse aussi le role par formulaire et par Google). Un CFA existant se
+// connecte normalement.
 const ROLE_OPTIONS = [
   { value: 'CANDIDATE', label: 'Candidat' },
   { value: 'COMPANY', label: 'Entreprise' },
-  { value: 'CFA', label: 'CFA' },
 ] as const;
 
 // S'inscrire ne cree qu'une ligne `users` : la fiche (profil candidat,
@@ -37,7 +40,6 @@ function landingRouteAfterSignup(role: string): string {
     case UserRole.CANDIDATE:
       return '/profile';
     case UserRole.COMPANY:
-    case UserRole.CFA:
       return '/organization';
     default:
       return '/';
@@ -52,7 +54,7 @@ const registerSchema = z.object({
   // Demande aux seuls candidats : entreprises et CFA sont des personnes
   // morales. La verification reelle est la date de naissance du profil.
   age_confirmed: z.boolean().optional(),
-  role: z.enum(['CANDIDATE', 'COMPANY', 'CFA'], {
+  role: z.enum(['CANDIDATE', 'COMPANY'], {
     errorMap: () => ({ message: 'Choisis un type de compte.' }),
   }),
 });
@@ -79,6 +81,9 @@ export function Register() {
   const defaultRole = (VALID_ROLES as readonly string[]).includes(roleParam ?? '')
     ? (roleParam as RegisterFormValues['role'])
     : 'CANDIDATE';
+  // Lien ?role=CFA (anciennes plaquettes, retour de AuthController quand
+  // un CFA tente Google) : on explique au lieu de faire comme si de rien.
+  const cfaRequested = roleParam === 'CFA';
 
   const {
     register: registerField,
@@ -108,7 +113,7 @@ export function Register() {
         email: values.email,
         password: values.password,
         role: values.role,
-        // Envoyee seulement quand elle a un sens : un CFA n'a pas d'age.
+        // Envoyee seulement quand elle a un sens : une entreprise n'a pas d'age.
         ...(values.role === 'CANDIDATE' ? { age_confirmed: true } : {}),
       });
       setSession(user, accessToken);
@@ -128,6 +133,21 @@ export function Register() {
           <CardDescription>Ton alternance commence ici.</CardDescription>
         </CardHeader>
         <CardContent>
+          {cfaRequested && (
+            <p
+              role="status"
+              className="mb-4 rounded-md border border-jeuncy-orange/40 bg-jeuncy-orange/10 px-3 py-2 font-inter text-sm text-foreground"
+            >
+              <span className="font-poppins font-semibold">
+                L'espace CFA n'est pas encore ouvert aux inscriptions.
+              </span>{' '}
+              Jeuncy travaille avec des écoles partenaires sélectionnées.{' '}
+              <Link to="/contact" className="text-primary hover:underline">
+                Écris-nous
+              </Link>{' '}
+              pour en discuter.
+            </p>
+          )}
           <p className="mb-4 font-inter text-sm text-muted-foreground">
             Choisis d'abord ton type de compte, puis crée-le en un clic avec{' '}
             <span className="font-medium text-foreground">Google</span>, ou remplis le{' '}
@@ -265,9 +285,9 @@ export function Register() {
                 politique de confidentialite. */}
             {selectedRole === 'CANDIDATE' && (
               <p className="rounded-md border border-border bg-muted/40 px-3 py-2 font-inter text-xs leading-relaxed text-muted-foreground">
-                Ton profil sera visible par les entreprises et CFA abonnés, qui pourront
-                te contacter directement. Tu pourras t'en retirer en un clic depuis ton
-                profil à tout moment.{' '}
+                Ton profil sera visible par les entreprises inscrites sur Jeuncy, qui
+                pourront te contacter directement. Tu pourras t'en retirer en un clic
+                depuis ton profil à tout moment.{' '}
                 <Link to="/confidentialite" className="text-primary hover:underline">
                   En savoir plus
                 </Link>

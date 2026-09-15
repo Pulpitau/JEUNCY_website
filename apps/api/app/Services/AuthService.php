@@ -32,6 +32,8 @@ class AuthService
 
     public function register(string $email, string $password, UserRole $role): array
     {
+        self::assertRoleOpenForRegistration($role);
+
         if (User::where('email', $email)->exists()) {
             throw new ApiException('EMAIL_ALREADY_EXISTS', 'Un compte existe déjà avec cet email.', 409);
         }
@@ -46,6 +48,23 @@ class AuthService
         $this->sendWelcomeEmail($user);
 
         return ['user' => $user, 'tokens' => $this->issueTokens($user)];
+    }
+
+    // Les CFA ne peuvent pas s'inscrire seuls (decision du 2026-09-15, voir
+    // config services.jeuncy.inscription_cfa_ouverte) : Jeuncy travaille
+    // avec une ecole partenaire, et tout autre CFA present sur la plateforme
+    // aurait acces aux memes candidats. Les comptes CFA existants continuent
+    // de se connecter normalement — seule la creation est fermee.
+    public static function assertRoleOpenForRegistration(UserRole $role): void
+    {
+        if ($role === UserRole::CFA && ! config('services.jeuncy.inscription_cfa_ouverte')) {
+            $contact = config('services.contact.email');
+            throw new ApiException(
+                'CFA_REGISTRATION_CLOSED',
+                "L'espace CFA n'est pas encore ouvert aux inscriptions. Ecris-nous a {$contact} pour etre prevenu de son ouverture.",
+                403,
+            );
+        }
     }
 
     /**
@@ -129,6 +148,10 @@ class AuthService
 
             return $existingByEmail;
         }
+
+        // Seulement pour un compte NOUVEAU : un CFA existant qui se connecte
+        // par Google n'est pas une inscription.
+        self::assertRoleOpenForRegistration($role);
 
         $user = User::create([
             'email' => $email,

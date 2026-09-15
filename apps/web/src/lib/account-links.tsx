@@ -1,6 +1,5 @@
 import {
   Building2,
-  CreditCard,
   FileText,
   GraduationCap,
   LayoutDashboard,
@@ -47,7 +46,10 @@ export function accountLinksFor(role: string): AccountLink[] {
       { to: '/mes-offres', label: 'Mes offres', icon: FileText },
       { to: '/candidats', label: 'Candidats', icon: Search },
       { to: '/mes-visios', label: 'Visio démo', icon: Video },
-      { to: '/mes-paiements', label: 'Paiements', icon: CreditCard },
+      // « Paiements » retire du menu le 2026-09-15 : Jeuncy est gratuit pour
+      // les entreprises, un onglet de paiement contredirait le message. La
+      // page /mes-paiements existe toujours pour l'historique d'un compte
+      // qui aurait paye avant.
       ...common,
     ];
   }

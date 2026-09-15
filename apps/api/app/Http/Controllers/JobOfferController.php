@@ -51,4 +51,9 @@ class JobOfferController extends Controller
     {
         return response()->json($this->service->publishViaSubscriptionForUser($request->user(), $jobOffer));
     }
+
+    public function publishFree(Request $request, JobOffer $jobOffer): JsonResponse
+    {
+        return response()->json($this->service->publishFreeForUser($request->user(), $jobOffer));
+    }
 }

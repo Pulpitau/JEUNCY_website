@@ -69,6 +69,20 @@ class SubscriptionService
 
     // Etat de l'offre d'ouverture, expose publiquement (sans authentification)
     // pour alimenter le compteur de la page Tarifs.
+    // Ferme les deux parcours Stripe (offre a l'unite et abonnement) tant
+    // que Jeuncy est gratuit. Le webhook, lui, reste ouvert : un abonnement
+    // deja souscrit avant la gratuite continuerait d'etre suivi correctement.
+    public static function assertPaymentsEnabled(): void
+    {
+        if (JobOfferService::gratuit()) {
+            throw new ApiException(
+                'PAYMENTS_DISABLED',
+                'Jeuncy est gratuit pour les entreprises : il n\'y a rien a payer.',
+                409,
+            );
+        }
+    }
+
     public function founderOffer(): array
     {
         return [
@@ -78,12 +92,16 @@ class SubscriptionService
             'seats_total' => (int) config('services.stripe.founder_seats_total'),
             'seats_taken' => $this->founderSeatsTaken(),
             'seats_remaining' => $this->founderSeatsRemaining(),
-            'available' => $this->founderRateAvailable(),
+            // Aucune offre payante a vendre tant que Jeuncy est gratuit : le
+            // front masque la banniere sur ce seul champ.
+            'available' => ! JobOfferService::gratuit() && $this->founderRateAvailable(),
         ];
     }
 
     public function createCheckoutSession(User $user): string
     {
+        self::assertPaymentsEnabled();
+
         if ($this->hasActiveSubscription($user)) {
             throw new ApiException('SUBSCRIPTION_ALREADY_ACTIVE', 'Tu as déjà un abonnement actif.', 409);
         }
@@ -156,8 +174,19 @@ class SubscriptionService
         // STAFF comme ADMIN : acces interne, sans abonnement de
         // complaisance. Jeuncy est deja responsable de traitement de ces
         // donnees, et remplir la CVtheque est precisement leur mission.
-        return in_array($user->role, [UserRole::ADMIN, UserRole::STAFF], true)
-            || $this->hasActiveSubscription($user);
+        if (in_array($user->role, [UserRole::ADMIN, UserRole::STAFF], true)) {
+            return true;
+        }
+
+        // Jeuncy gratuit pour les entreprises (2026-09-15) : une entreprise ou
+        // un CFA a acces a tout sans rien payer. Passe par ICI et non par un
+        // faux abonnement en base : hasActiveSubscription() reste l'etat
+        // reel de facturation, et rien de fictif n'entre dans les stats.
+        if (JobOfferService::gratuit() && in_array($user->role, [UserRole::COMPANY, UserRole::CFA], true)) {
+            return true;
+        }
+
+        return $this->hasActiveSubscription($user);
     }
 
     // La plus recente en premier : suffisant pour l'affichage (un utilisateur

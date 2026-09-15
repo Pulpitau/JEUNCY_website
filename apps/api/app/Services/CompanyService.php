@@ -13,6 +13,10 @@ use Illuminate\Support\Str;
 
 class CompanyService
 {
+    public function __construct(
+        private readonly TrainingOrganizationDetector $trainingOrganizationDetector,
+    ) {}
+
     // Annuaire public : n'importe quel visiteur peut parcourir les entreprises
     // inscrites, aucune authentification requise (voir routes/api/companies.php).
     public function searchPublic(array $filters = []): LengthAwarePaginator
@@ -86,12 +90,34 @@ class CompanyService
             throw new ApiException('COMPANY_ALREADY_EXISTS', 'Un profil entreprise existe déjà pour ce compte.', 409);
         }
 
+        // Une ecole qui se presente en entreprise est refusee ICI, au moment
+        // ou elle decline son identite — pas a l'inscription du compte, ou
+        // l'on ne connait qu'un email (voir TrainingOrganizationDetector).
+        $this->trainingOrganizationDetector->assertNotTrainingOrganization(
+            $data['name'] ?? null,
+            $data['description'] ?? null,
+            $data['siret'] ?? null,
+        );
+
         return $this->withOwnerFields($user->company()->create($data));
     }
 
     public function updateForUser(User $user, array $data): Company
     {
         $company = $this->requireCompany($user);
+
+        // Meme garde a la modification : sans elle, il suffirait de creer la
+        // fiche sous un nom neutre puis de la renommer. Seulement quand l'un
+        // des trois champs bouge — la consultation du registre est un appel
+        // reseau, inutile pour un changement de ville ou de logo.
+        if (array_intersect_key($data, array_flip(['name', 'description', 'siret'])) !== []) {
+            $this->trainingOrganizationDetector->assertNotTrainingOrganization(
+                array_key_exists('name', $data) ? $data['name'] : $company->name,
+                array_key_exists('description', $data) ? $data['description'] : $company->description,
+                array_key_exists('siret', $data) ? $data['siret'] : $company->siret,
+            );
+        }
+
         $company->update($data);
 
         return $this->withOwnerFields($company);

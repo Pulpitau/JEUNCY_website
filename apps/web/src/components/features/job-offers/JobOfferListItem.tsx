@@ -1,18 +1,12 @@
 import { useState } from 'react';
 import { JobOfferStatus, ContractType, PaymentStatus } from '@jeuncy/shared';
-import { Lock } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { JobOfferForm } from '@/components/features/job-offers/JobOfferForm';
 import { ApplicationsForOfferSection } from '@/components/features/job-offers/ApplicationsForOfferSection';
 import { ApiError } from '@/lib/api/client';
 import { WORK_MODE_LABELS } from '@/lib/work-mode-labels';
-import {
-  offerPriceLabel,
-  OFFER_PUBLICATION_DURATION_LABEL,
-  type JobOffer,
-  type JobOfferInput,
-} from '@/lib/api/job-offers';
+import { type JobOffer, type JobOfferInput } from '@/lib/api/job-offers';
 import { formatCompensation } from '@/lib/format-compensation';
 
 const STATUS_LABELS: Record<string, string> = {
@@ -37,17 +31,12 @@ interface JobOfferListItemProps {
   onArchive: (id: number) => Promise<unknown>;
   onDelete: (id: number) => Promise<unknown>;
   isDeleting: boolean;
+  // Publication gratuite (Jeuncy gratuit pour les entreprises depuis le
+  // 2026-09-15) : un seul chemin, les variantes essai/abonnement/paiement
+  // ont disparu de ce composant.
   onPublish: (id: number) => Promise<unknown>;
   isSubmitting: boolean;
   isPublishing: boolean;
-  canUseTrial: boolean;
-  trialAvailable: boolean;
-  trialOffersRemaining: number;
-  onPublishTrial: (id: number) => Promise<unknown>;
-  isPublishingTrial: boolean;
-  hasActiveSubscription: boolean;
-  onPublishViaSubscription: (id: number) => Promise<unknown>;
-  isPublishingViaSubscription: boolean;
 }
 
 export function JobOfferListItem({
@@ -59,14 +48,6 @@ export function JobOfferListItem({
   onPublish,
   isSubmitting,
   isPublishing,
-  canUseTrial,
-  trialAvailable,
-  trialOffersRemaining,
-  onPublishTrial,
-  isPublishingTrial,
-  hasActiveSubscription,
-  onPublishViaSubscription,
-  isPublishingViaSubscription,
 }: JobOfferListItemProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [showApplications, setShowApplications] = useState(false);
@@ -130,25 +111,14 @@ export function JobOfferListItem({
           >
             {STATUS_LABELS[offer.status]}
           </Badge>
-          {offer.payment_status === PaymentStatus.TRIAL && (
-            <Badge variant="outline">Essai gratuit</Badge>
-          )}
-          {/* Le test porte sur le CHAMP, pas sur le statut : une offre
-              publiee via l'abonnement n'a pas d'echeance et ne doit donc
-              afficher aucune date. */}
+          {/* Vestige du modele paye : une offre achetee avant la gratuite
+              porte encore une echeance, et ExpireJobOffers l'honorera. Elle
+              pourra ensuite etre remise en ligne gratuitement. */}
           {offer.status === JobOfferStatus.PUBLISHED && offer.expires_at && (
             <span className="font-inter text-xs text-muted-foreground">
               En ligne jusqu’au {new Date(offer.expires_at).toLocaleDateString('fr-FR')}
             </span>
           )}
-          {offer.status === JobOfferStatus.PUBLISHED &&
-            !offer.applications_unlocked_at &&
-            !hasActiveSubscription && (
-              <Badge variant="outline" className="gap-1">
-                <Lock className="h-3 w-3" aria-hidden="true" />
-                Candidatures verrouillées
-              </Badge>
-            )}
         </div>
       </div>
 
@@ -169,43 +139,15 @@ export function JobOfferListItem({
       <div className="flex flex-wrap gap-2">
         {offer.status === JobOfferStatus.DRAFT && (
           <>
-            {hasActiveSubscription ? (
-              <Button
-                type="button"
-                variant="gradient"
-                size="sm"
-                onClick={() => void onPublishViaSubscription(offer.id)}
-                disabled={isPublishingViaSubscription}
-              >
-                {isPublishingViaSubscription
-                  ? 'Publication…'
-                  : 'Publier (inclus dans l’abonnement)'}
-              </Button>
-            ) : canUseTrial && trialAvailable ? (
-              <Button
-                type="button"
-                variant="gradient"
-                size="sm"
-                onClick={() => void onPublishTrial(offer.id)}
-                disabled={isPublishingTrial}
-              >
-                {isPublishingTrial
-                  ? 'Publication…'
-                  : `Publier gratuitement (essai — ${trialOffersRemaining} restante${trialOffersRemaining > 1 ? 's' : ''})`}
-              </Button>
-            ) : (
-              <Button
-                type="button"
-                variant="gradient"
-                size="sm"
-                onClick={() => void onPublish(offer.id)}
-                disabled={isPublishing}
-              >
-                {isPublishing
-                  ? 'Redirection…'
-                  : `Publier ${OFFER_PUBLICATION_DURATION_LABEL} — ${offerPriceLabel(offer)}`}
-              </Button>
-            )}
+            <Button
+              type="button"
+              variant="gradient"
+              size="sm"
+              onClick={() => void onPublish(offer.id)}
+              disabled={isPublishing}
+            >
+              {isPublishing ? 'Publication…' : 'Publier — gratuit'}
+            </Button>
             <Button
               type="button"
               variant="outline"
@@ -216,62 +158,25 @@ export function JobOfferListItem({
             </Button>
           </>
         )}
-        {offer.status === JobOfferStatus.ARCHIVED &&
-          offer.payment_status === PaymentStatus.TRIAL &&
-          (hasActiveSubscription ? (
-            <Button
-              type="button"
-              variant="gradient"
-              size="sm"
-              onClick={() => void onPublishViaSubscription(offer.id)}
-              disabled={isPublishingViaSubscription}
-            >
-              {isPublishingViaSubscription
-                ? 'Publication…'
-                : 'Republier (inclus dans l’abonnement)'}
-            </Button>
-          ) : (
-            <Button
-              type="button"
-              variant="gradient"
-              size="sm"
-              onClick={() => void onPublish(offer.id)}
-              disabled={isPublishing}
-            >
-              {isPublishing
-                ? 'Redirection…'
-                : `Remettre en ligne ${OFFER_PUBLICATION_DURATION_LABEL} — ${offerPriceLabel(offer)}`}
-            </Button>
-          ))}
-        {/* Fin de la periode payee : le seul chemin de retour en ligne. */}
-        {offer.status === JobOfferStatus.EXPIRED &&
-          (hasActiveSubscription ? (
-            <Button
-              type="button"
-              variant="gradient"
-              size="sm"
-              onClick={() => void onPublishViaSubscription(offer.id)}
-              disabled={isPublishingViaSubscription}
-            >
-              {isPublishingViaSubscription
-                ? 'Publication…'
-                : 'Remettre en ligne (inclus dans l’abonnement)'}
-            </Button>
-          ) : (
-            <Button
-              type="button"
-              variant="gradient"
-              size="sm"
-              onClick={() => void onPublish(offer.id)}
-              disabled={isPublishing}
-            >
-              {isPublishing
-                ? 'Redirection…'
-                : `Remettre en ligne ${OFFER_PUBLICATION_DURATION_LABEL} — ${offerPriceLabel(offer)}`}
-            </Button>
-          ))}
+        {/* Retour en ligne : une offre retiree a la fin d'un ancien essai
+            (archivee, TRIAL) ou arrivee au bout d'une ancienne periode payee
+            (EXPIRED). Memes etats que cote serveur (requirePayableOffer) ;
+            une offre archivee a la main n'a pas ce bouton. */}
+        {((offer.status === JobOfferStatus.ARCHIVED &&
+          offer.payment_status === PaymentStatus.TRIAL) ||
+          offer.status === JobOfferStatus.EXPIRED) && (
+          <Button
+            type="button"
+            variant="gradient"
+            size="sm"
+            onClick={() => void onPublish(offer.id)}
+            disabled={isPublishing}
+          >
+            {isPublishing ? 'Publication…' : 'Remettre en ligne — gratuit'}
+          </Button>
+        )}
         {/* Pas d'archivage sur une offre echue : elle est deja hors ligne,
-            et l'archiver la rendrait definitivement non payable (garde
+            et l'archiver lui oterait le bouton de remise en ligne (garde
             equivalente cote serveur dans JobOfferService::archiveForUser). */}
         {offer.status !== JobOfferStatus.ARCHIVED &&
           offer.status !== JobOfferStatus.EXPIRED && (

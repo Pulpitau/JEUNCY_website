@@ -7,7 +7,6 @@ import {
   Car,
   Cake,
   Lock,
-  Sparkles,
   Languages as LanguagesIcon,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -19,11 +18,6 @@ import {
   type CvthequeCandidate,
   type CvthequeSearchFilters,
 } from '@/lib/api/cvtheque';
-import {
-  getFounderOffer,
-  SUBSCRIPTION_PRICE_LABEL,
-  FOUNDER_SUBSCRIPTION_PRICE_LABEL,
-} from '@/lib/api/subscriptions';
 import { ApiError } from '@/lib/api/client';
 
 // Etat de recherche porte par l'URL (comme JobOffers.tsx) : un recruteur peut
@@ -45,18 +39,12 @@ function initials(candidate: CvthequeCandidate): string {
   return `${candidate.first_name.charAt(0)}${candidate.last_name.charAt(0)}`.toUpperCase();
 }
 
-// Ecran affiche a une entreprise/CFA sans abonnement. Volontairement vendeur —
-// c'est le principal point de conversion de la CVtheque — mais SANS afficher le
-// moindre profil, meme floute : montrer de vraies donnees personnelles a
-// quelqu'un qui n'y a pas droit serait exactement ce que la garde serveur
-// empeche.
+// Ecran affiche si le serveur repond 402. Depuis que Jeuncy est gratuit
+// pour les entreprises (2026-09-15) ce cas ne se produit plus — hasPaidAccess
+// accorde la CVtheque a toute entreprise — mais la reponse existe toujours
+// cote API, et un ecran qui vendrait un abonnement disparu serait pire
+// qu'un message neutre. Aucun profil n'est montre, meme floute.
 function SubscriptionGate() {
-  const founderOfferQuery = useQuery({
-    queryKey: ['founder-offer'],
-    queryFn: getFounderOffer,
-  });
-  const founderOffer = founderOfferQuery.data ?? null;
-
   return (
     <Card className="mx-auto max-w-2xl overflow-hidden border-2 border-primary/40">
       <div className="h-1 bg-jeuncy-gradient" />
@@ -65,35 +53,15 @@ function SubscriptionGate() {
           <Lock className="h-6 w-6" aria-hidden="true" />
         </div>
         <h2 className="font-poppins text-2xl font-bold text-foreground">
-          La CVthèque est réservée aux abonnés
+          La CVthèque n'est pas accessible depuis ce compte
         </h2>
         <p className="max-w-md font-inter text-sm text-muted-foreground">
-          N'attendez plus les candidatures. Filtrez les profils par compétence, ville,
-          langue ou permis, consultez leur parcours complet et contactez-les directement.
+          Elle est ouverte gratuitement à toutes les entreprises inscrites. Si tu vois ce
+          message, écris-nous et nous regardons ton compte.
         </p>
-
-        {founderOffer?.available && (
-          <div className="w-full rounded-md border border-jeuncy-orange/40 bg-jeuncy-orange/10 px-4 py-3">
-            <div className="flex items-center justify-center gap-2">
-              <Sparkles className="h-4 w-4 text-jeuncy-orange" aria-hidden="true" />
-              <span className="font-poppins text-sm font-semibold text-foreground">
-                Offre d'ouverture — il reste {founderOffer.seats_remaining} place
-                {founderOffer.seats_remaining > 1 ? 's' : ''}
-              </span>
-            </div>
-            <p className="mt-1 font-inter text-sm text-muted-foreground">
-              <span className="line-through">{SUBSCRIPTION_PRICE_LABEL}</span>{' '}
-              <span className="font-poppins font-semibold text-foreground">
-                {FOUNDER_SUBSCRIPTION_PRICE_LABEL}
-              </span>
-              /mois, conservés tant que votre abonnement continue.
-            </p>
-          </div>
-        )}
-
-        <Link to="/tarifs">
+        <Link to="/contact">
           <Button variant="gradient" size="lg">
-            Découvrir l'abonnement
+            Nous écrire
           </Button>
         </Link>
       </CardContent>

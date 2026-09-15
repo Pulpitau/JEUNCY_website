@@ -33,7 +33,7 @@ class DeployController extends Controller
     // ne peut pas savoir si le controleur lui-meme a bien ete redeploye : c est
     // arrive le 2026-09-02, ou clear-cache continuait d echouer avec une version
     // corrigee censement en place. A incrementer a chaque changement ici.
-    public const DEPLOY_TOOLS_VERSION = 'deploy-tools-21';
+    public const DEPLOY_TOOLS_VERSION = 'deploy-tools-22';
 
     // Cle du battement du planificateur, ecrite par bootstrap/app.php a
     // chaque schedule:run. Dupliquee en dur la-bas volontairement : voir
@@ -199,6 +199,21 @@ class DeployController extends Controller
             // Age minimum a l'inscription (case « 15 ans ou plus »).
             'app/Http/Requests/Auth/RegisterRequest.php',
             'resources/views/cv/template.blade.php',
+            // Jeuncy gratuit pour les entreprises + inscription CFA fermee
+            // (2026-09-15). Huit fichiers, tous necessaires : la valeur
+            // d'enum et sa migration (sans elles, publier gratuitement
+            // echoue a l'insertion), la route et le controleur (404 sinon),
+            // le detecteur d'ecoles et le service qui l'appelle (sans le
+            // premier, le second plante au demarrage), la commande de fin
+            // d'essai (sans elle, l'offre de l'ecole partenaire est retiree
+            // le 19 septembre).
+            'app/Enums/PaymentStatus.php',
+            'database/migrations/2026_09_15_100000_add_free_to_job_offers_payment_status_enum.php',
+            'routes/api/job-offers.php',
+            'app/Http/Controllers/JobOfferController.php',
+            'app/Services/TrainingOrganizationDetector.php',
+            'app/Services/CompanyService.php',
+            'app/Console/Commands/ArchiveExpiredTrialOffers.php',
             'bootstrap/app.php',
             'config/cors.php',
         ];

@@ -1031,3 +1031,53 @@ validés sur iPhone — la phase 1 est complète**
   délibérée : regénérer prend deux secondes.
 - Le CV déposé au profil (`cv_file_url`) n'est pas proposé comme CV de
   candidature — même limite que le site, l'API ne l'accepte pas directement.
+
+**Jeuncy gratuit pour les entreprises, inscription CFA fermée (2026-09-15) :
+terminé, à déployer**
+
+- Décision de réunion (business plan revu) : remplir la plateforme en volume
+  avant de monétiser. **L'espace entreprise devient entièrement gratuit** :
+  publication illimitée, candidatures, CVthèque. La valeur se fait ailleurs —
+  chaque jeune inscrit est un candidat pour l'école partenaire (IDA), rémunérée
+  par l'OPCO à l'inscription d'un apprenti. D'où la seconde décision : **aucun
+  CFA ne peut s'inscrire seul** tant que le rôle des écoles (clientes ou non)
+  n'est pas tranché.
+- Deux drapeaux dans `config/services.php` (`jeuncy.gratuit`, défaut `true` ;
+  `jeuncy.inscription_cfa_ouverte`, défaut `false`), **rien n'a été
+  supprimé** : Stripe, essai, abonnement et offre fondateur restent en place,
+  désactivés. Les tests du modèle payant tournent toujours (phpunit.xml force
+  `JEUNCY_GRATUIT=false`), le mode gratuit a les siens (`ModeGratuitTest`).
+- Côté API : `POST job-offers/{id}/publish` →
+  `JobOfferService::publishFreeForUser` (`payment_status FREE`, nouvelle valeur
+  d'enum + migration, `expires_at null`, candidatures incluses, notification de
+  correspondance) ; `SubscriptionService::hasPaidAccess` accorde tout aux
+  COMPANY/CFA ; les deux checkouts répondent `PAYMENTS_DISABLED` ;
+  `founder-offer.available` est faux ; `ArchiveExpiredTrialOffers` convertit
+  les essais en cours en FREE au lieu de les retirer (sans quoi l'offre d'IDA
+  disparaissait le 19 septembre).
+- Inscription CFA : `AuthService::assertRoleOpenForRegistration` refuse le rôle
+  par formulaire (`CFA_REGISTRATION_CLOSED`, 403) et par Google (retour vers
+  `/register?role=CFA`, qui explique). Les comptes CFA existants se connectent
+  normalement — la garde porte sur la création, jamais sur la connexion.
+- **La porte évidente pour un CFA est de s'inscrire comme entreprise.**
+  `TrainingOrganizationDetector` la ferme à la création et à la modification
+  de la fiche entreprise, sur trois indices : code NAF de l'établissement (via
+  `recherche-entreprises.api.gouv.fr`, public, sans clé, bloquant pour 85.31Z,
+  85.32Z, 85.41Z, 85.42Z, 85.59A/B, 85.60Z — pas pour crèches, auto-écoles ou
+  clubs sportifs), mots du nom (« CFA », « école », « campus », « formation »…
+  mais pas « institut »), tournures de la description (« nos entreprises
+  partenaires », « titre RNCP »…). Une panne du registre ne bloque jamais.
+  Un vrai employeur refusé à tort est invité à écrire à l'adresse de contact.
+- Côté web : page `/gratuit` (`FreePlatform.tsx`, `/tarifs` y mène encore),
+  onglet « Gratuit » visible de tous, badge « 100 % gratuit » qui y renvoie,
+  `/mes-offres` réduit à un bouton « Publier — gratuit », inscription sans
+  choix CFA, accueil/À propos/Contact réécrits, politique de confidentialité
+  mise à jour (la CVthèque n'est plus « réservée aux abonnés » : c'est un
+  changement de qui accède aux données candidat, daté au 15 septembre).
+  Mobile : choix CFA retiré de l'inscription.
+- **À faire ensuite** : réécrire les cinq documents commerciaux
+  (`docs/commercial/`), qui portent encore les tarifs ; décider du sort des
+  offres périmées (une offre gratuite n'a plus d'échéance — prévoir un rappel
+  « toujours d'actualité ? » après 60 ou 90 jours) ; l'import des offres de La
+  bonne alternance (recherche faite le 2026-09-15, voir mémoire
+  `api-la-bonne-alternance`) réutilisera le détecteur d'écoles.

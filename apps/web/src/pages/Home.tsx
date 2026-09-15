@@ -24,22 +24,26 @@ const AUDIENCES = [
   {
     title: 'Entreprises',
     description:
-      'Publie tes offres et gère tes candidatures depuis un seul tableau de bord.',
-    tag: 'Recrutement',
-    anchor: '/a-propos#entreprises',
+      'Publiez vos offres, recevez les candidatures et cherchez dans la CVthèque. Sans rien payer.',
+    tag: '100 % gratuit',
+    anchor: '/gratuit',
   },
+  // Les CFA ne s'inscrivent plus seuls (2026-09-15) : la carte reste, pour
+  // ne pas laisser croire que les ecoles sont absentes de Jeuncy, mais elle
+  // renvoie vers un echange plutot que vers une inscription.
   {
-    title: 'CFA',
-    description: 'Gère tes offres multi-filières et suis le placement de tes apprenants.',
-    tag: 'Formation',
-    anchor: '/a-propos#cfa',
+    title: 'CFA partenaires',
+    description:
+      "Jeuncy travaille avec des écoles partenaires sélectionnées, pour accompagner les jeunes jusqu'au contrat.",
+    tag: 'Sur invitation',
+    anchor: '/contact',
   },
 ];
 
 export function Home() {
   usePageMetadata(
     'Alternance, jobs saisonniers et étudiants',
-    'Trouve ton alternance, ton job saisonnier, ton stage ou ta mission bénévole. Gratuit pour les candidats.',
+    'Trouve ton alternance, ton job saisonnier, ton stage ou ta mission bénévole. Gratuit pour les candidats comme pour les entreprises.',
     '/',
   );
   const navigate = useNavigate();
@@ -96,8 +100,8 @@ export function Home() {
           </div>
 
           <div className="animate-in fade-in slide-in-from-bottom-3 mt-4 flex justify-center gap-3 duration-700 [animation-delay:300ms] [animation-fill-mode:backwards]">
-            <Button variant="outline" onClick={() => navigate('/register')}>
-              Je suis une entreprise
+            <Button variant="outline" onClick={() => navigate('/register?role=COMPANY')}>
+              Je suis une entreprise — c'est gratuit
             </Button>
           </div>
 

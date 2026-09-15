@@ -8,6 +8,9 @@ export const PaymentStatus = {
   TRIAL: 'TRIAL',
   // Idem TRIAL mais pour une offre publiee gratuitement via un abonnement actif.
   SUBSCRIPTION: 'SUBSCRIPTION',
+  // Offre publiee gratuitement : Jeuncy est gratuit pour les entreprises
+  // depuis le 2026-09-15 (voir config services.jeuncy cote API).
+  FREE: 'FREE',
 } as const;
 
 export type PaymentStatus = (typeof PaymentStatus)[keyof typeof PaymentStatus];

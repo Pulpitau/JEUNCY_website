@@ -7,7 +7,7 @@ import { RequireAuth } from '@/components/RequireAuth';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { Home } from '@/pages/Home';
 import { About } from '@/pages/About';
-import { Pricing } from '@/pages/Pricing';
+import { FreePlatform } from '@/pages/FreePlatform';
 import { Contact } from '@/pages/Contact';
 import { Login } from '@/pages/Login';
 import { Register } from '@/pages/Register';
@@ -55,7 +55,9 @@ export default function App() {
               barre que pour une entreprise ou un CFA connecte (voir
               navLinksFor dans Navbar.tsx) : le lien est communique aux
               prospects apres un premier echange. */}
-            <Route path="/tarifs" element={<Pricing />} />
+            {/* /tarifs : ancienne adresse, encore dans des liens partages. */}
+            <Route path="/gratuit" element={<FreePlatform />} />
+            <Route path="/tarifs" element={<FreePlatform />} />
             <Route path="/offres" element={<JobOffers />} />
             <Route path="/offres/:id" element={<JobOfferDetail />} />
             <Route path="/entreprises" element={<Companies />} />

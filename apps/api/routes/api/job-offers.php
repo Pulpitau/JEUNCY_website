@@ -22,4 +22,7 @@ Route::prefix('job-offers')->middleware(['auth:api', 'role:COMPANY,CFA'])->group
     Route::post('{jobOffer}/publish-trial', [JobOfferController::class, 'publishTrial']);
     // Publication gratuite via abonnement actif (voir JobOfferService::publishViaSubscriptionForUser).
     Route::post('{jobOffer}/publish-subscription', [JobOfferController::class, 'publishSubscription']);
+    // Publication gratuite, le parcours normal depuis que Jeuncy ne facture
+    // plus les entreprises (voir JobOfferService::publishFreeForUser).
+    Route::post('{jobOffer}/publish', [JobOfferController::class, 'publishFree']);
 });

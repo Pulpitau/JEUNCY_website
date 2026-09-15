@@ -263,6 +263,50 @@ class JobOfferService
         return $jobOffer;
     }
 
+    // Jeuncy gratuit pour les entreprises (decision du 2026-09-15, voir config
+    // services.jeuncy.gratuit) : publie ou remet en ligne une offre sans
+    // paiement, sans essai, sans echeance. Memes etats admis que le paiement
+    // (requirePayableOffer) : brouillon, fin de mise en ligne, ou retrait de
+    // fin d'essai — une offre archivee A LA MAIN reste hors de portee, son
+    // proprietaire l'a retiree volontairement.
+    //
+    // Refuse hors mode gratuit : ce chemin ne doit jamais devenir une porte
+    // derobee vers la publication si une grille tarifaire revient un jour.
+    public function publishFreeForUser(User $user, JobOffer $jobOffer): JobOffer
+    {
+        if (! self::gratuit()) {
+            throw new ApiException('FREE_PUBLICATION_DISABLED', "La publication gratuite n'est pas disponible.", 409);
+        }
+
+        $jobOffer = $this->requirePayableOffer($user, $jobOffer);
+
+        $jobOffer->update([
+            'status' => JobOfferStatus::PUBLISHED,
+            'payment_status' => PaymentStatus::FREE,
+            'published_at' => now(),
+            // Pas d'echeance : une offre gratuite n'a rien a renouveler.
+            // Mis a null explicitement pour la meme raison que l'abonnement :
+            // une offre autrefois payee garderait sinon sa vieille date et
+            // serait retiree la nuit suivante par ExpireJobOffers.
+            'expires_at' => null,
+            // Les candidatures sont incluses. Pose ici et pas seulement
+            // deduit de hasPaidAccess() : si le mode gratuit est un jour
+            // referme, les offres publiees pendant cette periode gardent
+            // l'acces a ce qu'elles ont recu — on ne reprend pas ce qu'on
+            // a donne.
+            'applications_unlocked_at' => now(),
+        ]);
+
+        $this->matchService->notifyMatchingCandidates($jobOffer);
+
+        return $jobOffer;
+    }
+
+    public static function gratuit(): bool
+    {
+        return (bool) config('services.jeuncy.gratuit');
+    }
+
     public function trialAvailable(Company|CfaOrganization $organization): bool
     {
         if ($organization->trial_offers_count >= self::TRIAL_MAX_OFFERS) {

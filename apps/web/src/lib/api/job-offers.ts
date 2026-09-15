@@ -144,6 +144,13 @@ export function publishOfferViaTrial(id: number) {
   return apiRequest<JobOffer>(`/job-offers/${id}/publish-trial`, { method: 'POST' });
 }
 
+// Publication gratuite : le parcours normal depuis que Jeuncy ne facture
+// plus les entreprises (2026-09-15). Les trois fonctions ci-dessus (paiement,
+// essai, abonnement) restent pour le jour ou une grille tarifaire reviendrait.
+export function publishOfferForFree(id: number) {
+  return apiRequest<JobOffer>(`/job-offers/${id}/publish`, { method: 'POST' });
+}
+
 export function publishOfferViaSubscription(id: number) {
   return apiRequest<JobOffer>(`/job-offers/${id}/publish-subscription`, {
     method: 'POST',

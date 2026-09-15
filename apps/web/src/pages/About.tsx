@@ -87,18 +87,21 @@ const AUDIENCE_SECTIONS = [
     eyebrow: 'Entreprises',
     quote: 'Trouvez votre prochain alternant.',
     description:
-      'Publiez vos offres et gérez vos candidatures depuis un seul tableau de bord. Nous recrutons, vous choisissez : des profils sélectionnés pour vous.',
-    ctaLabel: 'Créer un compte entreprise',
-    ctaTo: '/register',
+      'Publiez vos offres, recevez les candidatures et cherchez dans la CVthèque, entièrement gratuitement. Nous recrutons, vous choisissez : des profils sélectionnés pour vous.',
+    ctaLabel: 'Créer un compte entreprise — gratuit',
+    ctaTo: '/register?role=COMPANY',
   },
+  // Inscription CFA fermee depuis le 2026-09-15 (ecole partenaire) : la
+  // section reste pour expliquer le role des ecoles, le bouton mene a un
+  // echange et non a un formulaire qui refuserait.
   {
     id: 'cfa',
-    eyebrow: 'CFA',
+    eyebrow: 'CFA partenaires',
     quote: 'Le bon alternant. La bonne entreprise.',
     description:
-      'Gérez vos offres multi-filières et suivez le placement de vos apprenants, en les connectant directement aux entreprises qui recrutent en alternance.',
-    ctaLabel: 'Créer un compte CFA',
-    ctaTo: '/register',
+      'Jeuncy travaille avec des écoles partenaires sélectionnées : leurs apprenants trouvent une entreprise, les entreprises trouvent des jeunes déjà engagés dans une formation. L’espace CFA est ouvert sur invitation.',
+    ctaLabel: 'Nous contacter',
+    ctaTo: '/contact',
   },
 ] as const;
 

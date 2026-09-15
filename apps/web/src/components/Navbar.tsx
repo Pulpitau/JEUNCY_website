@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Menu, X, ChevronDown } from 'lucide-react';
-import { ContractType, UserRole } from '@jeuncy/shared';
+import { ContractType } from '@jeuncy/shared';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { NotificationBell } from '@/components/NotificationBell';
@@ -19,31 +19,16 @@ const PUBLIC_NAV_LINKS = [
   { label: 'Offres', href: '/offres' },
   { label: 'Entreprises', href: '/entreprises' },
   { label: 'CFA', href: '/cfa' },
+  // Visible de TOUS depuis le 2026-09-15 : la gratuite est l'argument
+  // numero un, il doit se voir avant meme de cliquer.
+  { label: 'Gratuit', href: '/gratuit' },
   { label: 'Contact', href: '/contact' },
 ];
 
-// "Tarifs" n'apparait que pour une entreprise ou un CFA CONNECTE (decision de
-// l'equipe commerciale, 2026-08-17) : afficher un prix a un visiteur anonyme
-// qui n'a pas encore vu la valeur du service le refroidit avant tout echange,
-// mais un client deja inscrit doit pouvoir consulter sa grille sans avoir a
-// reclamer le lien.
-//
-// Ni les candidats ni les visiteurs ne le voient. La page /tarifs reste
-// joignable par lien direct pour tout le monde — elle est envoyee aux
-// prospects apres un premier contact. Ce n'est PAS une protection d'acces,
-// juste un choix d'affichage : ne rien y mettre qui doive rester secret.
-function navLinksFor(role: string | undefined) {
-  const isOrganization = role === UserRole.COMPANY || role === UserRole.CFA;
-  if (!isOrganization) {
-    return PUBLIC_NAV_LINKS;
-  }
-
-  // Insere avant Contact, qui reste le dernier onglet de la barre.
-  return [
-    ...PUBLIC_NAV_LINKS.slice(0, -1),
-    { label: 'Tarifs', href: '/tarifs' },
-    PUBLIC_NAV_LINKS[PUBLIC_NAV_LINKS.length - 1],
-  ];
+// Les memes onglets pour tout le monde. L'onglet « Tarifs » reserve aux
+// entreprises connectees (2026-08-17) a disparu avec les tarifs eux-memes.
+function navLinksFor() {
+  return PUBLIC_NAV_LINKS;
 }
 
 // Sous-categories affichees au survol de l'onglet Offres (voir OFFERS_HREF
@@ -69,9 +54,8 @@ export function Navbar() {
   const offersCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Une seule source pour la barre desktop et le panneau mobile : les deux
-  // doivent afficher exactement les memes onglets, y compris l'onglet Tarifs
-  // reserve aux entreprises et CFA.
-  const navLinks = navLinksFor(user?.role);
+  // doivent afficher exactement les memes onglets.
+  const navLinks = navLinksFor();
 
   useEffect(() => {
     return () => {

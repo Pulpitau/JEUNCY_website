@@ -44,6 +44,8 @@ class PaymentService
 
     public function createCheckoutSessionForOffer(User $user, JobOffer $jobOffer): string
     {
+        SubscriptionService::assertPaymentsEnabled();
+
         $jobOffer = $this->jobOfferService->requirePayableOffer($user, $jobOffer);
         $frontendUrl = rtrim(config('app.frontend_url'), '/');
         $priceCents = $this->jobOfferService->priceCentsFor($jobOffer);

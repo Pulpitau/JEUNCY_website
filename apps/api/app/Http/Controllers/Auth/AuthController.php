@@ -137,6 +137,14 @@ class AuthController extends Controller
         $requestedRole = UserRole::tryFrom((string) $request->query('role'));
         $role = $requestedRole && $requestedRole !== UserRole::ADMIN ? $requestedRole : UserRole::CANDIDATE;
 
+        // Inscription CFA fermee : inutile d'aller jusqu'a Google pour
+        // revenir sur une erreur. Retour au formulaire, qui sait expliquer.
+        try {
+            AuthService::assertRoleOpenForRegistration($role);
+        } catch (ApiException) {
+            return redirect(rtrim(config('app.frontend_url'), '/').'/register?role=CFA');
+        }
+
         return Socialite::driver('google')->stateless()->with(['state' => $role->value])->redirect();
     }
 
@@ -147,7 +155,18 @@ class AuthController extends Controller
         // ADMIN reste exclu meme si quelqu'un forge la valeur de "state" —
         // meme garde qu'a l'inscription classique (voir RegisterRequest).
         $role = $requestedRole && $requestedRole !== UserRole::ADMIN ? $requestedRole : UserRole::CANDIDATE;
-        $user = $this->authService->validateGoogleUser($googleUser->getId(), $googleUser->getEmail(), $role);
+        // Un « state » forge en CFA alors que l'inscription est fermee :
+        // meme retour au formulaire que dans googleRedirect, plutot qu'une
+        // page d'erreur JSON sur le domaine de l'API.
+        try {
+            $user = $this->authService->validateGoogleUser($googleUser->getId(), $googleUser->getEmail(), $role);
+        } catch (ApiException $e) {
+            if ($e->errorCode !== 'CFA_REGISTRATION_CLOSED') {
+                throw $e;
+            }
+
+            return redirect(rtrim(config('app.frontend_url'), '/').'/register?role=CFA');
+        }
         $tokens = $this->authService->issueTokens($user);
 
         // Pas d'access token dans l'URL (evite qu'il finisse dans l'historique du

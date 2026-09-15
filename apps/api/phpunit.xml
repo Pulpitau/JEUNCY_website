@@ -41,6 +41,13 @@
              a la demande, un secret vide les fait echouer bruyamment plutot
              que d'agir sur le vrai compte. -->
         <env name="STRIPE_SECRET_KEY" value=""/>
+        <!-- Les tests du modele payant (essai, abonnement, Stripe, CVtheque
+             verrouillee) tournent avec la gratuite ETEINTE : ce code reste
+             en place pour pouvoir rouvrir une grille tarifaire, il doit donc
+             rester verifie. Le mode gratuit, celui de la production, est
+             teste explicitement dans ModeGratuitTest. -->
+        <env name="JEUNCY_GRATUIT" value="false"/>
+        <env name="JEUNCY_INSCRIPTION_CFA_OUVERTE" value="true"/>
         <env name="QUEUE_CONNECTION" value="sync"/>
         <env name="SESSION_DRIVER" value="array"/>
         <env name="PULSE_ENABLED" value="false"/>

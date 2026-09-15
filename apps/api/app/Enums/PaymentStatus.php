@@ -17,4 +17,9 @@ enum PaymentStatus: string
     // aucune transaction Stripe propre a cette offre, le paiement reel est
     // celui de l'abonnement (voir Subscription).
     case SUBSCRIPTION = 'SUBSCRIPTION';
+    // Offre publiee gratuitement depuis que Jeuncy ne facture plus les
+    // entreprises (voir config services.jeuncy.gratuit et
+    // JobOfferService::publishFreeForUser). Pas d'echeance, pas d'essai,
+    // aucun paiement derriere.
+    case FREE = 'FREE';
 }

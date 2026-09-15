@@ -74,6 +74,32 @@ return [
         'phone' => env('CONTACT_PHONE'),
     ],
 
+    // Modele economique, decide en reunion le 2026-09-15 : Jeuncy est
+    // ENTIEREMENT GRATUIT pour les entreprises (publication, candidatures,
+    // CVtheque), afin de remplir la plateforme en volume avant de monetiser.
+    // La valeur se fait ailleurs : chaque jeune inscrit est un candidat pour
+    // l'ecole partenaire (IDA), qui est remuneree par l'OPCO a l'inscription
+    // d'un apprenti — d'ou l'interdiction de tout autre CFA (voir
+    // inscription_cfa_ouverte).
+    //
+    // Deux drapeaux plutot qu'une suppression du code de paiement : Stripe,
+    // l'essai et l'abonnement restent en place, desactives, pour pouvoir
+    // rouvrir une grille tarifaire sans tout reecrire — les tests de ces
+    // parcours tournent d'ailleurs toujours, gratuit=false.
+    'jeuncy' => [
+        // true : aucune etape de paiement n'existe pour une entreprise ; les
+        // routes Stripe repondent PAYMENTS_DISABLED, l'offre d'ouverture est
+        // annoncee indisponible, et hasPaidAccess() accorde tout aux
+        // entreprises et CFA.
+        'gratuit' => filter_var(env('JEUNCY_GRATUIT', true), FILTER_VALIDATE_BOOLEAN),
+        // false : l'inscription en tant que CFA est refusee (formulaire et
+        // Google). Les comptes CFA existants (IDA) ne sont pas touches : la
+        // garde porte sur la CREATION de compte, jamais sur la connexion.
+        // Un CFA qui s'inscrirait librement acceder aux memes candidats que
+        // l'ecole partenaire — c'est precisement ce qu'on ne veut pas.
+        'inscription_cfa_ouverte' => filter_var(env('JEUNCY_INSCRIPTION_CFA_OUVERTE', false), FILTER_VALIDATE_BOOLEAN),
+    ],
+
     'ses' => [
         'key' => env('AWS_ACCESS_KEY_ID'),
         'secret' => env('AWS_SECRET_ACCESS_KEY'),

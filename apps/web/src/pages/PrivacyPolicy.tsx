@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { ContactEmail } from '@/components/ContactEmail';
 
-const LAST_UPDATED = '12 septembre 2026';
+const LAST_UPDATED = '15 septembre 2026';
 
 const DATA_CATEGORIES = [
   {
@@ -28,7 +28,7 @@ const DATA_CATEGORIES = [
   {
     title: 'Paiement et abonnement',
     items: [
-      'Les coordonnées bancaires ne sont jamais stockées par Jeuncy : le paiement des offres et la souscription à un abonnement mensuel sont traités directement par Stripe',
+      'Jeuncy est gratuit pour les entreprises depuis le 15 septembre 2026. Les coordonnées bancaires ne sont jamais stockées par Jeuncy : si un paiement ou un abonnement a été souscrit avant cette date, il a été traité directement par Stripe',
       'Jeuncy conserve uniquement le statut, le montant et, pour un abonnement, la période de facturation en cours — à des fins de facturation et de gestion de votre accès',
     ],
   },
@@ -152,16 +152,17 @@ export function PrivacyPolicy() {
               4 bis. CVthèque : visibilité de votre profil candidat
             </h2>
             <p className="mt-3">
-              Jeuncy propose aux entreprises et aux CFA disposant d'un abonnement actif
-              une fonction de recherche de profils, appelée « CVthèque ». Si vous êtes
-              candidat, votre profil y est <strong>visible par défaut</strong> dès sa
-              création.
+              Jeuncy propose aux entreprises et aux CFA inscrits une fonction de recherche
+              de profils, appelée « CVthèque ». Si vous êtes candidat, votre profil y est{' '}
+              <strong>visible par défaut</strong> dès sa création.
             </p>
             <p className="mt-3">
               <strong>Qui peut vous voir :</strong> uniquement les comptes entreprise et
-              CFA vérifiés et titulaires d'un abonnement en cours. Votre profil n'est
-              jamais accessible publiquement sur Internet, n'est pas indexé par les
-              moteurs de recherche, et n'est ni vendu ni transmis à des tiers.
+              CFA inscrits sur Jeuncy et connectés — l'accès est gratuit pour eux depuis
+              le 15 septembre 2026, il n'est plus conditionné à un abonnement. Les écoles
+              et organismes de formation ne peuvent pas ouvrir de compte entreprise. Votre
+              profil n'est jamais accessible publiquement sur Internet, n'est pas indexé
+              par les moteurs de recherche, et n'est ni vendu ni transmis à des tiers.
             </p>
             <p className="mt-3">
               <strong>Ce qu'ils voient :</strong> dans les résultats de recherche, votre
@@ -198,10 +199,10 @@ export function PrivacyPolicy() {
               4 ter. Téléchargement de votre CV par un recruteur
             </h2>
             <p className="mt-3">
-              Un recruteur abonné qui consulte votre fiche dans la CVthèque peut
-              télécharger votre CV au format PDF. Selon ce que vous avez fait, il s'agit :
-              du <strong>CV que vous avez déposé vous-même</strong> s'il y en a un, sinon
-              du <strong>dernier CV que vous avez généré</strong> sur Jeuncy, et à défaut
+              Un recruteur qui consulte votre fiche dans la CVthèque peut télécharger
+              votre CV au format PDF. Selon ce que vous avez fait, il s'agit : du{' '}
+              <strong>CV que vous avez déposé vous-même</strong> s'il y en a un, sinon du{' '}
+              <strong>dernier CV que vous avez généré</strong> sur Jeuncy, et à défaut
               d'un <strong>CV mis en page automatiquement</strong> à partir des
               informations de votre profil.
             </p>

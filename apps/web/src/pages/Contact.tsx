@@ -20,7 +20,7 @@ const SUBJECTS = [
   'Publier une offre',
   'Découvrir la CVthèque',
   'Demander une démonstration',
-  'Connaître les tarifs',
+  'Devenir école partenaire',
   'Partenariat',
   'Autre demande',
 ] as const;
@@ -157,14 +157,15 @@ export function Contact() {
 
             <div className="rounded-lg border border-border bg-card p-4">
               <p className="font-poppins text-sm font-medium text-foreground">
-                Vous êtes candidat ?
+                Candidat ou entreprise ?
               </p>
               <div className="mt-2">
                 <FreeForCandidatesBadge />
               </div>
               <p className="mt-2 font-inter text-sm text-muted-foreground">
-                Créer un profil, générer son CV et postuler est entièrement gratuit. Pas
-                besoin de nous contacter pour commencer.
+                Créer un profil, générer son CV et postuler, comme publier une offre et
+                recevoir des candidatures, est entièrement gratuit. Pas besoin de nous
+                contacter pour commencer.
               </p>
             </div>
           </div>

@@ -68,24 +68,24 @@ export function ApplicationsForOfferSection({
     applicationsQuery.error.status === 402
   ) {
     return (
-      // Plus de deblocage a l'offre depuis le 2026-08-17 : le seul chemin vers
-      // les candidatures est l'abonnement, on renvoie donc directement vers
-      // lui plutot que de proposer un achat qui n'existe plus.
+      // Ne devrait plus se produire depuis que Jeuncy est gratuit pour les
+      // entreprises (2026-09-15) : l'acces aux candidatures est accorde a
+      // toute entreprise. Le 402 existe toujours cote API ; s'il arrive,
+      // on oriente vers nous plutot que vers un abonnement disparu.
       <div className="flex flex-col items-start gap-3 rounded-md border border-jeuncy-orange/30 bg-jeuncy-orange/10 p-4">
         <div className="flex items-center gap-2 font-poppins text-sm font-medium text-foreground">
           <Lock className="h-4 w-4 text-jeuncy-orange" aria-hidden="true" />
-          Candidatures verrouillées
+          Candidatures inaccessibles depuis ce compte
         </div>
         <p className="font-inter text-sm text-muted-foreground">
-          L'accès aux candidatures est inclus dans l'abonnement, avec la publication
-          illimitée d'offres et la CVthèque pour contacter directement les profils qui
-          vous intéressent.
+          Les candidatures sont incluses gratuitement pour toutes les entreprises. Si tu
+          vois ce message, écris-nous et nous regardons ton compte.
         </p>
         <Link
-          to="/tarifs"
+          to="/contact"
           className={cn(buttonVariants({ variant: 'gradient', size: 'sm' }))}
         >
-          Voir l'abonnement
+          Nous écrire
         </Link>
       </div>
     );

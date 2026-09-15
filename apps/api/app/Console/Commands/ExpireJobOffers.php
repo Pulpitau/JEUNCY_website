@@ -76,7 +76,7 @@ class ExpireJobOffers extends Command
         return JobOffer::query()
             ->where('status', JobOfferStatus::PUBLISHED)
             ->whereNotNull('expires_at')
-            ->whereNotIn('payment_status', [PaymentStatus::SUBSCRIPTION, PaymentStatus::TRIAL])
+            ->whereNotIn('payment_status', [PaymentStatus::SUBSCRIPTION, PaymentStatus::TRIAL, PaymentStatus::FREE])
             ->with(['company.user', 'cfaOrganization.user']);
     }
 
