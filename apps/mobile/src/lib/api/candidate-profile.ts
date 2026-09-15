@@ -275,3 +275,44 @@ export function uploadOwnCv(file: NativeFile) {
 export function removeOwnCv() {
   return apiRequest<CandidateProfile>('/candidate-profile/cv-file', { method: 'DELETE' });
 }
+
+// Suggestions lues dans un PDF. Rien n'est devine : seuls des formats non
+// ambigus (email, telephone, code postal, LinkedIn, permis) et des noms deja
+// connus de Jeuncy (competences, logiciels) sont proposes — voir
+// CvImportService cote serveur. Rien n'est enregistre par cet appel : le
+// candidat relit, puis l'application applique ce qu'il a garde.
+export interface ImportedCvData {
+  first_name: string | null;
+  last_name: string | null;
+  email: string | null;
+  phone: string | null;
+  postal_code: string | null;
+  linkedin_url: string | null;
+  driving_license: string | null;
+  skills: string[];
+  software: string[];
+  languages: { name: string; level: string | null }[];
+  experiences: {
+    title: string;
+    company: string | null;
+    start_date: string | null;
+    end_date: string | null;
+    description: string | null;
+  }[];
+  educations: {
+    degree: string;
+    school: string | null;
+    start_date: string | null;
+    end_date: string | null;
+  }[];
+}
+
+export function importCv(file: NativeFile) {
+  const formData = new FormData();
+  formData.append('cv', toFormDataPart(file));
+
+  return apiRequest<ImportedCvData>('/candidate-profile/cv/import', {
+    method: 'POST',
+    body: formData,
+  });
+}

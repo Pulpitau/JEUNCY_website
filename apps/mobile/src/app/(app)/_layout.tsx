@@ -33,6 +33,7 @@ export default function AppLayout() {
       <Stack.Screen name="profil/competences" options={{ title: 'Compétences' }} />
       <Stack.Screen name="profil/logiciels" options={{ title: 'Logiciels' }} />
       <Stack.Screen name="profil/langue" options={{ title: 'Nouvelle langue' }} />
+      <Stack.Screen name="profil/importer-cv" options={{ title: 'Importer mon CV' }} />
     </Stack>
   );
 }

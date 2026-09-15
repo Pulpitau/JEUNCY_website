@@ -165,6 +165,11 @@ function ProfileSummary({ profile }: { profile: CandidateProfile }) {
         variant="secondary"
         onPress={() => router.push('/profil/informations')}
       />
+      <Button
+        label="Remplir depuis mon CV (PDF)"
+        variant="ghost"
+        onPress={() => router.push('/profil/importer-cv')}
+      />
 
       {profile.bio ? (
         <Section title="À propos">
