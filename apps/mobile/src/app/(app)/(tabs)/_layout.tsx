@@ -3,6 +3,7 @@ import { UserRole } from '@jeuncy/shared';
 import { Tabs } from 'expo-router';
 import type { ColorValue } from 'react-native';
 
+import { unreadCount, useNotifications } from '@/hooks/use-notifications';
 import { useAuthStore } from '@/store/auth-store';
 import { useTheme } from '@/theme/theme-provider';
 import { fonts } from '@/theme/typography';
@@ -33,6 +34,9 @@ export default function TabsLayout() {
   const { colors } = useTheme();
   const role = useAuthStore((state) => state.user?.role);
   const isCandidate = role === UserRole.CANDIDATE;
+  // Le badge de l'onglet suit le meme compteur que l'ecran : une seule
+  // requete, partagee par TanStack Query.
+  const nonLues = unreadCount(useNotifications().data);
 
   return (
     <Tabs
@@ -64,6 +68,11 @@ export default function TabsLayout() {
         options={{
           title: 'Notifications',
           tabBarIcon: tabIcon('notifications', 'notifications-outline'),
+          tabBarBadge: nonLues > 0 ? nonLues : undefined,
+          tabBarBadgeStyle: {
+            backgroundColor: colors.accent,
+            color: colors.textOnAccent,
+          },
         }}
       />
       <Tabs.Screen

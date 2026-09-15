@@ -58,8 +58,15 @@ function AccountScreen({ email }: { email: string }) {
 }
 
 function Footer() {
+  const router = useRouter();
+
   return (
     <View style={styles.footer}>
+      <Button
+        label="Confidentialité et données"
+        variant="ghost"
+        onPress={() => router.push('/profil/confidentialite')}
+      />
       <ThemeSwitch />
       <Button label="Se déconnecter" variant="secondary" onPress={() => void logout()} />
     </View>
