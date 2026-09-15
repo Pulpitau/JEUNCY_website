@@ -973,8 +973,8 @@ validés sur iPhone**
   que soit la cause : redimensionner à ~800 px avant l'envoi
   (`expo-image-manipulator`), une photo de profil n'a pas besoin de plus.
 
-**Application mobile — phase 1, lots C et D (2026-09-15) : code terminé,
-lot C validé sur iPhone, lot D à tester**
+**Application mobile — phase 1, lots C et D (2026-09-15) : terminés et
+validés sur iPhone — la phase 1 est complète**
 
 - **Photo de profil corrigée** — cause prouvée dans le code source d'Expo :
   le SDK 54+ remplace le `fetch` de React Native par `expo/fetch`
@@ -1009,7 +1009,13 @@ lot C validé sur iPhone, lot D à tester**
   **Textes légaux en feuille Safari intégrée, pas recopiés** — écart assumé
   par rapport à `MOBILE.md` §9.2 : la politique a changé le 2026-09-11, une
   copie serait périmée à la première évolution. À revoir si Apple l'exige.
-  **Pas encore testé sur iPhone.**
+  **Validé sur iPhone (2026-09-15)** : retrait de la CVthèque cohérent avec le
+  site dans les deux sens, export JSON ouvert dans Fichiers, feuilles Safari
+  intégrées avec retour à l'app, bouton de suppression grisé sans le bon
+  email puis compte réellement supprimé. **Non observé** : la mécanique de
+  l'onglet Notifications (badge, marquage lu, navigation) — un candidat
+  fraîchement créé n'en a aucune, et c'est exact ; à vérifier avec
+  ou naturellement en phase 2.
 - **Retours à traiter côté serveur** (hors app, envoi FTP à grouper) : le CV
   généré a trop de blanc en haut de page (photo et nom à remonter,
   `resources/views/cv/template.blade.php`) ; la lecture des CV importés est
