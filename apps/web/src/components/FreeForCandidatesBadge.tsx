@@ -13,7 +13,7 @@ interface FreeForCandidatesBadgeProps {
 export function FreeForCandidatesBadge({ className }: FreeForCandidatesBadgeProps) {
   return (
     <Link
-      to="/gratuit"
+      to="/tarifs"
       className={cn(
         'inline-flex items-center gap-3 rounded-full border border-jeuncy-orange/30 bg-jeuncy-orange/10 px-6 py-3 font-inter text-base font-medium text-foreground transition-colors hover:border-jeuncy-orange/60 hover:bg-jeuncy-orange/20',
         className,

@@ -19,9 +19,11 @@ const PUBLIC_NAV_LINKS = [
   { label: 'Offres', href: '/offres' },
   { label: 'Entreprises', href: '/entreprises' },
   { label: 'CFA', href: '/cfa' },
-  // Visible de TOUS depuis le 2026-09-15 : la gratuite est l'argument
-  // numero un, il doit se voir avant meme de cliquer.
-  { label: 'Gratuit', href: '/gratuit' },
+  // Visible de TOUS depuis le 2026-09-15. Libelle « Tarifs » a dessein,
+  // pas « Gratuit » : une entreprise clique sur Tarifs pour connaitre le
+  // prix — et decouvre 0 EUR. Un onglet « Gratuit » ressemblait a une pub
+  // sur laquelle personne ne clique (retour de Pierre).
+  { label: 'Tarifs', href: '/tarifs' },
   { label: 'Contact', href: '/contact' },
 ];
 

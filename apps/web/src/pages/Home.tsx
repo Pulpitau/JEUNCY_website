@@ -26,7 +26,7 @@ const AUDIENCES = [
     description:
       'Publiez vos offres, recevez les candidatures et cherchez dans la CVthèque. Sans rien payer.',
     tag: '100 % gratuit',
-    anchor: '/gratuit',
+    anchor: '/tarifs',
   },
   // Les CFA ne s'inscrivent plus seuls (2026-09-15) : la carte reste, pour
   // ne pas laisser croire que les ecoles sont absentes de Jeuncy, mais elle

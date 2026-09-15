@@ -26,8 +26,8 @@ import { usePageMetadata } from '@/hooks/use-page-metadata';
 // monetisation ensuite. Cette page a un seul travail : que personne ne
 // puisse douter que c'est gratuit, et que ca donne envie de s'inscrire.
 //
-// Reste joignable par /tarifs (liens deja partages, moteurs de recherche),
-// l'adresse canonique est /gratuit.
+// Adresse canonique /tarifs (c'est le mot que cherche une entreprise, et
+// l'onglet du menu) ; /gratuit y mene aussi.
 
 // Ce qu'une entreprise obtient. Chaque ligne repond a un doute qu'on entend
 // en rendez-vous : « gratuit, mais limite ? », « gratuit, mais sans les
@@ -128,7 +128,7 @@ export function FreePlatform() {
   usePageMetadata(
     'Gratuit pour les entreprises',
     "Publiez vos offres d'alternance, recevez les candidatures et accédez à la CVthèque : Jeuncy est entièrement gratuit pour les entreprises. Sans carte bancaire, sans limite.",
-    '/gratuit',
+    '/tarifs',
   );
   const user = useAuthStore((state) => state.user);
   const isOrganization = user?.role === UserRole.COMPANY || user?.role === UserRole.CFA;
