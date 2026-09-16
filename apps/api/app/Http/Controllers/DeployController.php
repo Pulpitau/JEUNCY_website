@@ -35,7 +35,7 @@ class DeployController extends Controller
     // ne peut pas savoir si le controleur lui-meme a bien ete redeploye : c est
     // arrive le 2026-09-02, ou clear-cache continuait d echouer avec une version
     // corrigee censement en place. A incrementer a chaque changement ici.
-    public const DEPLOY_TOOLS_VERSION = 'deploy-tools-25';
+    public const DEPLOY_TOOLS_VERSION = 'deploy-tools-26';
 
     // Cle du battement du planificateur, ecrite par bootstrap/app.php a
     // chaque schedule:run. Dupliquee en dur la-bas volontairement : voir
@@ -818,6 +818,24 @@ class DeployController extends Controller
         }
         if (request()->query('annuler') === '1') {
             Cache::forget(self::CLE_IMPORT_LBA_DEMANDE);
+        }
+
+        // ?executer=1 : import IMMEDIAT, dans cette requete. Mesure le
+        // 2026-09-16 : 22 s pour 576 Mo, bien en deca du temps accorde par
+        // l'hebergeur. La limite est relevee par precaution ; si un jour le
+        // fichier grossit au point de depasser, ?maintenant=1 (via le cron)
+        // reste la voie sure.
+        if (request()->query('executer') === '1') {
+            @set_time_limit(900);
+            $debut = microtime(true);
+            $code = Artisan::call('lba:import');
+
+            return response()->json([
+                'execution' => $code === 0 ? 'ok' : "ECHEC (code {$code})",
+                'duree_totale_s' => (int) round(microtime(true) - $debut),
+                'sortie' => trim(Artisan::output()),
+                'rapport' => LbaImportService::lastReport(),
+            ], 200, [], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         }
 
         // ?apercu=1 : les premiers octets de l'export, pour verifier que le
