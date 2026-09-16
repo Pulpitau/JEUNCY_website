@@ -26,6 +26,8 @@ Route::get('/deploy/{token}/status', [DeployController::class, 'status']);
 Route::get('/deploy/{token}/migrate', [DeployController::class, 'migrate']);
 Route::get('/deploy/{token}/clear-cache', [DeployController::class, 'clearCache']);
 Route::get('/deploy/{token}/env-check', [DeployController::class, 'envCheck']);
+// Import La bonne alternance a la demande (au prochain passage du cron).
+Route::get('/deploy/{token}/lba-import', [DeployController::class, 'lbaImport']);
 Route::get('/deploy/{token}/scheduler', [DeployController::class, 'scheduler']);
 // Quelle version du code tourne reellement sur le serveur (voir le controleur).
 Route::get('/deploy/{token}/version', [DeployController::class, 'version']);

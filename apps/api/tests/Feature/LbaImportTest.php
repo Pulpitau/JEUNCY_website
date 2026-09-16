@@ -11,7 +11,9 @@ use App\Services\Lba\ExternalOfferFilter;
 use App\Services\Lba\LbaImportService;
 use App\Services\Lba\LbaOfferMapper;
 use App\Support\JsonArrayStreamer;
+use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Http;
@@ -411,5 +413,52 @@ class LbaImportTest extends TestCase
             ->assertJsonPath('data.actives', 1)
             ->assertJsonPath('data.exclues', 1)
             ->assertJsonPath('data.dernier_import.retenues', 2);
+    }
+    // ------------------------------------------------------------------
+    // Declenchement a la demande depuis /deploy
+    // ------------------------------------------------------------------
+
+    public function test_the_deploy_endpoint_requests_an_import_for_the_next_cron_pass(): void
+    {
+        Config::set('app.deploy_token', 'jeton-test');
+
+        $this->get('/deploy/jeton-test/lba-import?maintenant=1')
+            ->assertOk()
+            ->assertJsonPath('import_demande', fn ($v) => is_string($v));
+
+        $this->assertTrue(Cache::has('lba.import_demande'));
+
+        $this->get('/deploy/jeton-test/lba-import?annuler=1')->assertOk();
+        $this->assertFalse(Cache::has('lba.import_demande'));
+    }
+
+    public function test_the_deploy_endpoint_refuses_a_wrong_token(): void
+    {
+        Config::set('app.deploy_token', 'jeton-test');
+
+        $this->get('/deploy/mauvais/lba-import?maintenant=1')->assertStatus(404);
+        $this->assertFalse(Cache::has('lba.import_demande'));
+    }
+
+    // Le planificateur : due si demandee OU si la passe du jour n'a pas eu lieu.
+    public function test_the_schedule_runs_the_import_on_demand_and_once_a_day_otherwise(): void
+    {
+        // Le planificateur se peuple au demarrage de la console (voir
+        // ScheduleRunsAtAnyMinuteTest) : un appel Artisan quelconque suffit.
+        Artisan::call('list', ['--raw' => true]);
+        $schedule = $this->app->make(Schedule::class);
+        $event = collect($schedule->events())->first(fn ($e) => str_contains((string) $e->command, 'lba:import'));
+        $this->assertNotNull($event);
+
+        Cache::forget('lba.import_demande');
+        Cache::forever('planificateur.derniere_passe.lba:import', now('Europe/Paris')->subHours(4)->toDateString());
+        $this->assertFalse($event->filtersPass($this->app), 'Deja passee aujourd\x27hui : pas due.');
+
+        Cache::forever('lba.import_demande', now()->toDateTimeString());
+        $this->assertTrue($event->filtersPass($this->app), 'Demandee : due meme si deja passee.');
+
+        Cache::forget('lba.import_demande');
+        Cache::forget('planificateur.derniere_passe.lba:import');
+        $this->assertTrue($event->filtersPass($this->app), 'Jamais passee : due.');
     }
 }

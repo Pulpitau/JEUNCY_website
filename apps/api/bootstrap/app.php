@@ -76,7 +76,24 @@ return Application::configure(basePath: dirname(__DIR__))
         // Offres de La bonne alternance : une passe par jour, apres la
         // regeneration de leur export (3h Paris). Sans cle API la commande
         // se termine aussitot, sans erreur.
-        $unePasseParPeriode('lba:import', 'jour-des-4h');
+        // ... ou des le prochain passage si /deploy/{token}/lba-import?maintenant=1
+        // l'a demande : le drapeau est efface apres la passe, reussie ou non
+        // (un import qui echoue ne doit pas retelecharger des centaines de Mo
+        // toutes les heures). La cle doit rester identique a
+        // DeployController::CLE_IMPORT_LBA_DEMANDE.
+        // Entree explicite plutot que la fabrique : deux filtres when()
+        // s'additionnent (ET), or la condition voulue est un OU.
+        $cleLba = 'planificateur.derniere_passe.lba:import';
+        $jetonLba = fn () => now('Europe/Paris')->subHours(4)->toDateString();
+        $schedule->command('lba:import')
+            ->everyMinute()
+            ->withoutOverlapping()
+            ->when(fn () => Cache::has('lba.import_demande') || Cache::get($cleLba) !== $jetonLba())
+            ->onSuccess(function () use ($cleLba, $jetonLba) {
+                Cache::forever($cleLba, $jetonLba());
+                Cache::forget('lba.import_demande');
+            })
+            ->onFailure(fn () => Cache::forget('lba.import_demande'));
         // Les rappels de visio, eux, doivent partir aussi souvent que possible
         // (fenetre de rappel d'1h, voir SendVideoRoomReminders) : pas de
         // marqueur, la commande tourne a chaque passage du cron. Elle est

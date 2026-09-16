@@ -34,7 +34,7 @@ class DeployController extends Controller
     // ne peut pas savoir si le controleur lui-meme a bien ete redeploye : c est
     // arrive le 2026-09-02, ou clear-cache continuait d echouer avec une version
     // corrigee censement en place. A incrementer a chaque changement ici.
-    public const DEPLOY_TOOLS_VERSION = 'deploy-tools-23';
+    public const DEPLOY_TOOLS_VERSION = 'deploy-tools-24';
 
     // Cle du battement du planificateur, ecrite par bootstrap/app.php a
     // chaque schedule:run. Dupliquee en dur la-bas volontairement : voir
@@ -45,6 +45,10 @@ class DeployController extends Controller
     // minutes sans battement, un passage a ete manque : ce n'est plus un
     // decalage d'horloge, c'est un cron qui ne tourne plus.
     public const BATTEMENT_TOLERANCE_MINUTES = 70;
+
+    // Drapeau « lance l'import LBA au prochain passage » (voir lbaImport et
+    // bootstrap/app.php). Doit rester identique des deux cotes.
+    public const CLE_IMPORT_LBA_DEMANDE = 'lba.import_demande';
 
     // Prefixe des marqueurs ecrits par bootstrap/app.php apres chaque passe
     // reussie d'une tache. Ecrit en dur des deux cotes, volontairement :
@@ -780,6 +784,50 @@ class DeployController extends Controller
             'offre_cfa' => config('services.stripe.cfa_offer_price_cents').' centimes',
         ];
 
+        // Modele gratuit et import La bonne alternance (2026-09-15). La cle
+        // n'est jamais affichee ; les autres valeurs le sont, elles pilotent
+        // ce que les candidats verront.
+        $report['_jeuncy'] = [
+            'gratuit' => (bool) config('services.jeuncy.gratuit'),
+            'inscription_cfa_ouverte' => (bool) config('services.jeuncy.inscription_cfa_ouverte'),
+        ];
+        $report['_lba'] = [
+            'LBA_API_KEY' => filled(config('services.lba.api_key')) ? 'ok' : 'MANQUANTE — import desactive',
+            'departements' => config('services.lba.departements'),
+            'siret_whitelist' => config('services.lba.siret_whitelist'),
+            'mesure_seulement' => (bool) config('services.lba.mesure_seulement'),
+            'import_demande' => Cache::get(self::CLE_IMPORT_LBA_DEMANDE),
+            'dernier_import' => LbaImportService::lastReport(),
+        ];
+
         return response()->json($report);
+    }
+
+    // Demande un import La bonne alternance au prochain passage du cron
+    // (toutes les heures a :41), sans attendre 4h du matin. L'import lui-meme
+    // ne tourne PAS ici : telecharger et lire des centaines de Mo dans une
+    // requete HTTP depasserait le temps d'execution autorise par l'hebergeur.
+    // Le mode (mesure ou publication) reste celui du .env.
+    public function lbaImport(string $token): Response
+    {
+        $this->assertAuthorized($token);
+
+        if (request()->query('maintenant') === '1') {
+            Cache::forever(self::CLE_IMPORT_LBA_DEMANDE, now()->toDateTimeString());
+        }
+        if (request()->query('annuler') === '1') {
+            Cache::forget(self::CLE_IMPORT_LBA_DEMANDE);
+        }
+
+        $prochainPassage = now()->minute < 41 ? now()->setTime(now()->hour, 41) : now()->addHour()->setTime(now()->addHour()->hour, 41);
+
+        return response()->json([
+            'cle_api' => filled(config('services.lba.api_key')) ? 'ok' : 'MANQUANTE — l\'import se terminera sans rien faire',
+            'mesure_seulement' => (bool) config('services.lba.mesure_seulement'),
+            'import_demande' => Cache::get(self::CLE_IMPORT_LBA_DEMANDE),
+            'prochain_passage_cron_estime' => $prochainPassage->toDateTimeString().' (heure serveur, UTC)',
+            'dernier_import' => LbaImportService::lastReport(),
+            'aide' => '?maintenant=1 pour demander un import au prochain passage du cron, ?annuler=1 pour retirer la demande. Le resultat apparait ici et dans /admin (Offres partenaires).',
+        ]);
     }
 }
