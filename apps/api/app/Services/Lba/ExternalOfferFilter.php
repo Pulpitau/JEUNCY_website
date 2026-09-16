@@ -43,8 +43,10 @@ class ExternalOfferFilter
         'entreprises partenaires recherchent',
         'pour le compte de nos entreprises',
         "pour le compte d'une entreprise partenaire",
-        'organisme de formation',
-        "centre de formation d'apprentis",
+        // « organisme de formation » et « centre de formation d'apprentis »
+        // retires le 2026-09-16 : sur la premiere passe reelle, 6 des 8
+        // offres ecartees par la description etaient de vrais employeurs
+        // (« formation assuree par un organisme de formation partenaire »).
         'notre ecole',
         'notre campus',
         'notre cfa',

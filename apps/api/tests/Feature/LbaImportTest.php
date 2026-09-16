@@ -220,6 +220,9 @@ class LbaImportTest extends TestCase
         $this->assertNotNull($this->reason(['description' => "Nous recherchons pour l'une de nos entreprises partenaires un alternant en BTS."]));
         // Frequent dans de vraies offres d'entreprise : ne suffit pas ici.
         $this->assertNull($this->reason(['description' => 'Poste a pourvoir pour la rentree 2026, titre RNCP niveau 5 prepare en ecole de commerce.']));
+        // Vu sur le vrai export (Leclerc Voyages, Merimani...) : un employeur
+        // qui precise que la formation est assuree par un organisme partenaire.
+        $this->assertNull($this->reason(['description' => 'Formation assuree en alternance par un organisme de formation partenaire, centre de formation d\x27apprentis de la region.']));
     }
 
     public function test_the_partner_school_is_never_excluded_by_the_filter(): void
