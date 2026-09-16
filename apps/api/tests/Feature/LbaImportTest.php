@@ -89,9 +89,11 @@ class LbaImportTest extends TestCase
         return array_replace_recursive($base, $overrides);
     }
 
+    // Meme forme que le vrai export (2026-09-16) : un tableau a la racine,
+    // indente, offres et recruteurs meles.
     private function writeExport(array $jobs, array $recruiters = []): void
     {
-        file_put_contents($this->exportPath, json_encode(['jobs' => $jobs, 'recruiters' => $recruiters], JSON_UNESCAPED_UNICODE));
+        file_put_contents($this->exportPath, json_encode(array_merge($recruiters, $jobs), JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
     }
 
     private function import(bool $measureOnly = false): array
@@ -112,20 +114,22 @@ class LbaImportTest extends TestCase
         for ($i = 0; $i < 30; $i++) {
             $jobs[] = $this->job(['offer' => ['description' => str_repeat('Texte { avec } des "guillemets" \\ et accolades ', 3000)]]);
         }
-        $this->writeExport($jobs, [['identifier' => ['id' => 'r1']]]);
+        $this->writeExport($jobs, [['identifier' => ['id' => 'r1', 'partner_label' => 'recruteurs_lba']]]);
 
-        $read = iterator_to_array(JsonArrayStreamer::objects($this->exportPath, 'jobs'), false);
+        $read = iterator_to_array(JsonArrayStreamer::objects($this->exportPath), false);
 
+        $this->assertCount(31, $read);
+        $read = array_values(array_filter($read, fn ($o) => ($o['identifier']['partner_label'] ?? null) !== 'recruteurs_lba'));
         $this->assertCount(30, $read);
         $this->assertSame('Developpeur web en alternance '.($read[0]['identifier']['partner_job_id'] === 'job-1' ? 1 : (int) substr($read[0]['identifier']['partner_job_id'], 4)), $read[0]['offer']['title']);
         $this->assertStringContainsString('{ avec }', $read[29]['offer']['description']);
     }
 
-    public function test_the_streamer_accepts_a_bare_array(): void
+    public function test_the_streamer_also_accepts_an_array_under_a_key(): void
     {
-        file_put_contents($this->exportPath, json_encode([['a' => 1], ['a' => 2]]));
+        file_put_contents($this->exportPath, json_encode(['meta' => ['x' => 1], 'jobs' => [['a' => 1], ['a' => 2]]]));
 
-        $this->assertSame([['a' => 1], ['a' => 2]], iterator_to_array(JsonArrayStreamer::objects($this->exportPath), false));
+        $this->assertSame([['a' => 1], ['a' => 2]], iterator_to_array(JsonArrayStreamer::objects($this->exportPath, 'jobs'), false));
     }
 
     // ------------------------------------------------------------------

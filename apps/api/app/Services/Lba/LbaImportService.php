@@ -68,7 +68,10 @@ class LbaImportService
         ];
 
         $batch = [];
-        foreach (JsonArrayStreamer::objects($path, 'jobs') as $job) {
+        // L'export est un tableau a la racine, offres et « recruteurs » meles
+        // (constate le 2026-09-16 sur le vrai fichier : 576 Mo, indente) — pas
+        // l'objet {"jobs": [...]} de la route search.
+        foreach (JsonArrayStreamer::objects($path) as $job) {
             $report['lus']++;
             if ($onProgress && $report['lus'] % 5000 === 0) {
                 $onProgress($report['lus']);
