@@ -113,7 +113,7 @@ class TrainingOrganizationDetector
         return $this->nafReason($siret);
     }
 
-    private function nameReason(?string $name): ?string
+    public function nameReason(?string $name): ?string
     {
         $text = $this->normalize($name);
         if ($text === '') {
@@ -133,7 +133,7 @@ class TrainingOrganizationDetector
         return null;
     }
 
-    private function descriptionReason(?string $description): ?string
+    public function descriptionReason(?string $description): ?string
     {
         $text = $this->normalize($description);
         if ($text === '') {
@@ -156,9 +156,16 @@ class TrainingOrganizationDetector
             return null;
         }
 
-        return in_array($naf, self::BLOCKED_NAF, true)
+        return self::isBlockedNaf($naf)
             ? "activite principale « enseignement » au registre des entreprises (NAF {$naf})"
             : null;
+    }
+
+    // Reutilise par l'import des offres externes, qui recoit le NAF tout
+    // fait et n'a pas besoin du registre.
+    public static function isBlockedNaf(?string $naf): bool
+    {
+        return $naf !== null && in_array(strtoupper(trim($naf)), self::BLOCKED_NAF, true);
     }
 
     // Code NAF de l'ETABLISSEMENT (pas de l'unite legale : un groupe peut

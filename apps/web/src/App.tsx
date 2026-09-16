@@ -21,6 +21,7 @@ import { Cvtheque } from '@/pages/Cvtheque';
 import { CvthequeCandidate } from '@/pages/CvthequeCandidate';
 import { JobOffers } from '@/pages/JobOffers';
 import { JobOfferDetail } from '@/pages/JobOfferDetail';
+import { ExternalJobOfferDetail } from '@/pages/ExternalJobOfferDetail';
 import { MyApplications } from '@/pages/MyApplications';
 import { MyVideoRooms } from '@/pages/MyVideoRooms';
 import { DemoRoom } from '@/pages/DemoRoom';
@@ -59,6 +60,7 @@ export default function App() {
             <Route path="/gratuit" element={<FreePlatform />} />
             <Route path="/tarifs" element={<FreePlatform />} />
             <Route path="/offres" element={<JobOffers />} />
+            <Route path="/offres/partenaire/:id" element={<ExternalJobOfferDetail />} />
             <Route path="/offres/:id" element={<JobOfferDetail />} />
             <Route path="/entreprises" element={<Companies />} />
             <Route path="/entreprises/:id" element={<CompanyProfile />} />

@@ -13,6 +13,7 @@ use App\Services\CandidateProfileService;
 use App\Services\CvService;
 use App\Services\JobOfferMatchService;
 use App\Services\JobOfferService;
+use App\Services\Lba\LbaImportService;
 use App\Services\PaymentService;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Support\Facades\Artisan;
@@ -33,7 +34,7 @@ class DeployController extends Controller
     // ne peut pas savoir si le controleur lui-meme a bien ete redeploye : c est
     // arrive le 2026-09-02, ou clear-cache continuait d echouer avec une version
     // corrigee censement en place. A incrementer a chaque changement ici.
-    public const DEPLOY_TOOLS_VERSION = 'deploy-tools-22';
+    public const DEPLOY_TOOLS_VERSION = 'deploy-tools-23';
 
     // Cle du battement du planificateur, ecrite par bootstrap/app.php a
     // chaque schedule:run. Dupliquee en dur la-bas volontairement : voir
@@ -59,6 +60,7 @@ class DeployController extends Controller
         'cvs:archive-inactive' => 'jour',
         'job-offers:notify-matching-candidates' => 'jour',
         'cv-downloads:purge' => 'semaine',
+        'lba:import' => 'jour',
     ];
 
     private function assertAuthorized(string $token): void
@@ -214,6 +216,28 @@ class DeployController extends Controller
             'app/Services/TrainingOrganizationDetector.php',
             'app/Services/CompanyService.php',
             'app/Console/Commands/ArchiveExpiredTrialOffers.php',
+            // Import La bonne alternance (2026-09-15) : treize fichiers, tous
+            // necessaires. La migration et les modeles (sans eux, l'import
+            // plante a la premiere ecriture), le lecteur JSON en flux et la
+            // liste des CFA (sans elle, le filtre plante au demarrage), les
+            // services, la commande, les deux controleurs, la requete et les
+            // routes (404 cote site sinon).
+            'database/migrations/2026_09_15_120000_create_external_job_offers_table.php',
+            'app/Enums/ExternalJobOfferStatus.php',
+            'app/Models/ExternalJobOffer.php',
+            'app/Models/ExternalEmployerBlock.php',
+            'app/Support/JsonArrayStreamer.php',
+            'app/Support/LbaCfaBlocklist.php',
+            'app/Services/TrainingOrganizationDetector.php',
+            'app/Services/Lba/LbaClient.php',
+            'app/Services/Lba/LbaOfferMapper.php',
+            'app/Services/Lba/ExternalOfferFilter.php',
+            'app/Services/Lba/LbaImportService.php',
+            'app/Services/ExternalJobOfferService.php',
+            'app/Console/Commands/ImportLbaOffers.php',
+            'app/Http/Controllers/PublicExternalJobOfferController.php',
+            'app/Http/Controllers/Admin/ExternalJobOfferController.php',
+            'app/Http/Requests/ExternalJobOffer/SearchExternalJobOffersRequest.php',
             'bootstrap/app.php',
             'config/cors.php',
         ];
@@ -586,6 +610,10 @@ class DeployController extends Controller
             // tourne-t-elle ? Un cron qui passe n'a jamais garanti qu'une
             // tache s'execute, c'est toute la lecon du 2026-09-10.
             'dernieres_passes' => self::verdictPasses(self::marqueursDePasse(), now()),
+            // Rapport du dernier import La bonne alternance : combien lues,
+            // retenues, exclues et pourquoi. Un import qui echoue chaque nuit
+            // serait invisible sans ceci.
+            'import_lba' => LbaImportService::lastReport(),
             'sortie_brute' => $sortie,
             'heure_serveur' => now()->toDateTimeString(),
         ]);
@@ -677,6 +705,7 @@ class DeployController extends Controller
         'job-offers:expire',
         'job-offers:archive-expired-trials',
         'cvs:archive-inactive',
+        'lba:import',
         'video-rooms:send-reminders',
         'cv-downloads:purge',
         'job-offers:notify-matching-candidates',

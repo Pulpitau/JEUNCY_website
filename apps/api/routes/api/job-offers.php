@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\JobOfferController;
+use App\Http\Controllers\PublicExternalJobOfferController;
 use App\Http\Controllers\PublicJobOfferController;
 use Illuminate\Support\Facades\Route;
 
@@ -9,6 +10,12 @@ use Illuminate\Support\Facades\Route;
 // "search" soit intercepte par le route model binding de {jobOffer}.
 Route::get('job-offers/search', [PublicJobOfferController::class, 'index']);
 Route::get('job-offers/{jobOffer}', [PublicJobOfferController::class, 'show'])->whereNumber('jobOffer');
+// Offres importees de La bonne alternance (voir ExternalJobOfferService) :
+// publiques elles aussi, servies a part pour que la page /offres les montre
+// APRES les offres Jeuncy, et que l'application mobile, qui ne les connait
+// pas encore, ne recoive rien d'inattendu dans sa liste.
+Route::get('job-offers/external/search', [PublicExternalJobOfferController::class, 'index']);
+Route::get('job-offers/external/{externalJobOffer}', [PublicExternalJobOfferController::class, 'show'])->whereNumber('externalJobOffer');
 
 Route::prefix('job-offers')->middleware(['auth:api', 'role:COMPANY,CFA'])->group(function () {
     Route::get('/', [JobOfferController::class, 'index']);

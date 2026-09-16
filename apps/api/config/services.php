@@ -74,6 +74,29 @@ return [
         'phone' => env('CONTACT_PHONE'),
     ],
 
+    // Import des offres de La bonne alternance (api.apprentissage.beta.gouv.fr),
+    // decide le 2026-09-15 pour remplir Jeuncy d'offres en volume. Usage
+    // gratuit, licence Etalab 2.0 : la source est mentionnee sur chaque offre.
+    'lba' => [
+        // Cle de PRODUCTION creee sur /fr/compte/profil (une cle sandbox
+        // renvoie des donnees de test). Vide = import desactive, sans erreur.
+        'api_key' => env('LBA_API_KEY'),
+        'base_url' => env('LBA_BASE_URL', 'https://api.apprentissage.beta.gouv.fr/api'),
+        // Perimetre d'import : seules les offres situees dans ces departements
+        // sont conservees. On commence par l'Occitanie (decision de Pierre,
+        // 2026-09-15) ; elargir = allonger cette liste, rien d'autre.
+        'departements' => array_values(array_filter(array_map('trim', explode(',', (string) env('LBA_DEPARTEMENTS', '66,11,34,30,31,09,65,81,82,12,46,48'))))),
+        // true : l'import de nuit LIT et COMPTE mais n'ecrit aucune offre — le
+        // rapport (admin, onglet Offres partenaires) permet de juger le filtre
+        // sur les vraies donnees avant de rien montrer aux candidats. Passer a
+        // false quand les chiffres conviennent.
+        'mesure_seulement' => filter_var(env('LBA_MESURE_SEULEMENT', false), FILTER_VALIDATE_BOOLEAN),
+        // Employeurs jamais ecartes par le filtre des ecoles : l'ecole
+        // partenaire, dont les offres sont les bienvenues. SIRET separes par
+        // des virgules.
+        'siret_whitelist' => array_values(array_filter(array_map('trim', explode(',', (string) env('LBA_SIRET_WHITELIST', ''))))),
+    ],
+
     // Modele economique, decide en reunion le 2026-09-15 : Jeuncy est
     // ENTIEREMENT GRATUIT pour les entreprises (publication, candidatures,
     // CVtheque), afin de remplir la plateforme en volume avant de monetiser.

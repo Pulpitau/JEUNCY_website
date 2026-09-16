@@ -40,9 +40,15 @@ return Application::configure(basePath: dirname(__DIR__))
         // de minuit.
         $unePasseParPeriode = function (string $commande, string $periode) use ($schedule) {
             $cle = "planificateur.derniere_passe.{$commande}";
-            $jeton = fn () => $periode === 'semaine'
-                ? now()->startOfWeek()->toDateString()
-                : now()->toDateString();
+            $jeton = fn () => match ($periode) {
+                'semaine' => now()->startOfWeek()->toDateString(),
+                // Le jeton ne change qu'a 4h (heure de Paris) : la tache
+                // tourne au premier passage du cron APRES 4h, jamais avant.
+                // Pour l'import LBA, dont l'export est regenere a 3h Paris —
+                // passer a 2h41 lirait celui de la veille.
+                'jour-des-4h' => now('Europe/Paris')->subHours(4)->toDateString(),
+                default => now()->toDateString(),
+            };
 
             return $schedule->command($commande)
                 ->everyMinute()
@@ -67,6 +73,10 @@ return Application::configure(basePath: dirname(__DIR__))
         // Hebdomadaire et non quotidien : le delai se compte en annees, une
         // passe par semaine suffit largement.
         $unePasseParPeriode('cv-downloads:purge', 'semaine');
+        // Offres de La bonne alternance : une passe par jour, apres la
+        // regeneration de leur export (3h Paris). Sans cle API la commande
+        // se termine aussitot, sans erreur.
+        $unePasseParPeriode('lba:import', 'jour-des-4h');
         // Les rappels de visio, eux, doivent partir aussi souvent que possible
         // (fenetre de rappel d'1h, voir SendVideoRoomReminders) : pas de
         // marqueur, la commande tourne a chaque passage du cron. Elle est

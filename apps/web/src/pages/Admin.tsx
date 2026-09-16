@@ -5,6 +5,7 @@ import { AdminStatsPanel } from '@/components/features/admin/AdminStatsPanel';
 import { AdminUsersPanel } from '@/components/features/admin/AdminUsersPanel';
 import { AdminCandidatesPanel } from '@/components/features/admin/AdminCandidatesPanel';
 import { AdminJobOffersPanel } from '@/components/features/admin/AdminJobOffersPanel';
+import { AdminExternalOffersPanel } from '@/components/features/admin/AdminExternalOffersPanel';
 import { AdminPaymentsPanel } from '@/components/features/admin/AdminPaymentsPanel';
 import { AdminVideoRoomsPanel } from '@/components/features/admin/AdminVideoRoomsPanel';
 
@@ -13,6 +14,7 @@ const TABS = [
   { key: 'users', label: 'Utilisateurs' },
   { key: 'candidates', label: 'Candidats' },
   { key: 'job-offers', label: 'Offres' },
+  { key: 'external-offers', label: 'Offres partenaires' },
   { key: 'payments', label: 'Paiements' },
   { key: 'video-rooms', label: 'Visios' },
 ] as const;
@@ -51,6 +53,7 @@ export function Admin() {
       {tab === 'users' && <AdminUsersPanel />}
       {tab === 'candidates' && <AdminCandidatesPanel />}
       {tab === 'job-offers' && <AdminJobOffersPanel />}
+      {tab === 'external-offers' && <AdminExternalOffersPanel />}
       {tab === 'payments' && <AdminPaymentsPanel />}
       {tab === 'video-rooms' && <AdminVideoRoomsPanel />}
     </main>

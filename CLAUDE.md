@@ -1081,3 +1081,31 @@ terminé, à déployer**
   « toujours d'actualité ? » après 60 ou 90 jours) ; l'import des offres de La
   bonne alternance (recherche faite le 2026-09-15, voir mémoire
   `api-la-bonne-alternance`) réutilisera le détecteur d'écoles.
+
+**Import des offres de La bonne alternance (2026-09-15) : terminé, à
+déployer et à mesurer**
+
+- But : remplir Jeuncy d'offres d'alternance en volume **sans jamais y
+  laisser entrer une école** (règle n° 1 de Pierre : Jeuncy travaille avec IDA).
+  Source : export quotidien complet de l'API officielle (`GET /job/v1/export`,
+  3h Paris, clé Bearer de production, usage non lucratif, licence Etalab 2.0 →
+  source mentionnée sur chaque offre). Détails : mémoire `api-la-bonne-alternance`.
+- **Table séparée** `external_job_offers` + `external_employer_blocks`. Public :
+  `GET job-offers/external/search` et `/{id}`, servis **à part** pour que
+  `/offres` affiche les offres Jeuncy d'abord puis une section « Offres
+  partenaires » (pagination `pp`), et pour ne rien changer à l'app mobile.
+  Fiche `/offres/partenaire/{id}` : candidature sur le site d'origine.
+- `lba:import` (planifié après 4h Paris, période `jour-des-4h`) : téléchargement
+  en flux, `JsonArrayStreamer` maison (rien à déployer dans `vendor/`), périmètre
+  `LBA_DEPARTEMENTS` (Occitanie), puis **filtre en six couches**
+  (`ExternalOfferFilter`) : liste blanche SIRET, blocage manuel, `is_delegated`,
+  NAF enseignement, liste des ~1 800 CFA de LBA (`LbaCfaBlocklist`, MIT) ou nom
+  d'école, tournures d'école dans la description. Exclues **conservées avec leur
+  raison**. Idempotent (`import_batch`), suppression seulement après lecture
+  complète. Rapport en cache exposé dans `/admin` (onglet « Offres
+  partenaires » : audit, bouton « C'est une école ») et `/scheduler`.
+- **`LBA_MESURE_SEULEMENT=true` au premier déploiement** : la nuit compte sans
+  publier, on lit le rapport, puis `false`. `LBA_SIRET_WHITELIST` = SIRET d'IDA.
+- Non fait à dessein : pas de notification de correspondance sur ces offres,
+  pas de candidature via l'API LBA, pas d'affichage mobile. À mesurer sur le
+  vrai export : taille du fichier et durée de la passe sur OVH.

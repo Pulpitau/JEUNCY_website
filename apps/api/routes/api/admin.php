@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Admin\CandidateProfileController;
+use App\Http\Controllers\Admin\ExternalJobOfferController;
 use App\Http\Controllers\Admin\JobOfferController;
 use App\Http\Controllers\Admin\PaymentController;
 use App\Http\Controllers\Admin\StatsController;
@@ -36,6 +37,12 @@ Route::prefix('admin')->middleware(['auth:api', 'role:ADMIN'])->group(function (
     // PaymentService::refund.
     Route::post('payments/{payment}/refund', [PaymentController::class, 'refund']);
 
+    // Offres importees : audit du filtre des ecoles et blocage d'employeurs.
+    Route::get('external-job-offers/stats', [ExternalJobOfferController::class, 'stats']);
+    Route::get('external-job-offers', [ExternalJobOfferController::class, 'index']);
+    Route::post('external-job-offers/{externalJobOffer}/block-employer', [ExternalJobOfferController::class, 'blockEmployer']);
+    Route::get('external-employer-blocks', [ExternalJobOfferController::class, 'blocks']);
+    Route::delete('external-employer-blocks/{externalEmployerBlock}', [ExternalJobOfferController::class, 'removeBlock']);
     Route::get('video-rooms', [VideoRoomController::class, 'index']);
     Route::post('video-rooms/{videoRoom}/end', [VideoRoomController::class, 'end']);
 });

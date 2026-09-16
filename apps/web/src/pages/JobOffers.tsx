@@ -9,6 +9,11 @@ import { cn } from '@/lib/utils';
 import { WORK_MODE_LABELS } from '@/lib/work-mode-labels';
 import { searchPublicOffers } from '@/lib/api/job-offers';
 import { PublicJobOfferCard } from '@/components/features/job-offers/PublicJobOfferCard';
+import { ExternalJobOfferCard } from '@/components/features/job-offers/ExternalJobOfferCard';
+import {
+  EXTERNAL_SOURCE_LABEL,
+  searchExternalOffers,
+} from '@/lib/api/external-job-offers';
 import { FreeForCandidatesBadge } from '@/components/FreeForCandidatesBadge';
 import { usePageMetadata } from '@/hooks/use-page-metadata';
 
@@ -33,6 +38,10 @@ export function JobOffers() {
   const city = searchParams.get('city') ?? '';
   const workMode = searchParams.get('work_mode') ?? '';
   const page = Number(searchParams.get('page') ?? '1');
+  // Les offres partenaires ont leur propre pagination (« pp ») : les deux
+  // listes n'ont pas la meme taille, une seule page pour les deux n'aurait
+  // aucun sens.
+  const partnerPage = Number(searchParams.get('pp') ?? '1');
 
   const [draftQ, setDraftQ] = useState(q);
   const [draftCity, setDraftCity] = useState(city);
@@ -46,6 +55,25 @@ export function JobOffers() {
         city: city || undefined,
         work_mode: (workMode as WorkMode) || undefined,
         page,
+      }),
+  });
+
+  // Offres importees de La bonne alternance, memes filtres, affichees APRES
+  // les offres Jeuncy. Toujours de l'alternance : un autre type de contrat
+  // demande renvoie une liste vide, et la section disparait.
+  const partnerOffersQuery = useQuery({
+    queryKey: [
+      'job-offers',
+      'external',
+      { q, contractType, city, workMode, partnerPage },
+    ],
+    queryFn: () =>
+      searchExternalOffers({
+        q: q || undefined,
+        contract_type: contractType || undefined,
+        city: city || undefined,
+        work_mode: (workMode as WorkMode) || undefined,
+        page: partnerPage,
       }),
   });
 
@@ -70,11 +98,22 @@ export function JobOffers() {
     if (!('page' in overrides)) {
       next.delete('page');
     }
+    if (!('pp' in overrides)) {
+      next.delete('pp');
+    }
     setSearchParams(next);
   }
 
   const offers = offersQuery.data?.data ?? [];
   const lastPage = offersQuery.data?.last_page ?? 1;
+  const partnerOffers = partnerOffersQuery.data?.data ?? [];
+  const partnerLastPage = partnerOffersQuery.data?.last_page ?? 1;
+  const partnerTotal = partnerOffersQuery.data?.total ?? 0;
+  const nothingAtAll =
+    !offersQuery.isLoading &&
+    !partnerOffersQuery.isLoading &&
+    offers.length === 0 &&
+    partnerOffers.length === 0;
 
   return (
     <main className="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-12">
@@ -160,11 +199,11 @@ export function JobOffers() {
         <p role="alert" className="font-inter text-sm text-destructive">
           Impossible de charger les offres pour le moment, réessaie plus tard.
         </p>
-      ) : offers.length === 0 ? (
+      ) : nothingAtAll ? (
         <p className="font-inter text-sm text-muted-foreground">
           Aucune offre ne correspond à ta recherche pour l'instant.
         </p>
-      ) : (
+      ) : offers.length === 0 ? null : (
         <>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {offers.map((offer) => (
@@ -198,6 +237,60 @@ export function JobOffers() {
             </div>
           )}
         </>
+      )}
+
+      {/* Offres partenaires : importees chaque nuit de La bonne alternance,
+          filtrees pour n'afficher aucune ecole (voir ExternalOfferFilter
+          cote API). Toujours apres les offres Jeuncy, avec leur source. */}
+      {partnerOffers.length > 0 && (
+        <section className="flex flex-col gap-4 border-t border-border pt-8">
+          <div>
+            <h2 className="font-poppins text-2xl font-bold text-foreground">
+              Offres partenaires
+              <span className="ml-2 font-inter text-base font-normal text-muted-foreground">
+                {partnerTotal} offre{partnerTotal > 1 ? 's' : ''}
+              </span>
+            </h2>
+            <p className="mt-1 font-inter text-sm text-muted-foreground">
+              Des offres d'alternance publiées sur {EXTERNAL_SOURCE_LABEL}, le service
+              public de l'alternance. Tu postules directement auprès de l'employeur.
+            </p>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {partnerOffers.map((offer) => (
+              <ExternalJobOfferCard key={offer.id} offer={offer} />
+            ))}
+          </div>
+          {partnerLastPage > 1 && (
+            <div className="flex items-center justify-center gap-3">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={partnerPage <= 1}
+                onClick={() =>
+                  applyFilters({ page: String(page), pp: String(partnerPage - 1) })
+                }
+              >
+                Précédent
+              </Button>
+              <span className="font-inter text-sm text-muted-foreground">
+                Page {partnerPage} / {partnerLastPage}
+              </span>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={partnerPage >= partnerLastPage}
+                onClick={() =>
+                  applyFilters({ page: String(page), pp: String(partnerPage + 1) })
+                }
+              >
+                Suivant
+              </Button>
+            </div>
+          )}
+        </section>
       )}
     </main>
   );
