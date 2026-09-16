@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Route;
 // Enregistre avant le groupe authentifie ci-dessous pour eviter que le segment
 // "search" soit intercepte par le route model binding de {jobOffer}.
 Route::get('job-offers/search', [PublicJobOfferController::class, 'index']);
+Route::get('job-offers/count', [PublicJobOfferController::class, 'count']);
 Route::get('job-offers/{jobOffer}', [PublicJobOfferController::class, 'show'])->whereNumber('jobOffer');
 // Offres importees de La bonne alternance (voir ExternalJobOfferService) :
 // publiques elles aussi, servies a part pour que la page /offres les montre

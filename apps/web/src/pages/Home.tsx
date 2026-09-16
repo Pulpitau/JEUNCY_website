@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
+import { getPublicOfferCount } from '@/lib/api/job-offers';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -48,6 +50,13 @@ export function Home() {
   );
   const navigate = useNavigate();
   const [query, setQuery] = useState('');
+  // Le VRAI nombre d'offres en ligne, en direct — jamais un chiffre rond
+  // ecrit a la main qui serait faux le lendemain.
+  const countQuery = useQuery({
+    queryKey: ['job-offers', 'count'],
+    queryFn: getPublicOfferCount,
+  });
+  const offerCount = countQuery.data?.total ?? 0;
 
   function handleSearch() {
     const params = query.trim() ? `?q=${encodeURIComponent(query.trim())}` : '';
@@ -76,6 +85,20 @@ export function Home() {
             Jeuncy connecte les jeunes talents aux entreprises et CFA qui recrutent, sans
             detour.
           </p>
+
+          {offerCount > 0 && (
+            <Link
+              to="/offres"
+              className="animate-in fade-in zoom-in-95 mx-auto mt-6 inline-flex items-baseline gap-2 rounded-full border border-jeuncy-coral/30 bg-card px-6 py-3 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-jeuncy-coral hover:shadow-md [animation-delay:150ms] [animation-fill-mode:backwards]"
+            >
+              <span className="bg-jeuncy-gradient bg-clip-text font-poppins text-3xl font-bold text-transparent md:text-4xl">
+                {offerCount.toLocaleString('fr-FR')}
+              </span>
+              <span className="font-inter text-base text-foreground">
+                offres d'alternance disponibles aujourd'hui
+              </span>
+            </Link>
+          )}
 
           <div className="animate-in fade-in slide-in-from-bottom-3 mx-auto mt-8 flex max-w-md flex-col gap-3 duration-700 [animation-delay:200ms] [animation-fill-mode:backwards] sm:flex-row">
             <Input

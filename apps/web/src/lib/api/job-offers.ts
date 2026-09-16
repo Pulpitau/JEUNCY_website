@@ -157,6 +157,13 @@ export function publishOfferViaSubscription(id: number) {
   });
 }
 
+// Compteur d'offres en ligne (Jeuncy + partenaires), affiche en page d'accueil.
+export function getPublicOfferCount() {
+  return apiRequest<{ jeuncy: number; partenaires: number; total: number }>(
+    '/job-offers/count',
+  );
+}
+
 export function searchPublicOffers(filters: JobOfferSearchFilters) {
   const params = new URLSearchParams();
   if (filters.q) params.set('q', filters.q);

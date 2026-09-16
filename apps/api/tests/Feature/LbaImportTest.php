@@ -365,6 +365,18 @@ class LbaImportTest extends TestCase
         $this->assertSame(0, $this->getJson('/api/job-offers/external/search?contract_type=SAISONNIER')->json('data.total'));
     }
 
+    public function test_the_public_counter_adds_jeuncy_and_partner_offers(): void
+    {
+        $this->writeExport([$this->job(), $this->job(), $this->job(['is_delegated' => true])]);
+        $this->import();
+
+        $this->getJson('/api/job-offers/count')
+            ->assertOk()
+            ->assertJsonPath('data.partenaires', 2)
+            ->assertJsonPath('data.jeuncy', 0)
+            ->assertJsonPath('data.total', 2);
+    }
+
     public function test_an_excluded_offer_is_not_reachable_by_id(): void
     {
         $this->writeExport([$this->job(['is_delegated' => true])]);

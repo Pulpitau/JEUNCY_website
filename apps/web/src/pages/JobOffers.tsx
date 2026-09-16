@@ -109,6 +109,8 @@ export function JobOffers() {
   const partnerOffers = partnerOffersQuery.data?.data ?? [];
   const partnerLastPage = partnerOffersQuery.data?.last_page ?? 1;
   const partnerTotal = partnerOffersQuery.data?.total ?? 0;
+  const jeuncyTotal = offersQuery.data?.total ?? 0;
+  const grandTotal = jeuncyTotal + partnerTotal;
   const nothingAtAll =
     !offersQuery.isLoading &&
     !partnerOffersQuery.isLoading &&
@@ -119,7 +121,14 @@ export function JobOffers() {
     <main className="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-12">
       <div className="flex flex-col gap-3">
         <div>
-          <h1 className="font-poppins text-3xl font-bold">Les offres</h1>
+          <h1 className="font-poppins text-3xl font-bold">
+            Les offres
+            {grandTotal > 0 && (
+              <span className="ml-3 font-inter text-lg font-normal text-muted-foreground">
+                {grandTotal.toLocaleString('fr-FR')} disponible{grandTotal > 1 ? 's' : ''}
+              </span>
+            )}
+          </h1>
           <p className="mt-1 font-inter text-muted-foreground">
             Alternance, saisonnier, bénévolat, job étudiant — trouve l'offre qui te
             correspond.

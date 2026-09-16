@@ -165,6 +165,8 @@ class LbaImportService
         // Le rapport est conserve meme en mesure : c'est precisement ce qu'on
         // veut lire le lendemain d'une passe a blanc.
         Cache::forever(self::CACHE_KEY, $report);
+        // Le compteur de la page d'accueil doit refleter la passe aussitot.
+        Cache::forget('offres.compteur');
 
         return $report;
     }
