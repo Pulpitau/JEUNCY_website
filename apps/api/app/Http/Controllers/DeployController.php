@@ -13,6 +13,7 @@ use App\Services\CandidateProfileService;
 use App\Services\CvService;
 use App\Services\JobOfferMatchService;
 use App\Services\JobOfferService;
+use App\Services\Lba\LbaClient;
 use App\Services\Lba\LbaImportService;
 use App\Services\PaymentService;
 use Illuminate\Console\Scheduling\Schedule;
@@ -34,7 +35,7 @@ class DeployController extends Controller
     // ne peut pas savoir si le controleur lui-meme a bien ete redeploye : c est
     // arrive le 2026-09-02, ou clear-cache continuait d echouer avec une version
     // corrigee censement en place. A incrementer a chaque changement ici.
-    public const DEPLOY_TOOLS_VERSION = 'deploy-tools-24';
+    public const DEPLOY_TOOLS_VERSION = 'deploy-tools-25';
 
     // Cle du battement du planificateur, ecrite par bootstrap/app.php a
     // chaque schedule:run. Dupliquee en dur la-bas volontairement : voir
@@ -817,6 +818,19 @@ class DeployController extends Controller
         }
         if (request()->query('annuler') === '1') {
             Cache::forget(self::CLE_IMPORT_LBA_DEMANDE);
+        }
+
+        // ?apercu=1 : les premiers octets de l'export, pour verifier que le
+        // lecteur cherche au bon endroit (le 2026-09-16, 576 Mo recus et zero
+        // offre lue : la structure du fichier n'etait pas celle supposee).
+        if (request()->query('apercu') === '1') {
+            try {
+                $apercu = app(LbaClient::class)->exportPreview();
+            } catch (\Throwable $e) {
+                $apercu = 'ERREUR : '.$e->getMessage();
+            }
+
+            return response()->json(['apercu_export' => $apercu], 200, [], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         }
 
         $prochainPassage = now()->minute < 41 ? now()->setTime(now()->hour, 41) : now()->addHour()->setTime(now()->addHour()->hour, 41);

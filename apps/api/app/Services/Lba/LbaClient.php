@@ -26,6 +26,46 @@ class LbaClient
      */
     public function downloadExport(): string
     {
+        $url = $this->exportUrl();
+
+        $path = tempnam(sys_get_temp_dir(), 'lba-export-');
+        if ($path === false) {
+            throw new RuntimeException('Impossible de creer un fichier temporaire.');
+        }
+
+        // sink() ecrit la reponse au fil de l'eau sur le disque. Une heure de
+        // delai : un gros fichier sur une liaison lente doit pouvoir passer.
+        $download = Http::timeout(3600)->sink($path)->get($url);
+        if (! $download->successful()) {
+            @unlink($path);
+            throw new RuntimeException("Telechargement de l'export LBA refuse : {$download->status()}");
+        }
+
+        return $path;
+    }
+
+    // Les premiers octets de l'export, pour en voir la structure sans le
+    // telecharger en entier (requete Range). Outil de diagnostic.
+    public function exportPreview(int $bytes = 4000): string
+    {
+        // Sur disque, pas en memoire : si le serveur ignore l'en-tete Range,
+        // c'est tout le fichier qui arrive.
+        $path = tempnam(sys_get_temp_dir(), 'lba-apercu-');
+        try {
+            Http::timeout(120)
+                ->withHeaders(['Range' => 'bytes=0-'.($bytes - 1)])
+                ->sink($path)
+                ->get($this->exportUrl());
+
+            return (string) file_get_contents($path, false, null, 0, $bytes);
+        } finally {
+            @unlink($path);
+        }
+    }
+
+    // URL signee de l'export (valable deux minutes).
+    public function exportUrl(): string
+    {
         if (! $this->configured()) {
             throw new RuntimeException('LBA_API_KEY absente : import impossible.');
         }
@@ -45,19 +85,6 @@ class LbaClient
             throw new RuntimeException('LBA /job/v1/export : aucune URL dans la reponse.');
         }
 
-        $path = tempnam(sys_get_temp_dir(), 'lba-export-');
-        if ($path === false) {
-            throw new RuntimeException('Impossible de creer un fichier temporaire.');
-        }
-
-        // sink() ecrit la reponse au fil de l'eau sur le disque. Une heure de
-        // delai : un gros fichier sur une liaison lente doit pouvoir passer.
-        $download = Http::timeout(3600)->sink($path)->get($url);
-        if (! $download->successful()) {
-            @unlink($path);
-            throw new RuntimeException("Telechargement de l'export LBA refuse : {$download->status()}");
-        }
-
-        return $path;
+        return $url;
     }
 }
