@@ -50,7 +50,7 @@ export default function ConnexionScreen() {
 
   return (
     <Screen>
-      <BrandHeader title="Content de te revoir" subtitle="Ton alternance commence ici." />
+      <BrandHeader title="Content de te revoir" subtitle="Job Jeune & Match" />
 
       <View style={styles.form}>
         <Controller

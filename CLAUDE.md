@@ -17,7 +17,7 @@ du site/logiciel (côté commercial/onboarding).
 
 Positionnement : agence de recrutement nouvelle génération — visible, accessible, humaine,
 efficace. Ton : jeune sans être ado, pro sans être froid, dynamique sans être agressif.
-Signature : « Ton alternance commence ici. »
+Signature : « Job Jeune & Match » (décision du patron, 2026-09-17 ; remplace « Ton alternance commence ici. »)
 
 ## 2. Identité visuelle (obligatoire à respecter)
 

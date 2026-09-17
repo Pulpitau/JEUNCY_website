@@ -79,7 +79,7 @@ export function Home() {
             Alternance · Saisonnier · Bénévolat · Job étudiant
           </Badge>
           <h1 className="animate-in fade-in slide-in-from-bottom-3 font-poppins text-4xl font-bold tracking-tight text-foreground duration-700 md:text-6xl">
-            Ton <span className="text-jeuncy-coral">alternance</span> commence ici.
+            Job Jeune <span className="text-jeuncy-coral">&amp; Match</span>
           </h1>
           <p className="animate-in fade-in slide-in-from-bottom-3 mx-auto mt-4 max-w-xl font-inter text-lg text-muted-foreground duration-700 [animation-delay:100ms] [animation-fill-mode:backwards]">
             Jeuncy connecte les jeunes talents aux entreprises et CFA qui recrutent, sans

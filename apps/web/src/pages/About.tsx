@@ -261,7 +261,7 @@ export function About() {
 
       <section className="mx-auto max-w-4xl px-4 py-20 text-center">
         <h2 className="font-poppins text-3xl font-bold text-foreground">
-          Ton alternance commence ici.
+          Job Jeune &amp; Match
         </h2>
         <p className="mx-auto mt-3 max-w-xl font-inter text-muted-foreground">
           On a peut-être déjà ton futur employeur.

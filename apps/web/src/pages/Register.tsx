@@ -130,7 +130,7 @@ export function Register() {
       <Card className="w-full max-w-md">
         <CardHeader>
           <CardTitle className="text-2xl">Crée ton compte</CardTitle>
-          <CardDescription>Ton alternance commence ici.</CardDescription>
+          <CardDescription>Job Jeune &amp; Match</CardDescription>
         </CardHeader>
         <CardContent>
           {cfaRequested && (

@@ -432,7 +432,7 @@ class MailService
                     </div>
                     <div style="padding:20px 32px;border-top:1px solid #eeeeee;text-align:center;">
                         {$logoHtml}
-                        <p style="color:#9ca3af;font-size:12px;margin:0;">Jeuncy — Ton alternance commence ici.</p>
+                        <p style="color:#9ca3af;font-size:12px;margin:0;">Jeuncy — Job Jeune &amp; Match</p>
                     </div>
                 </div>
             </div>
