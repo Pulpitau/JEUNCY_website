@@ -54,7 +54,60 @@ class ExternalOfferFilter
         'frais de scolarite',
         'integrer notre formation',
         'rejoindre notre formation',
+        // Ajoutees le 2026-09-17 apres relecture des 727 offres en ligne par
+        // 16 agents : 18 tournures a ZERO faux positif sur 703 vraies offres,
+        // qui attrapent les 7 annonces signees par une ecole (IFRIA, PRH 360,
+        // H et C Conseil, Grand Sud Formation). Texte normalise : minuscules,
+        // sans accents, ponctuation remplacee par des espaces.
+        'rentree en formation',
+        'aucun frais de formation',
+        'poursuivre votre cursus',
+        'equipe pedagogique',
+        'avant pendant et apres la formation',
+        'avant pendant et apres votre formation',
     ];
+
+    // Memes conclusions, sous forme d'expressions regulieres (texte
+    // normalise, voir normalize()). Chacune mesuree a 0 faux positif sur le
+    // corpus du 2026-09-17. Les tournures « intuitives » (rncp, titre
+    // professionnel, centre de formation, ecole, entreprise d'accueil,
+    // organisme de formation) ont ete mesurees et REJETEES : 6 a 56 vraies
+    // offres attrapees a tort chacune, surtout des GEIQ, groupements
+    // d'employeurs et agences d'interim. Toute regle future doit etre
+    // re-mesuree contre eux avant adoption.
+    private const DESCRIPTION_REGEXES = [
+        '/\brecherche pour (son|sa|notre|un|une) (entreprise|client|etablissement|societe|structure) partenaire\b/' => 'recherche pour son entreprise partenaire',
+        '/\bcfa\b[^.]{0,80}\brecherche\b/' => 'le CFA est l\'annonceur',
+        '/^.{0,100}\bcfa\b/' => 'annonce ouverte par un CFA',
+        '/\bcette offre d (apprentissage|alternance) est faite pour vous\b/' => 'boilerplate d\'ecole (IFRIA)',
+        '/\blieu (ecole|cfa|campus|centre de formation)\b/' => 'lieu = l\'ecole',
+        '/\b(son|notre|nos|ses) clients? partenaires?\b/' => 'l\'employeur est le client de l\'annonceur',
+        '/\bnotre partenaire (recherche|recrute)\b/' => 'notre partenaire recherche',
+        '/\bde (ses|nos) (etablissements|clients) partenaires\b/' => 'ses etablissements partenaires',
+        '/\b(formation|cfa|ecole|campus|academie|institut) recrute\b/' => 'l\'organisme se declare recruteur',
+        '/\bpre ?selection des (dossiers|candidatures) par\b/' => 'pre-selection par l\'organisme',
+        '/\bpresent(e|ee|es|ees) a l entreprise\b/' => 'clause de captation',
+        '/\b(ifria|grand sud formation|h et c conseil|prh ?360)\b/' => 'organisme de formation nomme dans le texte',
+    ];
+
+    // Employeurs reconnus comme organismes de formation malgre un nom qui
+    // n'en a pas l'air (relecture du 2026-09-17). Sous-chaine du nom
+    // normalise.
+    private const LOCAL_CFA_NAMES = [
+        'prh 360',
+        'prh360',
+        'association regionale des entreprises alimentaires',
+    ];
+
+    // Gabarit des annonces de l'ISCOD (ecole en ligne, 4 445 apprentis)
+    // diffusees via France Travail : employeur vide, titre « Alternance
+    // <poste> - <ville> (F/H) », description reduite aux missions — pas un
+    // mot d'ecole dans le texte, les verificateurs les ont retrouvees mot
+    // pour mot sur iscod.fr. Le corpus en comptait 38 ; une quinzaine sont
+    // peut-etre de vraies entreprises restees anonymes, mais elles passent
+    // par le meme emetteur. Decision (Pierre, 2026-09-17 : « l'ideal serait
+    // qu'il n'y en ait aucune ») : tout le gabarit sort.
+    private const ANONYMOUS_SCHOOL_TITLE = '/^alternance .+ - .+ \(F\/H\)$/iu';
 
     /** @var array<string, true> noms LBA normalises (cle = nom) */
     private array $blocklist;
@@ -114,7 +167,7 @@ class ExternalOfferFilter
     /**
      * Raison d'exclusion, ou null si l'offre peut etre montree.
      *
-     * @param  array{company_name: ?string, company_siret: ?string, company_naf: ?string, description: ?string, is_delegated: bool}  $offer
+     * @param  array{company_name: ?string, company_siret: ?string, company_naf: ?string, description: ?string, is_delegated: bool, title?: ?string, partner_label?: ?string}  $offer
      */
     public function exclusionReason(array $offer): ?string
     {
@@ -156,11 +209,28 @@ class ExternalOfferFilter
             return $nameReason;
         }
 
+        foreach (self::LOCAL_CFA_NAMES as $known) {
+            if ($normalizedName !== '' && str_contains($normalizedName, $known)) {
+                return 'employeur reconnu comme organisme de formation';
+            }
+        }
+
         $description = self::normalize($offer['description'] ?? '');
         foreach (self::DESCRIPTION_PATTERNS as $needle) {
             if (str_contains($description, $needle)) {
                 return "la description evoque un organisme de formation : « {$needle} »";
             }
+        }
+        foreach (self::DESCRIPTION_REGEXES as $regex => $label) {
+            if (preg_match($regex, $description)) {
+                return "la description evoque un organisme de formation : {$label}";
+            }
+        }
+
+        if ($normalizedName === ''
+            && ($offer['partner_label'] ?? null) === 'France Travail'
+            && preg_match(self::ANONYMOUS_SCHOOL_TITLE, trim((string) ($offer['title'] ?? '')))) {
+            return 'annonce anonyme au gabarit d\'une ecole en ligne';
         }
 
         return null;

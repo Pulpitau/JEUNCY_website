@@ -37,6 +37,16 @@ class ExternalJobOfferController extends Controller
         return response()->json($this->service->blockEmployerFromOffer($request->user(), $externalJobOffer, $data['reason'] ?? null), 201);
     }
 
+    public function exclude(ExternalJobOffer $externalJobOffer): JsonResponse
+    {
+        return response()->json($this->service->excludeOffer($externalJobOffer));
+    }
+
+    public function restore(ExternalJobOffer $externalJobOffer): JsonResponse
+    {
+        return response()->json($this->service->restoreOffer($externalJobOffer));
+    }
+
     public function blocks(): JsonResponse
     {
         return response()->json($this->service->listBlocks());

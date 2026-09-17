@@ -158,6 +158,34 @@ class ExternalJobOfferService
         return $block;
     }
 
+    // Retire UNE offre, sans toucher au reste de l'employeur : pour une
+    // annonce de formation deguisee chez un employeur par ailleurs legitime.
+    // Durable : LbaImportService reapplique l'exclusion apres chaque passe.
+    public function excludeOffer(ExternalJobOffer $offer): ExternalJobOffer
+    {
+        $offer->update([
+            'status' => ExternalJobOfferStatus::EXCLUDED,
+            'exclusion_reason' => LbaImportService::ADMIN_EXCLUSION_REASON,
+            'excluded_by_admin_at' => now(),
+        ]);
+
+        return $offer;
+    }
+
+    // Annule un retrait manuel. L'offre redevient visible tout de suite si
+    // le filtre automatique ne la concerne pas ; sinon elle reste exclue avec
+    // la raison du filtre a la prochaine passe.
+    public function restoreOffer(ExternalJobOffer $offer): ExternalJobOffer
+    {
+        $offer->update([
+            'status' => ExternalJobOfferStatus::ACTIVE,
+            'exclusion_reason' => null,
+            'excluded_by_admin_at' => null,
+        ]);
+
+        return $offer;
+    }
+
     public function listBlocks(): array
     {
         return ExternalEmployerBlock::query()->orderByDesc('created_at')->get()->all();

@@ -35,7 +35,7 @@ class DeployController extends Controller
     // ne peut pas savoir si le controleur lui-meme a bien ete redeploye : c est
     // arrive le 2026-09-02, ou clear-cache continuait d echouer avec une version
     // corrigee censement en place. A incrementer a chaque changement ici.
-    public const DEPLOY_TOOLS_VERSION = 'deploy-tools-26';
+    public const DEPLOY_TOOLS_VERSION = 'deploy-tools-27';
 
     // Cle du battement du planificateur, ecrite par bootstrap/app.php a
     // chaque schedule:run. Dupliquee en dur la-bas volontairement : voir
@@ -228,6 +228,8 @@ class DeployController extends Controller
             // services, la commande, les deux controleurs, la requete et les
             // routes (404 cote site sinon).
             'database/migrations/2026_09_15_120000_create_external_job_offers_table.php',
+            // Retrait manuel d'une offre, qui survit aux imports (2026-09-17).
+            'database/migrations/2026_09_17_090000_add_admin_exclusion_to_external_job_offers.php',
             'app/Enums/ExternalJobOfferStatus.php',
             'app/Models/ExternalJobOffer.php',
             'app/Models/ExternalEmployerBlock.php',

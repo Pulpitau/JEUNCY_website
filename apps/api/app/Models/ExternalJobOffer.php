@@ -18,7 +18,7 @@ use Illuminate\Database\Eloquent\Model;
     'work_mode', 'contract_start', 'contract_duration_months',
     'target_diploma_level', 'target_diploma_label', 'rome_codes', 'opening_count',
     'apply_url', 'is_delegated', 'published_at', 'expires_at',
-    'status', 'exclusion_reason', 'import_batch', 'last_seen_at',
+    'status', 'exclusion_reason', 'excluded_by_admin_at', 'import_batch', 'last_seen_at',
 ])]
 class ExternalJobOffer extends Model
 {
@@ -47,6 +47,7 @@ class ExternalJobOffer extends Model
             'published_at' => 'datetime',
             'expires_at' => 'datetime',
             'last_seen_at' => 'datetime',
+            'excluded_by_admin_at' => 'datetime',
             'latitude' => 'float',
             'longitude' => 'float',
         ];

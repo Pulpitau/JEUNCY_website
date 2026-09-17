@@ -177,6 +177,7 @@ class LbaImportTest extends TestCase
         return $filter->exclusionReason(array_merge([
             'company_name' => 'NexaTech', 'company_siret' => '73282932000074', 'company_naf' => '62.01Z',
             'description' => 'Rejoins notre equipe.', 'is_delegated' => false,
+            'title' => 'Developpeur web en alternance', 'partner_label' => 'Hellowork',
         ], $offer));
     }
 
@@ -223,6 +224,43 @@ class LbaImportTest extends TestCase
         // Vu sur le vrai export (Leclerc Voyages, Merimani...) : un employeur
         // qui precise que la formation est assuree par un organisme partenaire.
         $this->assertNull($this->reason(['description' => 'Formation assuree en alternance par un organisme de formation partenaire, centre de formation d\x27apprentis de la region.']));
+    }
+
+    // Regles ajoutees le 2026-09-17 apres relecture des 727 offres reelles.
+    public function test_a_school_advertising_for_its_partner_company_is_excluded(): void
+    {
+        $this->assertNotNull($this->reason(['description' => 'Grand Sud Formation recherche pour son entreprise partenaire un alternant en BTS.']));
+        $this->assertNotNull($this->reason(['description' => 'Le CFA H et C Conseil recherche un apprenti vendeur.']));
+        $this->assertNotNull($this->reason(['description' => 'Pre-selection des dossiers par PRH360 Formation, puis entretien avec notre equipe pedagogique.']));
+        $this->assertNotNull($this->reason(['description' => 'Rentree en formation le 15 septembre, aucun frais de formation.']));
+        $this->assertNotNull($this->reason(['company_name' => 'ASSOCIATION REGIONALE DES ENTREPRISES ALIMENTAIRES - OCCITANIE']));
+        $this->assertNotNull($this->reason(['company_name' => 'PRH 360']));
+    }
+
+    // Mesure sur le corpus : ces tournures sont courantes chez de vrais
+    // employeurs (La Poste et son CFA, agences d'interim, GEIQ) et ne
+    // doivent PAS exclure.
+    public function test_a_real_employer_naming_its_own_cfa_or_partner_agency_passes(): void
+    {
+        $this->assertNull($this->reason(['description' => 'Vous preparez et distribuez le courrier aupres d\x27une clientele de particuliers et d\x27entreprises en respectant les standards de qualite de service. La Poste vous propose un contrat en alternance de 12 mois. La formation est assuree par son CFA Formaposte. Vous preparez un titre professionnel RNCP niveau 4.']));
+        $this->assertNull($this->reason(['description' => 'Notre agence Manpower recherche pour l\x27un de ses partenaires un operateur CN. Conditions d\x27acces : niveau bac. Entreprise d\x27accueil en Occitanie.']));
+        $this->assertNull($this->reason(['description' => 'GEIQ : mise a disposition au sein de notre entreprise partenaire, zero frais de formation, votre permis integralement finance.']));
+    }
+
+    // Gabarit des annonces anonymes de l'ISCOD diffusees via France Travail :
+    // exclu seulement quand les trois signaux sont reunis.
+    public function test_the_anonymous_online_school_template_is_excluded(): void
+    {
+        $base = ['company_name' => null, 'company_siret' => null, 'partner_label' => 'France Travail', 'description' => 'Vos missions : accueil, mise en rayon, encaissement.'];
+
+        $this->assertStringContainsString('anonyme', $this->reason(['title' => 'Alternance Employe(e) polyvalent(e) - Fenouillet (F/H)'] + $base));
+        // Un employeur nomme : c'est une vraie offre au meme titre.
+        $this->assertNull($this->reason(['company_name' => 'Carrefour', 'partner_label' => 'France Travail', 'description' => 'Vos missions : accueil.', 'title' => 'Alternance Employe polyvalent - Fenouillet (F/H)']));
+        // Sans les parentheses ni la ville : pas le gabarit.
+        $this->assertNull($this->reason(['title' => 'Alternance - Conseiller service apres-vente F/H'] + $base));
+        $this->assertNull($this->reason(['title' => 'Apprenti Cuisinier (H/F)'] + $base));
+        // Autre source que France Travail : pas le gabarit.
+        $this->assertNull($this->reason(['partner_label' => 'Hellowork', 'title' => 'Alternance Commercial - Montpellier (F/H)'] + $base));
     }
 
     public function test_the_partner_school_is_never_excluded_by_the_filter(): void
@@ -407,6 +445,36 @@ class LbaImportTest extends TestCase
         // Et l'import suivant ne les remet pas en ligne.
         $this->import();
         $this->assertSame(1, ExternalJobOffer::where('status', ExternalJobOfferStatus::ACTIVE)->count());
+    }
+
+    public function test_an_admin_removes_a_single_offer_and_the_next_import_keeps_it_removed(): void
+    {
+        $this->writeExport([$this->job(), $this->job()]);
+        $this->import();
+        $admin = User::create(['email' => 'admin@jeuncy.com', 'password_hash' => 'x', 'role' => UserRole::ADMIN]);
+        $offer = ExternalJobOffer::first();
+
+        $this->actingAs($admin, 'api')
+            ->postJson("/api/admin/external-job-offers/{$offer->id}/exclude")
+            ->assertOk()
+            ->assertJsonPath('data.status', 'EXCLUDED');
+
+        $this->assertSame(1, ExternalJobOffer::where('status', ExternalJobOfferStatus::ACTIVE)->count(), 'L\x27autre offre du meme employeur reste visible.');
+        $this->getJson("/api/job-offers/external/{$offer->id}")->assertStatus(404);
+
+        // La passe suivante reecrit le statut calcule... puis remet le retrait.
+        $report = $this->import();
+        $this->assertSame(1, $report['retirees_par_admin']);
+        $this->assertSame(ExternalJobOfferStatus::EXCLUDED, $offer->fresh()->status);
+        $this->assertSame(LbaImportService::ADMIN_EXCLUSION_REASON, $offer->fresh()->exclusion_reason);
+
+        // Retablir : visible a nouveau, et la passe suivante n'y touche plus.
+        $this->actingAs($admin, 'api')
+            ->postJson("/api/admin/external-job-offers/{$offer->id}/restore")
+            ->assertOk()
+            ->assertJsonPath('data.status', 'ACTIVE');
+        $this->import();
+        $this->assertSame(ExternalJobOfferStatus::ACTIVE, $offer->fresh()->status);
     }
 
     public function test_only_an_admin_can_block(): void

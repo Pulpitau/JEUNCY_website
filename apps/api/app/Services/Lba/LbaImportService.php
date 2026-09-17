@@ -28,6 +28,8 @@ class LbaImportService
 {
     public const CACHE_KEY = 'lba.dernier_import';
 
+    public const ADMIN_EXCLUSION_REASON = 'retiree par un administrateur';
+
     private const BATCH = 200;
 
     public function __construct(
@@ -64,6 +66,7 @@ class LbaImportService
             'exclues_exemples' => [],
             'par_departement' => [],
             'supprimees' => 0,
+            'retirees_par_admin' => 0,
             'duree_s' => 0,
         ];
 
@@ -112,6 +115,8 @@ class LbaImportService
                 'company_naf' => $row['company_naf'],
                 'description' => $row['description'],
                 'is_delegated' => $row['is_delegated'],
+                'title' => $row['title'],
+                'partner_label' => $row['partner_label'],
             ]);
 
             if ($reason === null) {
@@ -156,6 +161,14 @@ class LbaImportService
                 ->where('source', ExternalJobOffer::SOURCE_LBA)
                 ->where('import_batch', '!=', $batchId)
                 ->delete();
+            // Les retraits manuels survivent a la passe : l'upsert vient de
+            // reecrire le statut calcule par le filtre, on remet le leur.
+            $report['retirees_par_admin'] = ExternalJobOffer::query()
+                ->whereNotNull('excluded_by_admin_at')
+                ->update([
+                    'status' => ExternalJobOfferStatus::EXCLUDED->value,
+                    'exclusion_reason' => self::ADMIN_EXCLUSION_REASON,
+                ]);
         }
 
         arsort($report['exclues_par_raison']);

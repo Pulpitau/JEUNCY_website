@@ -7,10 +7,12 @@ import { cn } from '@/lib/utils';
 import { ApiError } from '@/lib/api/client';
 import {
   blockExternalEmployer,
+  excludeExternalOffer,
   getExternalOffersStats,
   listExternalEmployerBlocks,
   listExternalOffersAsAdmin,
   removeExternalEmployerBlock,
+  restoreExternalOffer,
   type ExternalImportReport,
 } from '@/lib/api/external-job-offers';
 import { AdminPager } from './AdminPager';
@@ -110,6 +112,24 @@ export function AdminExternalOffersPanel() {
   const unblockMutation = useMutation({
     mutationFn: removeExternalEmployerBlock,
     onSuccess: () => void invalidateAll(),
+  });
+  // Retrait d'une seule offre : le cas d'une annonce de formation deguisee
+  // chez un employeur par ailleurs legitime.
+  const excludeMutation = useMutation({
+    mutationFn: excludeExternalOffer,
+    onSuccess: () => {
+      setFeedback('Offre retirée. Elle restera retirée à chaque import.');
+      void invalidateAll();
+    },
+    onError: (error) =>
+      setFeedback(error instanceof ApiError ? error.message : 'Retrait impossible.'),
+  });
+  const restoreMutation = useMutation({
+    mutationFn: restoreExternalOffer,
+    onSuccess: () => {
+      setFeedback('Offre rétablie.');
+      void invalidateAll();
+    },
   });
 
   const stats = statsQuery.data;
@@ -261,6 +281,34 @@ export function AdminExternalOffersPanel() {
                 >
                   Voir l'annonce
                 </a>
+                {offer.status === 'ACTIVE' && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    disabled={excludeMutation.isPending}
+                    onClick={() => {
+                      setFeedback(null);
+                      excludeMutation.mutate(offer.id);
+                    }}
+                  >
+                    Retirer cette offre
+                  </Button>
+                )}
+                {offer.status === 'EXCLUDED' && offer.excluded_by_admin_at && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    disabled={restoreMutation.isPending}
+                    onClick={() => {
+                      setFeedback(null);
+                      restoreMutation.mutate(offer.id);
+                    }}
+                  >
+                    Rétablir
+                  </Button>
+                )}
                 {offer.status === 'ACTIVE' && (
                   <Button
                     type="button"

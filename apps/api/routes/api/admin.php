@@ -41,6 +41,8 @@ Route::prefix('admin')->middleware(['auth:api', 'role:ADMIN'])->group(function (
     Route::get('external-job-offers/stats', [ExternalJobOfferController::class, 'stats']);
     Route::get('external-job-offers', [ExternalJobOfferController::class, 'index']);
     Route::post('external-job-offers/{externalJobOffer}/block-employer', [ExternalJobOfferController::class, 'blockEmployer']);
+    Route::post('external-job-offers/{externalJobOffer}/exclude', [ExternalJobOfferController::class, 'exclude']);
+    Route::post('external-job-offers/{externalJobOffer}/restore', [ExternalJobOfferController::class, 'restore']);
     Route::get('external-employer-blocks', [ExternalJobOfferController::class, 'blocks']);
     Route::delete('external-employer-blocks/{externalEmployerBlock}', [ExternalJobOfferController::class, 'removeBlock']);
     Route::get('video-rooms', [VideoRoomController::class, 'index']);

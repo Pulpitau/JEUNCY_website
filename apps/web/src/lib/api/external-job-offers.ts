@@ -67,6 +67,7 @@ export interface ExternalJobOfferAdmin extends ExternalJobOffer {
   company_naf: string | null;
   status: 'ACTIVE' | 'EXCLUDED';
   exclusion_reason: string | null;
+  excluded_by_admin_at: string | null;
   is_delegated: boolean;
 }
 
@@ -129,6 +130,25 @@ export function listExternalOffersAsAdmin(filters: {
 
   return apiRequest<Paginated<ExternalJobOfferAdmin>>(
     `/admin/external-job-offers${query ? `?${query}` : ''}`,
+  );
+}
+
+// Retire UNE offre (pas tout l'employeur) ; durable a travers les imports.
+export function excludeExternalOffer(offerId: number) {
+  return apiRequest<ExternalJobOfferAdmin>(
+    `/admin/external-job-offers/${offerId}/exclude`,
+    {
+      method: 'POST',
+    },
+  );
+}
+
+export function restoreExternalOffer(offerId: number) {
+  return apiRequest<ExternalJobOfferAdmin>(
+    `/admin/external-job-offers/${offerId}/restore`,
+    {
+      method: 'POST',
+    },
   );
 }
 
