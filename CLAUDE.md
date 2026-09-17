@@ -1109,3 +1109,42 @@ déployer et à mesurer**
 - Non fait à dessein : pas de notification de correspondance sur ces offres,
   pas de candidature via l'API LBA, pas d'affichage mobile. À mesurer sur le
   vrai export : taille du fichier et durée de la passe sur OVH.
+
+**Import LBA en production, filtre affiné, compteur (2026-09-16 → 17) :
+terminé**
+
+- **En ligne depuis le 2026-09-16** : ~682 offres partenaires d'Occitanie
+  visibles sur `/offres` (810 dans le périmètre, ~128 exclues), import
+  automatique chaque nuit vers 6h41 Paris, vérifié le lendemain (727 → 682
+  après affinage, nouvelles offres de la veille présentes). L'export réel :
+  **tableau à la racine** (pas `{jobs: [...]}`), ~550 Mo, 307 000 lignes dont
+  294 000 « recruteurs » sans offre — seulement ~12 500 vraies annonces pour
+  toute la France. Lecture en 18 s sur OVH.
+- Outils `/deploy/{token}` ajoutés : `lba-import?maintenant=1` (import au
+  prochain passage du cron), `?executer=1` (import immédiat dans la requête,
+  ~35 s), `?apercu=1` (premiers octets de l'export), `?annuler=1` ;
+  `env-check` affiche le bloc `_lba` et `_jeuncy`. Compteur public
+  `GET job-offers/count` (cache 10 min, invalidé à chaque import), affiché
+  sur l'accueil et `/offres`.
+- **Filtre affiné le 2026-09-17** après relecture des 727 offres en ligne
+  par un workflow de 16 agents (classement par lots, double contre-expertise
+  à charge de réfuter, mesure de chaque règle sur tout le corpus) : 24
+  formations déguisées confirmées (3,3 %). Sept signées par une école (IFRIA
+  sous le nom « Association régionale des entreprises alimentaires », PRH 360,
+  H et C Conseil, Grand Sud Formation) → 18 tournures à zéro faux positif +
+  noms locaux + organismes reconnus dans le texte. Dix-sept anonymes de
+  l'**ISCOD** via France Travail (titre `Alternance <poste> - <ville> (F/H)`,
+  employeur vide, pas un mot d'école) → tout le gabarit exclu (38 offres),
+  décision de Pierre. **Mesurées et rejetées** : « rncp » (17 vraies offres,
+  dont la SNCF), « titre professionnel » (53), « centre de formation » (56),
+  « école » (31), « entreprise d'accueil » (15), « organisme de formation »
+  (6) — c'est le vocabulaire des GEIQ, groupements d'employeurs et agences
+  d'intérim, premiers recruteurs d'apprentis. Toute règle future doit être
+  re-mesurée contre eux.
+- Admin : « Retirer cette offre » / « Rétablir » (colonne
+  `excluded_by_admin_at`, réappliquée après chaque passe), en plus de « C'est
+  une école ». `.env` prod : `LBA_SIRET_WHITELIST` porte encore le placeholder
+  `SIRET_IDA` — à remplacer par le vrai SIRET quand Pierre l'a.
+- Limite connue et assumée : une école qui se présente comme une entreprise
+  sans un mot d'école est indétectable au texte ; le zéro se garantit par
+  filtre + œil de l'admin + chaque cas signalé transformé en règle.
