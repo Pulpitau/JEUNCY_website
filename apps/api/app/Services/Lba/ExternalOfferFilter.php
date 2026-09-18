@@ -94,6 +94,15 @@ class ExternalOfferFilter
         '/\bpre ?selection des (dossiers|candidatures) par\b/' => 'pre-selection par l\'organisme',
         '/\bpresent(e|ee|es|ees) a l entreprise\b/' => 'clause de captation',
         '/\b(ifria|grand sud formation|h et c conseil|prh ?360|next ?step ?academy)\b/' => 'organisme de formation nomme dans le texte',
+        // L'employeur forme lui-meme ses apprentis dans son propre CFA (chaine
+        // de boulangeries « avec son CFA d'entreprise 100 % en ligne », La
+        // Poste et Formaposte, enseignes a centre de formation maison).
+        // Decision de Pierre (2026-09-18) : l'employeur proposera son CFA au
+        // candidat, donc l'offre sort, meme si le poste est reel. « votre
+        // CFA » exclu du groupe : c'est la tournure ordinaire d'un employeur
+        // qui parle de l'ecole choisie par le candidat.
+        '/\bcfa d entreprise\b/' => 'l\'employeur forme dans son propre CFA',
+        '/\b(son|notre|nos|leur|leurs) (propres? )?(cfa|centre de formation)\b/' => 'l\'employeur forme dans son propre CFA',
     ];
 
     // Employeurs reconnus comme organismes de formation malgre un nom qui

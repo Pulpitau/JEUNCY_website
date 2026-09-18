@@ -10,7 +10,7 @@ export function Footer() {
         <div>
           <p className="font-poppins text-lg font-semibold text-foreground">Jeuncy</p>
           <p className="mt-1 font-inter text-sm text-muted-foreground">
-            Job Jeune &amp; Match
+            Match ton alternance
           </p>
 
           {/* "À propos" vit desormais ici plutot que dans la barre de

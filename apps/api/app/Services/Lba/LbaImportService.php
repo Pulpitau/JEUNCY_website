@@ -47,7 +47,9 @@ class LbaImportService
     {
         $startedAt = now();
         $batchId = (string) Str::uuid();
+        // Liste vide = France entiere (voir config/services.php).
         $departments = array_fill_keys((array) config('services.lba.departements'), true);
+        $wholeCountry = $departments === [];
         $this->filter->loadManualBlocks();
 
         $report = [
@@ -94,7 +96,7 @@ class LbaImportService
 
                 continue;
             }
-            if (! isset($departments[$row['department']])) {
+            if (! $wholeCountry && ! isset($departments[$row['department']])) {
                 $report['hors_perimetre']++;
 
                 continue;

@@ -83,9 +83,16 @@ return [
         'api_key' => env('LBA_API_KEY'),
         'base_url' => env('LBA_BASE_URL', 'https://api.apprentissage.beta.gouv.fr/api'),
         // Perimetre d'import : seules les offres situees dans ces departements
-        // sont conservees. On commence par l'Occitanie (decision de Pierre,
-        // 2026-09-15) ; elargir = allonger cette liste, rien d'autre.
-        'departements' => array_values(array_filter(array_map('trim', explode(',', (string) env('LBA_DEPARTEMENTS', '66,11,34,30,31,09,65,81,82,12,46,48'))))),
+        // sont conservees. Occitanie au depart (2026-09-15), France entiere
+        // depuis le 2026-09-18 (decision du patron) : LBA_DEPARTEMENTS=* ou
+        // vide = tous les departements. Une liste (« 66,11,34 ») restreint.
+        'departements' => (function () {
+            $brut = trim((string) env('LBA_DEPARTEMENTS', '*'));
+
+            return $brut === '' || $brut === '*'
+                ? []
+                : array_values(array_filter(array_map('trim', explode(',', $brut))));
+        })(),
         // true : l'import de nuit LIT et COMPTE mais n'ecrit aucune offre — le
         // rapport (admin, onglet Offres partenaires) permet de juger le filtre
         // sur les vraies donnees avant de rien montrer aux candidats. Passer a

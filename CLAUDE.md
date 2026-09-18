@@ -17,7 +17,7 @@ du site/logiciel (côté commercial/onboarding).
 
 Positionnement : agence de recrutement nouvelle génération — visible, accessible, humaine,
 efficace. Ton : jeune sans être ado, pro sans être froid, dynamique sans être agressif.
-Signature : « Job Jeune & Match » (décision du patron, 2026-09-17 ; remplace « Ton alternance commence ici. »)
+Signature : « Match ton alternance » (décision du patron, 2026-09-18 ; remplace « Job Jeune & Match » du 17, qui remplaçait « Ton alternance commence ici. »)
 
 ## 2. Identité visuelle (obligatoire à respecter)
 
@@ -1148,3 +1148,27 @@ terminé**
 - Limite connue et assumée : une école qui se présente comme une entreprise
   sans un mot d'école est indétectable au texte ; le zéro se garantit par
   filtre + œil de l'admin + chaque cas signalé transformé en règle.
+
+**Import LBA : France entière, CFA d'entreprise exclus, slogan (2026-09-18)**
+
+- Relecture des 32 offres arrivées dans la nuit : une école passait (« L'école
+  NextStepAcademy recrute pour l'un de ses partenaires ») — la règle « école
+  recrute » exigeait les deux mots collés. Élargie à trois mots d'écart,
+  organisme ajouté aux noms reconnus. Mesurée sur 759 offres réelles : une
+  seule de plus attrapée.
+- **Décision de Pierre** : un employeur qui forme lui-même dans **son propre
+  CFA** (« avec son CFA d'entreprise 100 % en ligne », La Poste et
+  Formaposte, « notre centre de formation ») proposera ce CFA au candidat →
+  l'offre sort même si le poste est réel. Règles `cfa d entreprise` et
+  `(son|notre|nos|leur|leurs) (propre) (cfa|centre de formation)` ; « votre
+  CFA » reste autorisé (l'employeur parle de l'école du candidat). Sur le
+  corpus : 19 offres (4 boulangeries, 5 La Poste, 9 Vitalliance, 1 Armand
+  Thiery). Le test « La Poste passe » du 17 est inversé pour cette raison.
+- **France entière** (décision du patron) : `LBA_DEPARTEMENTS=*` ou vide =
+  tous les départements (une liste restreint). Sans ce sens explicite, une
+  liste vide aurait vidé le site en une nuit — test ajouté. Attendu ~12 500
+  offres au lieu de ~700 ; la section « Offres partenaires » est triée par
+  date, donc un candidat voit d'abord les offres de toute la France — prévoir
+  un filtre département / tri par distance si ça gêne.
+- Slogan : « Match ton alternance » (troisième en trois jours ; les sept
+  emplacements sont listés par `grep -rn "Match ton alternance"`).

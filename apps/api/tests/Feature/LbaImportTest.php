@@ -249,13 +249,23 @@ class LbaImportTest extends TestCase
     }
 
     // Mesure sur le corpus : ces tournures sont courantes chez de vrais
-    // employeurs (La Poste et son CFA, agences d'interim, GEIQ) et ne
-    // doivent PAS exclure.
-    public function test_a_real_employer_naming_its_own_cfa_or_partner_agency_passes(): void
+    // employeurs (agences d'interim, GEIQ, « votre CFA ») et ne doivent PAS
+    // exclure.
+    public function test_a_real_employer_naming_a_partner_agency_or_the_candidates_cfa_passes(): void
     {
-        $this->assertNull($this->reason(['description' => 'Vous preparez et distribuez le courrier aupres d\'une clientele de particuliers et d\'entreprises en respectant les standards de qualite de service. La Poste vous propose un contrat en alternance de 12 mois. La formation est assuree par son CFA Formaposte. Vous preparez un titre professionnel RNCP niveau 4.']));
         $this->assertNull($this->reason(['description' => 'Notre agence Manpower recherche pour l\'un de ses partenaires un operateur CN. Conditions d\'acces : niveau bac. Entreprise d\'accueil en Occitanie.']));
         $this->assertNull($this->reason(['description' => 'GEIQ : mise a disposition au sein de notre entreprise partenaire, zero frais de formation, votre permis integralement finance.']));
+        $this->assertNull($this->reason(['description' => 'Rattache au responsable d\'atelier, vous participez a la maintenance des vehicules et a la preparation des commandes. Vous alternez une semaine en entreprise et une semaine dans votre CFA. Vous preparez un titre professionnel RNCP niveau 4.']));
+    }
+
+    // Decision de Pierre (2026-09-18) : un employeur qui forme lui-meme dans
+    // son propre CFA proposera ce CFA au candidat — l'offre sort, meme si le
+    // poste est reel (chaine de boulangeries, La Poste et Formaposte).
+    public function test_an_employer_training_in_its_own_cfa_is_excluded(): void
+    {
+        $this->assertNotNull($this->reason(['description' => 'On te forme, sur le terrain, au metier de boulanger, et t\'accompagne dans l\'obtention de ton diplome, avec son CFA d\'entreprise 100% en ligne.']));
+        $this->assertNotNull($this->reason(['description' => 'La Poste vous propose un contrat en alternance de 12 mois. La formation est assuree par son CFA Formaposte.']));
+        $this->assertNotNull($this->reason(['description' => 'Notre centre de formation vous offre des opportunites d\'alternance dans nos magasins.']));
     }
 
     // Gabarit des annonces anonymes de l'ISCOD diffusees via France Travail :
@@ -298,6 +308,25 @@ class LbaImportTest extends TestCase
     // ------------------------------------------------------------------
     // L'import complet
     // ------------------------------------------------------------------
+
+    // France entiere (2026-09-18) : une liste vide de departements ne veut
+    // pas dire « aucun » mais « tous » — sans quoi LBA_DEPARTEMENTS=* aurait
+    // vide le site en une nuit.
+    public function test_an_empty_department_list_means_the_whole_country(): void
+    {
+        Config::set('services.lba.departements', []);
+        $this->writeExport([
+            $this->job(),                                                                        // 66
+            $this->job(['workplace' => ['location' => ['address' => '1 Rue X 31000 Toulouse']]]),  // 31
+            $this->job(['workplace' => ['location' => ['address' => '2 Rue Y 75008 Paris']]]),     // 75
+        ]);
+
+        $report = $this->import();
+
+        $this->assertSame(0, $report['hors_perimetre']);
+        $this->assertSame(3, $report['actives']);
+        $this->assertSame(['31' => 1, '66' => 1, '75' => 1], $report['par_departement']);
+    }
 
     public function test_the_import_keeps_the_perimeter_and_stores_exclusions_with_their_reason(): void
     {
