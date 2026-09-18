@@ -85,9 +85,15 @@ class ExternalOfferFilter
         '/\bnotre partenaire (recherche|recrute)\b/' => 'notre partenaire recherche',
         '/\bde (ses|nos) (etablissements|clients) partenaires\b/' => 'ses etablissements partenaires',
         '/\b(formation|cfa|ecole|campus|academie|institut) recrute\b/' => 'l\'organisme se declare recruteur',
+        // Meme conclusion quand l'ecole se nomme entre les deux mots :
+        // « L'ecole NextStepAcademy recrute pour l'un de ses partenaires »
+        // (passee au travers le 2026-09-18). Jusqu'a trois mots d'ecart ;
+        // « formation » seul est exclu du groupe, trop courant dans une
+        // phrase ordinaire (« en formation, notre entreprise recrute »).
+        '/\b(cfa|ecole|campus|academie|academy|institut|centre de formation)( [a-z0-9]+){1,3} recrute\b/' => 'l\'organisme se declare recruteur',
         '/\bpre ?selection des (dossiers|candidatures) par\b/' => 'pre-selection par l\'organisme',
         '/\bpresent(e|ee|es|ees) a l entreprise\b/' => 'clause de captation',
-        '/\b(ifria|grand sud formation|h et c conseil|prh ?360)\b/' => 'organisme de formation nomme dans le texte',
+        '/\b(ifria|grand sud formation|h et c conseil|prh ?360|next ?step ?academy)\b/' => 'organisme de formation nomme dans le texte',
     ];
 
     // Employeurs reconnus comme organismes de formation malgre un nom qui

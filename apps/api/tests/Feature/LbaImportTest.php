@@ -223,7 +223,7 @@ class LbaImportTest extends TestCase
         $this->assertNull($this->reason(['description' => 'Poste a pourvoir pour la rentree 2026, titre RNCP niveau 5 prepare en ecole de commerce.']));
         // Vu sur le vrai export (Leclerc Voyages, Merimani...) : un employeur
         // qui precise que la formation est assuree par un organisme partenaire.
-        $this->assertNull($this->reason(['description' => 'Formation assuree en alternance par un organisme de formation partenaire, centre de formation d\x27apprentis de la region.']));
+        $this->assertNull($this->reason(['description' => 'Formation assuree en alternance par un organisme de formation partenaire, centre de formation d\'apprentis de la region.']));
     }
 
     // Regles ajoutees le 2026-09-17 apres relecture des 727 offres reelles.
@@ -237,13 +237,24 @@ class LbaImportTest extends TestCase
         $this->assertNotNull($this->reason(['company_name' => 'PRH 360']));
     }
 
+    // Regle ajoutee le 2026-09-18 : une ecole qui se nomme entre « ecole »
+    // et « recrute » passait au travers (NextStepAcademy, offre reelle).
+    public function test_a_school_naming_itself_before_recruiting_is_excluded(): void
+    {
+        $this->assertNotNull($this->reason(['description' => 'Description du poste : L\'ecole NextStepAcademy recrute pour l\'un de ses partenaires pour le poste Alternance - Assistant(e) de gestion.']));
+        $this->assertNotNull($this->reason(['description' => 'Le campus Digital Sud Toulouse recrute un alternant pour son entreprise partenaire.']));
+        // Plus de trois mots d'ecart, ou « formation » seul : pas cette regle.
+        $this->assertNull($this->reason(['description' => 'Apres une formation interne de deux semaines, notre entreprise recrute un vendeur.']));
+        $this->assertNull($this->reason(['description' => 'Ecole de conduite basee a Perpignan depuis vingt ans, la societe recrute un moniteur.']));
+    }
+
     // Mesure sur le corpus : ces tournures sont courantes chez de vrais
     // employeurs (La Poste et son CFA, agences d'interim, GEIQ) et ne
     // doivent PAS exclure.
     public function test_a_real_employer_naming_its_own_cfa_or_partner_agency_passes(): void
     {
-        $this->assertNull($this->reason(['description' => 'Vous preparez et distribuez le courrier aupres d\x27une clientele de particuliers et d\x27entreprises en respectant les standards de qualite de service. La Poste vous propose un contrat en alternance de 12 mois. La formation est assuree par son CFA Formaposte. Vous preparez un titre professionnel RNCP niveau 4.']));
-        $this->assertNull($this->reason(['description' => 'Notre agence Manpower recherche pour l\x27un de ses partenaires un operateur CN. Conditions d\x27acces : niveau bac. Entreprise d\x27accueil en Occitanie.']));
+        $this->assertNull($this->reason(['description' => 'Vous preparez et distribuez le courrier aupres d\'une clientele de particuliers et d\'entreprises en respectant les standards de qualite de service. La Poste vous propose un contrat en alternance de 12 mois. La formation est assuree par son CFA Formaposte. Vous preparez un titre professionnel RNCP niveau 4.']));
+        $this->assertNull($this->reason(['description' => 'Notre agence Manpower recherche pour l\'un de ses partenaires un operateur CN. Conditions d\'acces : niveau bac. Entreprise d\'accueil en Occitanie.']));
         $this->assertNull($this->reason(['description' => 'GEIQ : mise a disposition au sein de notre entreprise partenaire, zero frais de formation, votre permis integralement finance.']));
     }
 
@@ -348,7 +359,7 @@ class LbaImportTest extends TestCase
 
         $this->assertSame(2, $report['retenues']);
         $this->assertSame(0, ExternalJobOffer::count());
-        $this->assertTrue(LbaImportService::lastReport()['mesure_seulement'], 'Le rapport d\x27une passe a blanc est conserve pour etre lu le lendemain.');
+        $this->assertTrue(LbaImportService::lastReport()['mesure_seulement'], 'Le rapport d\'une passe a blanc est conserve pour etre lu le lendemain.');
     }
 
     public function test_the_command_does_nothing_without_an_api_key(): void
@@ -459,7 +470,7 @@ class LbaImportTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.status', 'EXCLUDED');
 
-        $this->assertSame(1, ExternalJobOffer::where('status', ExternalJobOfferStatus::ACTIVE)->count(), 'L\x27autre offre du meme employeur reste visible.');
+        $this->assertSame(1, ExternalJobOffer::where('status', ExternalJobOfferStatus::ACTIVE)->count(), 'L\'autre offre du meme employeur reste visible.');
         $this->getJson("/api/job-offers/external/{$offer->id}")->assertStatus(404);
 
         // La passe suivante reecrit le statut calcule... puis remet le retrait.
@@ -539,7 +550,7 @@ class LbaImportTest extends TestCase
 
         Cache::forget('lba.import_demande');
         Cache::forever('planificateur.derniere_passe.lba:import', now('Europe/Paris')->subHours(4)->toDateString());
-        $this->assertFalse($event->filtersPass($this->app), 'Deja passee aujourd\x27hui : pas due.');
+        $this->assertFalse($event->filtersPass($this->app), 'Deja passee aujourd\'hui : pas due.');
 
         Cache::forever('lba.import_demande', now()->toDateTimeString());
         $this->assertTrue($event->filtersPass($this->app), 'Demandee : due meme si deja passee.');
