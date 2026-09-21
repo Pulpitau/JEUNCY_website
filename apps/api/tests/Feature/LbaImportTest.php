@@ -248,6 +248,74 @@ class LbaImportTest extends TestCase
         $this->assertNull($this->reason(['description' => 'Ecole de conduite basee a Perpignan depuis vingt ans, la societe recrute un moniteur.']));
     }
 
+    // France entiere (2026-09-18) : ecoles qui postent comme employeurs,
+    // relues par agents sur les 9 698 offres visibles puis mesurees.
+    public function test_schools_posting_as_employers_nationwide_are_excluded(): void
+    {
+        // Le CFA ecrit « Centre de Formation d\'Apprentis » en toutes lettres.
+        $this->assertNotNull($this->reason(['company_name' => 'DISCIPLINA', 'description' => 'Centre de Formation d\'Apprentis - Bac a Bac+3 en Secretariat et Vente. Le poste : accueil et conseil des clients.']));
+        $this->assertNotNull($this->reason(['company_name' => 'Une SARL', 'description' => 'Centre de Formation d\'Apprentis de la Reunion. Le poste consiste a assurer l\'accueil.']));
+        $this->assertNotNull($this->reason(['company_name' => 'AGEPAC', 'description' => 'Nos formations en alternance sont proposees dans le cadre d\'un contrat d\'apprentissage.']));
+        $this->assertNotNull($this->reason(['company_name' => 'SKALE', 'description' => 'Skale Orleans accompagne son entreprise partenaire dans le recrutement d\'un assistant commercial.']));
+        $this->assertNotNull($this->reason(['company_name' => 'My-BS', 'description' => 'Notre entreprise partenaire est un acteur local majeur de la distribution automobile.']));
+        $this->assertNotNull($this->reason(['company_name' => null, 'description' => 'Description du poste : une entreprise partenaire du secteur des services recherche un(e) charge(e) de clientele en alternance.']));
+        $this->assertNotNull($this->reason(['company_name' => null, 'description' => 'L\'ecole de commerce One Education recrute pour l\'un de ses partenaires un conseiller de vente.']));
+        $this->assertNotNull($this->reason(['company_name' => 'ACTUAL TALENT', 'description' => 'Une formation en alternance qui recrute ! Cette formation prepare au titre a finalite professionnelle.']));
+        $this->assertNotNull($this->reason(['company_name' => 'KOANN', 'description' => 'Entreprise anonyme souhaitant preserver sa confidentialite. Le poste : gestion des contrats.']));
+        // Titre = catalogue de diplomes (societe-ecran d\'une ecole).
+        $this->assertStringContainsString('catalogue', $this->reason(['company_name' => 'SENTINELLE14', 'title' => 'Teleprospecteur / Teleprospectrice / BTS NDRC/TP EPC/ TP NTC/ Bachelor REM', 'description' => 'Prospection telephonique.']));
+        $this->assertNull($this->reason(['company_name' => 'MECALYNOX', 'title' => 'ALTERNANT(E) Licence/BTS Assistant(e) qualite H/F', 'description' => 'Suivi qualite en atelier.']));
+        // Gabarit du CFAI (pole formation UIMM) sous le nom de l\'entreprise.
+        $this->assertNotNull($this->reason(['company_name' => 'BAC ACIER', 'description' => 'Accompagnement personnalise par un tuteur expert et les equipes du CFAI. Validation d\'un diplome reconnu.']));
+    }
+
+    // Decision de Pierre (2026-09-18) : les Chambres de metiers relaient des
+    // artisans mais forment dans leurs propres CFA — elles sortent.
+    public function test_chambers_of_trades_are_excluded_but_not_cma_cgm(): void
+    {
+        $this->assertNotNull($this->reason(['company_name' => 'Chambre Regionale de Metiers et de l\'Artisanat', 'description' => 'Cette offre provient du Centre d\'Aide a la Decision de la Chambre de Metiers et de l\'Artisanat de l\'Isere.']));
+        $this->assertNotNull($this->reason(['company_name' => 'CMA Auvergne-Rhone-Alpes', 'description' => 'Au sein de l\'entreprise partenaire, vous serez amene(e) a participer a la vente.']));
+        $this->assertNotNull($this->reason(['company_name' => null, 'description' => 'La Chambre de Metiers et de l\'Artisanat recrute pour son artisan un apprenti boucher.']));
+        $this->assertNull($this->reason(['company_name' => 'CMA CGM', 'description' => 'Alternant logistique maritime au siege de Marseille.']));
+    }
+
+    // Formation « maison » : Burger King (« vous former directement au sein
+    // d\'un restaurant »), campus interne, CFA qui s\'impose dans l\'annonce.
+    public function test_in_house_training_offers_are_excluded_but_on_the_job_training_is_not(): void
+    {
+        $this->assertNotNull($this->reason(['company_name' => 'Burger King France', 'description' => 'Plus besoin de chercher une entreprise pour votre alternance, nous vous proposons de vous former directement au sein d\'un restaurant BURGER KING.']));
+        $this->assertNotNull($this->reason(['company_name' => 'EDF', 'description' => 'Nous vous proposons d\'integrer notre propre campus de formation situe a Lomme.']));
+        $this->assertNotNull($this->reason(['company_name' => 'WIPRO LAUAK', 'description' => 'Parcours propose par Lauak Eskola, le centre de formation interne du groupe Lauak.']));
+        $this->assertNotNull($this->reason(['company_name' => 'Une boulangerie', 'description' => 'Envoyez-nous votre CV. Vous serez forme a l\'IFAC campus des metiers, centre de formation par alternance de Brest.']));
+        $this->assertNotNull($this->reason(['company_name' => 'CARREFOUR HYPERMARCHES', 'description' => 'Le centre de formation Carrefour vous propose une formation qualifiante en contrat d\'alternance.']));
+        // Formation sur le tas, sans ecole : vraie offre (les 99 autres Burger King).
+        $this->assertNull($this->reason(['company_name' => 'Burger King France', 'description' => 'En rejoignant l\'un de nos restaurants tu seras forme(e) sur un poste d\'equipier polyvalent et tu ne seras jamais seul(e).']));
+        $this->assertNull($this->reason(['company_name' => 'BK JOUE', 'description' => 'Avec Burger King et LR Formations, devenez un expert de la restauration rapide tout en obtenant un titre professionnel.']));
+        $this->assertNull($this->reason(['company_name' => 'LA BELLE COTE', 'description' => 'Vous souhaitez apprendre le metier de boucher et vous former au sein d\'une equipe dynamique.']));
+    }
+
+    // Relecture des 491 exclusions textuelles France entiere (2026-09-21) :
+    // 109 vrais employeurs retires a tort. Les tournures faibles sont
+    // neutralisees chez les intermediaires (GEIQ, interim, ESN) et « notre
+    // ecole PARTENAIRE » n\'est pas « notre ecole ».
+    public function test_intermediaries_and_partner_school_mentions_are_not_excluded(): void
+    {
+        $this->assertNull($this->reason(['company_name' => 'GEIQ ECO-ACTIVITES', 'description' => 'Le GEIQ recrute pour une integration durable au sein de nos entreprises partenaires. Aucun frais de formation.']));
+        $this->assertNull($this->reason(['company_name' => 'EXPERIS FRANCE', 'description' => 'ESN du groupe ManpowerGroup : vous intervenez chez l\'un de ses clients partenaires sur des projets cloud.']));
+        $this->assertNull($this->reason(['company_name' => 'KFC Groupe ProNoia', 'description' => 'Nous vous proposons une alternance avec nos ecoles partenaires. Notre ecole partenaire a ProNoia vous accompagne.']));
+        $this->assertNull($this->reason(['company_name' => 'BK BERCY', 'description' => 'Notre CFA partenaire EA Formation vous propose une formation en alternance pour devenir employe polyvalent.']));
+        $this->assertNull($this->reason(['company_name' => 'A2MICILE', 'description' => 'Vous serez forme(e) par notre centre de formation partenaire, une journee par semaine.']));
+        $this->assertNull($this->reason(['company_name' => 'People&Baby', 'description' => 'Au sein de notre creche, vous rejoignez une equipe pedagogique bienveillante aupres des jeunes enfants.']));
+        $this->assertNull($this->reason(['company_name' => 'BOULANGERIE LAURENT', 'description' => 'CAP en alternance avec le CFA de Ploufragan. Deposez un CV en magasin le matin.']));
+        $this->assertNull($this->reason(['company_name' => 'ASSOCIATION NATIONALE EMPLOI FORMATION AGRICULTURE', 'description' => 'L\'ANEFA relaie l\'offre d\'un viticulteur : apprenti ouvrier viticole polyvalent.']));
+        // ... mais une ecole qui parle d\'elle-meme, ou un intermediaire qui
+        // recrute POUR son ecole partenaire, sortent toujours.
+        $this->assertNotNull($this->reason(['company_name' => 'CHAUSSEA', 'description' => 'Notre ecole recrute pour son magasin partenaire un conseiller de vente en alternance.']));
+        $this->assertNotNull($this->reason(['company_name' => 'ACTO', 'description' => 'Acto interim recherche pour son centre de formation partenaire des alternants en commerce.']));
+        $this->assertNotNull($this->reason(['company_name' => 'ELIOR', 'description' => 'Le CFA Academie by Elior s\'engage pour vous proposer une offre d\'apprentissage unique.']));
+        $this->assertNotNull($this->reason(['company_name' => null, 'description' => 'CFA Reunion Apprentissage recrute pour ses entreprises un apprenti vendeur.']));
+    }
+
     // Mesure sur le corpus : ces tournures sont courantes chez de vrais
     // employeurs (agences d'interim, GEIQ, « votre CFA ») et ne doivent PAS
     // exclure.

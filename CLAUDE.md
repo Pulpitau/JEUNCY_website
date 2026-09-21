@@ -1172,3 +1172,53 @@ terminé**
   un filtre département / tri par distance si ça gêne.
 - Slogan : « Match ton alternance » (troisième en trois jours ; les sept
   emplacements sont listés par `grep -rn "Match ton alternance"`).
+
+**Relecture France entière par agents, filtre v3 (2026-09-18 → 21) : terminé**
+
+- Trois workflows (≈ 210 agents) : 4 468 employeurs nommés jugés un par un
+  (deux contre-experts par signalement), 1 239 offres anonymes lues en
+  entier, 491 exclusions textuelles relues à charge de trouver les vrais
+  employeurs retirés à tort, échantillon de 120 du gabarit ISCOD. Corpus
+  local reconstruit depuis l'export (`scratchpad/lba-france/`, script
+  `dump-france.php`), chaque règle mesurée avant adoption
+  (`mesure-france.php`, `delta-france.php`, `retour-france.php`).
+- **Résultat net sur les 9 698 offres en ligne : 1 431 retirées, 75
+  rétablies.** Écoles qui postaient comme employeurs : Actual Talent (180,
+  organisme de formation du groupe Actual : « Une formation en alternance qui
+  recrute ! »), AGEPAC (115), Disciplina (92, « Centre de Formation
+  d'Apprentis » en toutes lettres), Koann, Runapp, Arefip, EF-OI (Réunion),
+  Skale, My-BS, ESUP, SEPR, Evolu'Santé, Healthcademia, Altern'Emploi (26
+  anonymes), IFP Atlantique, Acadénice, One Education, HBC School… Gabarits
+  anonymes : « une entreprise partenaire du secteur X recherche… »,
+  « Rythme : 4 jours entreprise / 1 jour école », « Préparez en seulement
+  1 an un Titre Professionnel », titre = catalogue de trois diplômes
+  (sociétés-écrans Sentinelle14, Screenova, Vinsales, Adslink).
+- **Décisions de Pierre** : Chambres de métiers (215, relaient des artisans
+  mais forment dans leurs CFA) → retirées ; IFAC (Brest, ~150 annonces
+  d'artisans rédigées par le CFA) → retirées par cohérence ; Burger King :
+  seules les 11 « propositions de formation » (« vous former directement au
+  sein d'un restaurant ») sortent, les 99 autres restent ; La Poste →
+  Formaposte (propre CFA), y compris les 31 « Facteur » anonymes ; Carrefour
+  CQP « les formations se passent au sein de votre magasin » (88) ;
+  France Travail comme employeur (40, campus interne) ; Dalkia, Lauak, Loxam,
+  Chopard, Hermès, Korian, LIP, Vitalliance : formation maison.
+- **Faux positifs corrigés** (22 % des exclusions textuelles étaient de vrais
+  employeurs) : les tournures faibles (« nos entreprises partenaires »,
+  « aucun frais de formation », « équipe pédagogique »…) sont neutralisées
+  quand le texte se présente comme GEIQ / groupement d'employeurs / intérim /
+  ESN (`INTERMEDIARY_CONTEXT`), « équipe pédagogique » l'est en crèche ;
+  « notre école / CFA / centre de formation **partenaire** » n'est plus
+  « notre école » ; « annonce ouverte par un CFA » ne vaut que sans employeur
+  nommé ; retirées : « frais de scolarité », « rentrée en formation »,
+  « poursuivre votre cursus », « lieu = l'école », « clients partenaires »
+  (ESN), « vous serez formé au CFA de… ». Bug corrigé : deux tournures avec
+  apostrophe ne pouvaient jamais matcher (le texte normalisé n'en a pas).
+- Gabarit ISCOD (582 offres France) : l'échantillon montre qu'environ la
+  moitié décrivent un vrai poste, mais la candidature part vers
+  l'intermédiaire anonyme qui inscrit le jeune chez lui — exclusion
+  maintenue. Seul critère sûr pour en récupérer une partie : une marque
+  nommée dans le texte (~28 %), à décider si le volume manque.
+- Douteux non tranchés, à l'œil de l'admin : Koann (Réunion, 29 — retiré
+  par nom), Hermès Sellier (30, descriptions vides), NOVI/Beauty Success
+  (« notre partenaire IBCBS », gardés), UIMM (39, job board d'employeurs
+  réels, gardé), Conservatoire de Lyon (gardé).

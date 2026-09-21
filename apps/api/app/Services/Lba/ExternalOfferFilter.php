@@ -36,22 +36,39 @@ use Illuminate\Support\Str;
  */
 class ExternalOfferFilter
 {
-    private const DESCRIPTION_PATTERNS = [
+    // Tournures faibles, ignorees quand le texte se presente comme un
+    // intermediaire de placement (GEIQ, groupement d'employeurs, interim,
+    // ESN) : 109 vrais employeurs sur 491 exclusions textuelles, France
+    // entiere, venaient de la (2026-09-21).
+    private const INTERMEDIARY_CONTEXT = '/\b(geiq|groupements? d employeurs?|interim|interimaire|agence d emploi|manpower|adecco|randstad|synergie|proman|temporis|actual|crit|start people|samsic|leader interim|experis|esn|societe de conseil)\b/';
+
+    private const WEAK_PATTERNS = [
         'nos entreprises partenaires',
-        "l'une de nos entreprises partenaires",
+        'l une de nos entreprises partenaires',
         'entreprise partenaire recherche',
         'entreprises partenaires recherchent',
         'pour le compte de nos entreprises',
-        "pour le compte d'une entreprise partenaire",
+        'pour le compte d une entreprise partenaire',
+        'aucun frais de formation',
+        'equipe pedagogique',
+    ];
+
+    // « equipe pedagogique » est le vocabulaire des creches et de la garde
+    // d'enfants (People&Baby, Koala Kids...), pas un indice d'ecole.
+    private const CHILDCARE_CONTEXT = '/\b(creche|micro creche|petite enfance|garde d enfants|assistante? maternel|eaje|jeunes enfants)\b/';
+
+    private const DESCRIPTION_PATTERNS = [
+        'nos entreprises partenaires',
+        'l une de nos entreprises partenaires',
+        'entreprise partenaire recherche',
+        'entreprises partenaires recherchent',
+        'pour le compte de nos entreprises',
+        'pour le compte d une entreprise partenaire',
         // « organisme de formation » et « centre de formation d'apprentis »
         // retires le 2026-09-16 : sur la premiere passe reelle, 6 des 8
         // offres ecartees par la description etaient de vrais employeurs
         // (« formation assuree par un organisme de formation partenaire »).
-        'notre ecole',
-        'notre campus',
-        'notre cfa',
         'nos apprenants',
-        'frais de scolarite',
         'integrer notre formation',
         'rejoindre notre formation',
         // Ajoutees le 2026-09-17 apres relecture des 727 offres en ligne par
@@ -59,12 +76,37 @@ class ExternalOfferFilter
         // qui attrapent les 7 annonces signees par une ecole (IFRIA, PRH 360,
         // H et C Conseil, Grand Sud Formation). Texte normalise : minuscules,
         // sans accents, ponctuation remplacee par des espaces.
-        'rentree en formation',
         'aucun frais de formation',
-        'poursuivre votre cursus',
         'equipe pedagogique',
         'avant pendant et apres la formation',
         'avant pendant et apres votre formation',
+        // France entiere (2026-09-18) : AGEPAC, Chambres de metiers (le Centre
+        // d'aide a la decision relaie des artisans mais forme dans les CFA de
+        // la CMA — decision de Pierre : on retire), ecoles « maison ».
+        'nos formations en alternance',
+        'cette offre provient du centre d aide a la decision',
+        'ecole de formation interne',
+        'centre de formation interne',
+        'organisme de formation interne',
+        'formation interne a l entreprise',
+        'nous assurons votre formation',
+        'une formation en alternance qui recrute',
+        'cette formation prepare au titre',
+        'nous vous proposons en partenariat avec',
+        // Annonces anonymes d'ecoles (France entiere, 2026-09-18) : pitch de
+        // formation, catalogue de titres, l'ecole qui se dit « nous ».
+        'preparez en seulement',
+        'beneficiez d une formation remuneree',
+        'nous recrutons pour l un de nos partenaires',
+        'localisation de l organisme de formation',
+        'contrat en alternance pour la formation',
+        'sans ecole actuelle',
+        // Formation « maison » : Carrefour (CQP en magasin), Vitalliance,
+        // La Poste (Formaposte), ecoles de vente des concessions.
+        'nous vous proposons de vous former et d obtenir',
+        'integrer nos formations',
+        'enseignes de la grande distribution recrutent',
+        'nous formons et accompagnons',
     ];
 
     // Memes conclusions, sous forme d'expressions regulieres (texte
@@ -77,11 +119,13 @@ class ExternalOfferFilter
     // re-mesuree contre eux avant adoption.
     private const DESCRIPTION_REGEXES = [
         '/\brecherche pour (son|sa|notre|un|une) (entreprise|client|etablissement|societe|structure) partenaire\b/' => 'recherche pour son entreprise partenaire',
-        '/\bcfa\b[^.]{0,80}\brecherche\b/' => 'le CFA est l\'annonceur',
-        '/^.{0,100}\bcfa\b/' => 'annonce ouverte par un CFA',
+        // « notre ecole partenaire », « notre CFA en ligne partenaire » : c'est
+        // l'employeur qui parle de l'ecole du candidat (12 faux positifs sur
+        // 12 dans un lot KFC/ProNoia). Le possessif ne suffit que sans
+        // « partenaire » a proximite.
+        '/\bnotre (ecole|campus|cfa)\b(?![^.]{0,25}\bpartenaires?\b)/' => '« notre ecole »',
+        '/\bcfa\b(?! partenaire)[^.]{0,80}\brecherche\b/' => 'le CFA est l\'annonceur',
         '/\bcette offre d (apprentissage|alternance) est faite pour vous\b/' => 'boilerplate d\'ecole (IFRIA)',
-        '/\blieu (ecole|cfa|campus|centre de formation)\b/' => 'lieu = l\'ecole',
-        '/\b(son|notre|nos|ses) clients? partenaires?\b/' => 'l\'employeur est le client de l\'annonceur',
         '/\bnotre partenaire (recherche|recrute)\b/' => 'notre partenaire recherche',
         '/\bde (ses|nos) (etablissements|clients) partenaires\b/' => 'ses etablissements partenaires',
         '/\b(formation|cfa|ecole|campus|academie|institut) recrute\b/' => 'l\'organisme se declare recruteur',
@@ -93,7 +137,10 @@ class ExternalOfferFilter
         '/\b(cfa|ecole|campus|academie|academy|institut|centre de formation)( [a-z0-9]+){1,3} recrute\b/' => 'l\'organisme se declare recruteur',
         '/\bpre ?selection des (dossiers|candidatures) par\b/' => 'pre-selection par l\'organisme',
         '/\bpresent(e|ee|es|ees) a l entreprise\b/' => 'clause de captation',
-        '/\b(ifria|grand sud formation|h et c conseil|prh ?360|next ?step ?academy)\b/' => 'organisme de formation nomme dans le texte',
+        '/\b(ifria|grand sud formation|h et c conseil|prh ?360|next ?step ?academy|disciplina|agepac|skale|my ?bs|runapp|arefip|one education|acadenice|hbc school|ifac|noveha|baticampus|asgarth|evolu ?sante|ajili formation|healthcademia|ecole d assas|family plus|koann|ef oi|actual talent|altern ?emploi|acces metiers?|form ?aou|ifp atlantique)\b/' => 'organisme de formation nomme dans le texte',
+        // Gabarit redige par le CFAI / l'AFPI (pole formation UIMM) sous le nom
+        // de l'entreprise d'accueil.
+        '/\bles equipes (du cfai|de l afpi)\b/' => 'annonce redigee par le CFAI',
         // L'employeur forme lui-meme ses apprentis dans son propre CFA (chaine
         // de boulangeries « avec son CFA d'entreprise 100 % en ligne », La
         // Poste et Formaposte, enseignes a centre de formation maison).
@@ -102,16 +149,66 @@ class ExternalOfferFilter
         // CFA » exclu du groupe : c'est la tournure ordinaire d'un employeur
         // qui parle de l'ecole choisie par le candidat.
         '/\bcfa d entreprise\b/' => 'l\'employeur forme dans son propre CFA',
-        '/\b(son|notre|nos|leur|leurs) (propres? )?(cfa|centre de formation)\b/' => 'l\'employeur forme dans son propre CFA',
+        '/\b(son|notre|nos|leur|leurs) (propres? )?(cfa|centre de formation)\b(?![^.]{0,25}\bpartenaires?\b)/' => 'l\'employeur forme dans son propre CFA',
+        '/\b(son|notre|nos|leur|leurs) propres? (campus|ecole|academie|academy)\b/' => 'l\'employeur forme dans son propre CFA',
+        '/\b(ecole|academie|academy|campus|universite|cfa|centre de formation|organisme de formation) (interne|d entreprise|maison|de l enseigne|du groupe|integre)s?\b/' => 'l\'employeur forme dans son propre CFA',
+        // Burger King, « plus besoin de chercher une entreprise... nous vous
+        // proposons de vous former directement au sein d'un restaurant » :
+        // une proposition de formation, pas une offre d'emploi (Pierre,
+        // 2026-09-18). Les autres offres de l'enseigne restent.
+        '/\b(vous|te) former directement au sein (de|d un|d une|du) (restaurant|magasin|salon|agence|boutique|point de vente)s?\b/' => 'l\'employeur forme dans son propre CFA',
+        '/\bformation (100 )?realisee en (restaurant|magasin|agence|boutique)\b/' => 'l\'employeur forme dans son propre CFA',
+        '/\bcentre de formation [a-z0-9]+ vous propose\b/' => 'l\'employeur forme dans son propre CFA',
+        '/\bnotre [a-z0-9]+ (academy|akademy|academie)\b/' => 'l\'employeur forme dans son propre CFA',
+        '/\b(faurie campus|chopard academy|ecole hermes|ecole carrefour|formaposte|cfa des chefs|universite clariane|ecole de la reussite)\b/' => 'l\'employeur forme dans son propre CFA',
+        // Tous les apprentis de La Poste passent par Formaposte, son CFA
+        // (decision La Poste du 2026-09-18), y compris les annonces anonymes
+        // « Facteur » qui ne le nomment pas.
+        '/\b(groupe la poste|la poste groupe)\b/' => 'l\'employeur forme dans son propre CFA',
+        // « le CFA Academie by Elior » : CFA d'entreprise nomme comme une marque.
+        '/\bcfa (academie|academy) by\b/' => 'l\'employeur forme dans son propre CFA',
+        // « Acto interim recherche POUR son centre de formation partenaire » :
+        // l'ecole est la beneficiaire, pas « avec notre ecole partenaire ».
+        '/\b(pour|au profit de) (son|sa|notre|un|une|nos|ses) (centre de formation|ecole|cfa|organisme de formation)s? partenaires?\b/' => 'recrute pour une ecole partenaire',
+        '/\becole de vente [a-z]+\b/' => 'l\'employeur forme dans son propre CFA',
+        '/\bformations? (se passe|se passent|se deroule|se deroulent|a lieu|ont lieu) (au sein de|dans|en) (votre|notre|le|ton) (magasin|restaurant|agence|entreprise)\b/' => 'l\'employeur forme dans son propre CFA',
+        '/\bform(e|ee|es|ees|ation)\b[^.]{0,30}\bpar nos soins\b/' => 'l\'employeur forme dans son propre CFA',
+        '/\bune entreprise (basee|situee|implantee) (a|en|dans|sur) [a-z0-9 ]{0,40}\brecherche (son|sa|un|une)\b/' => 'l\'ecole presente son entreprise partenaire',
+        // Ecoles qui postent comme employeurs (France entiere, 2026-09-18).
+        '/^.{0,40}\bcentre de formation d apprentis\b/' => 'annonce ouverte par un centre de formation d\'apprentis',
+        '/\b(ecole|cfa|campus|academie|academy|institut|centre de formation|organisme de formation)\b[^.]{0,60}\brecrute pour\b/' => 'l\'organisme se declare recruteur',
+        '/\b(accompagne|accompagnons|assiste|assistons) (son|notre|nos|ses|une|l) entreprises? partenaires? dans (le|leur|son|ses) recrutements?\b/' => 'l\'ecole accompagne son entreprise partenaire',
+        '/\bentreprise partenaire\b[^.]{0,80}\brecherche\b/' => 'entreprise partenaire recherche',
+        '/\bchambre de metiers et de l artisanat\b[^.]{0,40}\brecrute\b/' => 'la chambre de metiers recrute pour un artisan',
     ];
 
     // Employeurs reconnus comme organismes de formation malgre un nom qui
     // n'en a pas l'air (relecture du 2026-09-17). Sous-chaine du nom
     // normalise.
+    // Vrais employeurs dont le nom contient un mot d'ecole : relais de
+    // l'emploi agricole (ANEFA, 2026-09-21).
+    private const NAME_EXCEPTIONS = '/\b(anefa|association nationale emploi formation agriculture)\b/';
+
     private const LOCAL_CFA_NAMES = [
         'prh 360',
         'prh360',
         'association regionale des entreprises alimentaires',
+        'disciplina',
+        'agepac',
+        'runapp',
+        'arefip',
+        'acadenice',
+        'one education',
+        'chambre de metiers',
+        'chambre regionale de metiers',
+    ];
+
+    // Memes conclusions quand la sous-chaine serait trop courte pour etre
+    // sure (« skale », « my bs », « cma ») : ancree au debut du nom.
+    private const LOCAL_CFA_NAME_REGEXES = [
+        // « cma » sans « cgm » : l'armateur CMA CGM recrute aussi des apprentis.
+        '/^(skale|my ?bs|cma(?! cgm)|hbc school|sepr|ef oi|a2pro|prodefi|cdfis|objectif sport|sap hestia|esup|psl|healthcademia|evolusante|actual talent|koann|france travail)\b/',
+        '/\blep prive\b/',
     ];
 
     // Gabarit des annonces de l'ISCOD (ecole en ligne, 4 445 apprentis)
@@ -123,6 +220,12 @@ class ExternalOfferFilter
     // par le meme emetteur. Decision (Pierre, 2026-09-17 : « l'ideal serait
     // qu'il n'y en ait aucune ») : tout le gabarit sort.
     private const ANONYMOUS_SCHOOL_TITLE = '/^alternance .+ - .+ \(F\/H\)$/iu';
+
+    // « Téléprospecteur / BTS NDRC/TP EPC/ TP NTC/ Bachelor REM » : un titre
+    // qui enumere trois diplomes ou plus est un catalogue d'ecole, quel que
+    // soit le nom d'entreprise affiche (quatre societes-ecrans reperees le
+    // 2026-09-18). Deux diplomes (« Licence/BTS ») restent une vraie offre.
+    private const DIPLOMA_CATALOGUE_TITLE = '/\b(BTS|TP|Bachelor|Licence|BUT)\b[^\/]{0,40}\/[^\/]{0,40}\b(BTS|TP|Bachelor|Licence|BUT)\b[^\/]{0,40}\/[^\/]{0,40}\b(BTS|TP|Bachelor|Licence|BUT)\b/iu';
 
     /** @var array<string, true> noms LBA normalises (cle = nom) */
     private array $blocklist;
@@ -220,7 +323,7 @@ class ExternalOfferFilter
         }
 
         $nameReason = $this->detector->nameReason($offer['company_name'] ?? null);
-        if ($nameReason !== null) {
+        if ($nameReason !== null && ! preg_match(self::NAME_EXCEPTIONS, $normalizedName)) {
             return $nameReason;
         }
 
@@ -229,17 +332,46 @@ class ExternalOfferFilter
                 return 'employeur reconnu comme organisme de formation';
             }
         }
-
-        $description = self::normalize($offer['description'] ?? '');
-        foreach (self::DESCRIPTION_PATTERNS as $needle) {
-            if (str_contains($description, $needle)) {
-                return "la description evoque un organisme de formation : « {$needle} »";
+        foreach (self::LOCAL_CFA_NAME_REGEXES as $regex) {
+            if ($normalizedName !== '' && preg_match($regex, $normalizedName)) {
+                return 'employeur reconnu comme organisme de formation';
             }
         }
+
+        $description = self::normalize($offer['description'] ?? '');
+        $intermediary = preg_match(self::INTERMEDIARY_CONTEXT, $description) === 1;
+        $childcare = preg_match(self::CHILDCARE_CONTEXT, $description) === 1;
+        foreach (self::DESCRIPTION_PATTERNS as $needle) {
+            if (! str_contains($description, $needle)) {
+                continue;
+            }
+            if (in_array($needle, self::WEAK_PATTERNS, true) && ($intermediary || ($childcare && $needle === 'equipe pedagogique'))) {
+                continue;
+            }
+
+            return "la description evoque un organisme de formation : « {$needle} »";
+        }
         foreach (self::DESCRIPTION_REGEXES as $regex => $label) {
+            if ($intermediary && in_array($label, ['entreprise partenaire recherche', 'ses etablissements partenaires'], true)) {
+                continue;
+            }
             if (preg_match($regex, $description)) {
                 return "la description evoque un organisme de formation : {$label}";
             }
+        }
+        // « annonce ouverte par un CFA » : seulement sans employeur nomme. Un
+        // artisan qui ecrit « en alternance avec le CFA de Ploufragan » n'est
+        // pas un CFA (6 faux positifs sur 8 avec un nom d'employeur).
+        if ($normalizedName === '' && preg_match('/^.{0,100}\bcfa\b(?! partenaire)/', $description)) {
+            return 'la description evoque un organisme de formation : annonce ouverte par un CFA';
+        }
+
+        if ($normalizedName === '' && preg_match('/\b4 ?jours entreprise 1 jour ecole\b/', $description)) {
+            return 'annonce anonyme au gabarit d\'une ecole (rythme 4 jours / 1 jour ecole)';
+        }
+
+        if (preg_match(self::DIPLOMA_CATALOGUE_TITLE, trim((string) ($offer['title'] ?? '')))) {
+            return 'titre = catalogue de diplomes d\'une ecole';
         }
 
         if ($normalizedName === ''
