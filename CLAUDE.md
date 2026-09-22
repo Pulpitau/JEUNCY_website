@@ -1222,3 +1222,64 @@ terminé**
   par nom), Hermès Sellier (30, descriptions vides), NOVI/Beauty Success
   (« notre partenaire IBCBS », gardés), UIMM (39, job board d'employeurs
   réels, gardé), Conservatoire de Lyon (gardé).
+
+**Application mobile — pivot vers le modèle match, lot 0 (2026-09-17 → 22) :
+terminé, sonde à déployer**
+
+- Le patron veut une app « façon swipe » : pile de cartes, match à deux oui,
+  géolocalisation avec rayon. La phase 1 classique (lots A–E, validée sur
+  iPhone) est **mise en pause**, pas jetée : 72 % du code mobile est gardé
+  tel quel, 25 % adapté, 3 % jeté. Enquête du 17 (Tinder, précédents Switch /
+  Kudoz / Jobamax / hokify, audit du code, conformité, trois conceptions
+  contre-expertisées) : aucun « swipe de l'emploi » n'a survécu au swipe seul,
+  ils sont morts d'employeurs muets et de piles vides ; le produit qui peut
+  tenir est « réponse garantie », et commence par le côté entreprise.
+- **Le cadrage v2 est `MOBILE.md`, réécrit en entier** (les renvois des
+  sections précédentes à `MOBILE.md` §9.2/§9.3/§9.5 visent la v1, lisible
+  par `git show 7dcb951:MOBILE.md`). Onze décisions de Pierre datées du 22 :
+  geste droit = feuille à deux boutons (dossier maintenant / intérêt seul),
+  **aucune distance ni tri par proximité côté employeur** (lieu de résidence
+  = critère discriminatoire, L1132-1 ; zone de mobilité déclarée + permis +
+  véhicule + rayon de recrutement sur l'offre à la place), **16 ans sur
+  l'app** (le site reste à 15 ; garde serveur sur Découvrir / intérêts /
+  matchs), CVthèque web alignée sur « rien avant candidature », STAFF =
+  Pierre + Claude, périmètre 66, pas de messagerie en V1, portrait candidat
+  opt-in, vocabulaire « Découvrir / Match / Ça m'intéresse / Passer ».
+- **Sonde `status?geo=1`** (`DeployController::geoStats`, `deploy-tools-28`,
+  seul fichier à envoyer : `cd3e336e2182ad18`, 59 713 octets) : répartition
+  des candidats par département (cases < 3 regroupées sous `autres`, secret
+  statistique), offres Jeuncy par département, offres partenaires dans le 66
+  et à 10/30/50/100 km de Perpignan (haversine SQL, vérifiée à la main sur
+  Perpignan→Narbonne = 55,78 km), capacités serveur (version MySQL,
+  `ST_Distance_Sphere`, GD/Imagick, limites PHP, présence des clés). Aucune
+  donnée personnelle, aucune écriture. 14 tests (`DeployGeoStatsTest`,
+  543/543 au total) ; sous SQLite les fonctions trigonométriques sont
+  injectées dans le PDO pour exécuter réellement la requête.
+- **Prototype du deck candidat en Expo Go, sans backend** (branche
+  `feature/mobile-match`) : onglet « Découvrir » à la place de la recherche
+  (déplacée dans `offres/recherche.tsx` derrière une loupe), pile de 3 cartes
+  — offres Jeuncy publiées puis offres partenaires du département choisi
+  (`job-offers/external/search?department=`) —, gestes droite/gauche avec
+  tampons, seuil de distance et de vitesse, boutons redondants, annulation du
+  dernier geste, feuille à deux boutons (offre Jeuncy) ou « Je garde » /
+  « Ouvrir le site » (partenaire), fiche partenaire, section « Gardées » dans
+  Candidatures, feuille « Où ? ». Gestes stockés **localement** dans
+  `swipe-store.ts` (AsyncStorage) en attendant `offer_interests`, et l'écran
+  le dit tel quel. Deck maison sur reanimated 4.5.1 + gesture-handler 2.32 +
+  worklets 0.10.1 déjà présents ; **`scheduleOnRN` de `react-native-worklets`**
+  (`runOnJS` est déprécié dans reanimated 4) ; `GestureHandlerRootView` ajouté
+  à la racine ; transformation par le compilateur React vérifiée à blanc.
+- Pièges attrapés en vérification adverse : `onEnd` de gesture-handler est
+  aussi appelé quand le système annule le geste (appel entrant) avec la
+  dernière translation → tester `success` avant de décider ;
+  `expo-web-browser` présente Safari depuis le contrôleur le plus haut, donc
+  fermer la feuille modale avant d'ouvrir le site ne montre jamais Safari ;
+  échec de lecture d'AsyncStorage → `onRehydrateStorage` doit lever
+  `hydrated` dans tous les cas, sinon la pile reste sur « On prépare… » ;
+  `fetchNextPage` en boucle après une erreur réseau si l'effet ne teste pas
+  `isError`.
+- Lots suivants (`MOBILE.md` §10) : 1 socle backend (tables, géocodage,
+  vérification SIRET, exposition CVthèque, garde 16 ans), 2 deck entreprise +
+  intérêts + match + dossier, 3 deck candidat complet + rayon + GPS, 4
+  modération/relances/admin, 5 cohérence web + légal, 6 pilote 66 + stores.
+  Compte Apple Developer à vérifier (Apple ID ≠ Developer Program).

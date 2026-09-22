@@ -53,8 +53,8 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Offres',
-          tabBarIcon: tabIcon('search', 'search-outline'),
+          title: 'Découvrir',
+          tabBarIcon: tabIcon('compass', 'compass-outline'),
           href: isOrganization ? null : undefined,
         }}
       />

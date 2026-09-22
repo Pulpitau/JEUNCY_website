@@ -1,5 +1,6 @@
 import { useMutation } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
+import * as WebBrowser from 'expo-web-browser';
 import {
   ActivityIndicator,
   Alert,
@@ -12,9 +13,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { statusTone } from '@/components/features/applications/status';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Screen } from '@/components/ui/screen';
+import { Section, SectionEmpty } from '@/components/ui/section';
 import { Text } from '@/components/ui/text';
 import {
   useInvalidateApplications,
@@ -25,6 +28,7 @@ import { ApiError } from '@/lib/api/client';
 import { formatDateFr } from '@/lib/dates';
 import { APPLICATION_STATUS_LABELS, CONTRACT_TYPE_LABELS } from '@/lib/labels';
 import { useOrganizationRole } from '@/hooks/use-organization';
+import { keptOffers, useSwipeStore, type SwipeGesture } from '@/store/swipe-store';
 import { useTheme } from '@/theme/theme-provider';
 import { spacing } from '@/theme/typography';
 
@@ -128,6 +132,7 @@ function MesCandidatures() {
       )}
       ListHeaderComponent={header}
       ListEmptyComponent={empty}
+      ListFooterComponent={<KeptOffers />}
       contentContainerStyle={[styles.list, { paddingTop: insets.top + spacing.lg }]}
       style={{ backgroundColor: colors.background }}
       refreshControl={
@@ -171,6 +176,75 @@ function ApplicationCard({
         Envoyée le {formatDateFr(application.created_at)}
       </Text>
     </Card>
+  );
+}
+
+// Offres partenaires « gardees » depuis la pile Decouvrir. Prototype :
+// stockees sur le telephone (swipe-store.ts), avec ce qu'il faut pour les
+// afficher meme si l'import de nuit a retire l'offre. Un tap ouvre la fiche,
+// le bouton ouvre le site de l'employeur, un appui long retire l'offre.
+function KeptOffers() {
+  const router = useRouter();
+  const gestures = useSwipeStore((state) => state.gestures);
+  const forget = useSwipeStore((state) => state.forget);
+  const kept = keptOffers(gestures);
+
+  const confirmerRetrait = (gesture: SwipeGesture) => {
+    Alert.alert(
+      'Retirer cette offre ?',
+      `« ${gesture.kept?.title ?? ''} » ne sera plus dans tes offres gardées.`,
+      [
+        { text: 'Annuler', style: 'cancel' },
+        { text: 'Retirer', style: 'destructive', onPress: () => forget(gesture.key) },
+      ],
+    );
+  };
+
+  return (
+    <Section title="Gardées (site partenaire)">
+      {kept.length === 0 ? (
+        <SectionEmpty>
+          Les offres partenaires que tu gardes depuis Découvrir apparaissent ici. La
+          candidature se fait sur le site de l&apos;employeur.
+        </SectionEmpty>
+      ) : (
+        <>
+          <Text variant="small" tone="muted">
+            Appuie longuement sur une offre pour la retirer.
+          </Text>
+          {kept.map((gesture) => {
+            const offer = gesture.kept;
+            if (!offer) return null;
+
+            return (
+              <Card
+                key={gesture.key}
+                onPress={() =>
+                  router.push({
+                    pathname: '/offres/partenaire/[id]',
+                    params: { id: String(offer.id) },
+                  })
+                }
+                onLongPress={() => confirmerRetrait(gesture)}
+                accessibilityLabel={`${offer.title}, ${offer.employer ?? 'employeur non communiqué'}`}
+              >
+                <Badge label="Offre partenaire" tone="warm" />
+                <Text variant="sectionTitle">{offer.title}</Text>
+                <Text variant="small" tone="muted">
+                  {offer.employer ?? 'Employeur non communiqué'}
+                  {offer.city ? ` · ${offer.city}` : ''}
+                </Text>
+                <Button
+                  label="Ouvrir le site de l'employeur"
+                  variant="secondary"
+                  onPress={() => void WebBrowser.openBrowserAsync(offer.applyUrl)}
+                />
+              </Card>
+            );
+          })}
+        </>
+      )}
+    </Section>
   );
 }
 

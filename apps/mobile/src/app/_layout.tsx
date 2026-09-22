@@ -4,6 +4,8 @@ import { Stack, useRouter, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
+import { StyleSheet } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { restoreSession } from '@/lib/api/auth';
@@ -60,15 +62,24 @@ export default function RootLayout() {
   }
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <ThemeProvider>
-        <SafeAreaProvider>
-          <NavigationGuard />
-        </SafeAreaProvider>
-      </ThemeProvider>
-    </QueryClientProvider>
+    // GestureHandlerRootView a la racine, exige par react-native-gesture-handler
+    // pour que les gestes natifs (la pile « Decouvrir ») recoivent les touches.
+    // Sans lui, un Pan ne s'active jamais et l'app ne dit rien.
+    <GestureHandlerRootView style={styles.root}>
+      <QueryClientProvider client={queryClient}>
+        <ThemeProvider>
+          <SafeAreaProvider>
+            <NavigationGuard />
+          </SafeAreaProvider>
+        </ThemeProvider>
+      </QueryClientProvider>
+    </GestureHandlerRootView>
   );
 }
+
+const styles = StyleSheet.create({
+  root: { flex: 1 },
+});
 
 // Garde de navigation : equivalent natif du composant RequireAuth du web.
 // Elle vit sous ThemeProvider pour que la barre d'etat suive le theme.

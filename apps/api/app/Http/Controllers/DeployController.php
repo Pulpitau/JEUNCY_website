@@ -2,8 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\ExternalJobOfferStatus;
+use App\Enums\JobOfferStatus;
 use App\Enums\NotificationType;
 use App\Models\CandidateProfile;
+use App\Models\CfaOrganization;
+use App\Models\Company;
 use App\Models\JobOffer;
 use App\Models\Notification;
 use App\Models\Skill;
@@ -19,6 +23,7 @@ use App\Services\PaymentService;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
@@ -35,7 +40,32 @@ class DeployController extends Controller
     // ne peut pas savoir si le controleur lui-meme a bien ete redeploye : c est
     // arrive le 2026-09-02, ou clear-cache continuait d echouer avec une version
     // corrigee censement en place. A incrementer a chaque changement ici.
-    public const DEPLOY_TOOLS_VERSION = 'deploy-tools-27';
+    public const DEPLOY_TOOLS_VERSION = 'deploy-tools-28';
+
+    // Perimetre de lancement du match mobile (decision du 2026-09-22) : les
+    // Pyrenees-Orientales, mesurees autour de Perpignan (centre-ville).
+    public const PERPIGNAN_LATITUDE = 42.6887;
+
+    public const PERPIGNAN_LONGITUDE = 2.8948;
+
+    // Rayons mesures autour de Perpignan, en km (voir geoStats). 100 km est
+    // le rayon de recrutement maximal du modele (5 a 100 km sur l'offre) :
+    // ce que verrait une offre reglee au maximum.
+    public const RAYONS_KM = [10, 30, 50, 100];
+
+    // Secret statistique : un departement qui compte moins de candidats que
+    // ce seuil est fondu dans « autres ». Un comptage par departement n'est
+    // pas une donnee personnelle en soi (il ne designe personne), mais un
+    // effectif de 1 ou 2 est une case trop fine pour une sonde dont la
+    // reponse sera copiee dans des rapports ; la regle de l'INSEE est la
+    // meme (cases < 3 masquees). Sans perte pour la decision qu'elle
+    // eclaire : le 66 et ses voisins a ouvrir ensuite depassent le seuil ou
+    // n'ont de toute facon pas la masse pour etre ouverts.
+    public const SEUIL_SECRET_STATISTIQUE = 3;
+
+    // Age minimum sur l'application mobile (decision du 2026-09-22 ; le site
+    // classique reste a 15 ans).
+    public const AGE_MINIMUM_APP = 16;
 
     // Cle du battement du planificateur, ecrite par bootstrap/app.php a
     // chaque schedule:run. Dupliquee en dur la-bas volontairement : voir
@@ -81,9 +111,391 @@ class DeployController extends Controller
     {
         $this->assertAuthorized($token);
 
+        // ?geo=1 : comptages geographiques et etat du serveur (voir geoStats).
+        // Greffe sur cette route plutot que declaree dans routes/web.php : un
+        // seul fichier a envoyer par FTP au lieu de deux, et un fichier de
+        // moins qui peut manquer a l'arrivee (lecon du 2026-09-04).
+        if (request()->query('geo') === '1') {
+            return $this->geoStats();
+        }
+
         Artisan::call('migrate:status');
 
         return response(Artisan::output(), 200, ['Content-Type' => 'text/plain']);
+    }
+
+    /**
+     * Comptages geographiques et etat du serveur, pour dimensionner le match
+     * mobile (decouverte des offres par distance cote candidat, rayon de
+     * recrutement sur l'offre, lancement limite au departement 66) AVANT de
+     * le concevoir.
+     *
+     * POURQUOI. Regle du depot : ne jamais deviner, mesurer d'abord. Combien
+     * de candidats ont un code postal exploitable, combien d'offres
+     * partenaires ont des coordonnees, combien se trouvent a 30 km de
+     * Perpignan, MySQL sait-il calculer une distance (ST_Distance_Sphere),
+     * quel temps d'execution accorde l'hebergeur : chaque reponse tranche un
+     * choix de conception, et aucune ne se lit sans acces SSH.
+     *
+     * AUCUNE DONNEE PERSONNELLE : uniquement des comptages agreges. Le code
+     * postal est reduit au departement avant d'etre renvoye ; jamais un nom,
+     * un email, une adresse ni une ville de residence individuelle. Cote
+     * candidats, un departement de moins de SEUIL_SECRET_STATISTIQUE profils
+     * est fondu dans « autres » (voir masquerPetitsEffectifs).
+     *
+     * Chaque bloc est protege separement : une table absente (migration pas
+     * encore passee) ou une fonction SQL inconnue doit rendre CE bloc
+     * « indisponible », pas faire tomber la sonde entiere.
+     */
+    private function geoStats(): Response
+    {
+        $debut = microtime(true);
+
+        $payload = [
+            'version_outils_deploiement' => self::DEPLOY_TOOLS_VERSION,
+            'candidats' => $this->mesure(fn () => $this->statsCandidats()),
+            'offres_jeuncy' => $this->mesure(fn () => $this->statsOffresJeuncy()),
+            'offres_partenaires' => $this->mesure(fn () => $this->statsOffresPartenaires()),
+            'organisations' => $this->mesure(fn () => $this->statsOrganisations()),
+            'serveur' => $this->statsServeur(),
+        ];
+
+        $payload['duree_ms'] = (int) round((microtime(true) - $debut) * 1000);
+        $payload['heure_serveur'] = now()->toDateTimeString();
+
+        return response()->json($payload, 200, [], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    }
+
+    /**
+     * Le resultat de l'appel, ou « indisponible » avec la cause, sans jamais
+     * interrompre la sonde : c'est un outil de mesure, il doit repondre meme
+     * quand une partie de ce qu'il mesure manque.
+     */
+    private function mesure(\Closure $appel): mixed
+    {
+        try {
+            return $appel();
+        } catch (\Throwable $e) {
+            // Tronque : un message de QueryException porte la requete SQL
+            // entiere, inutilement longue ici (et sans donnee personnelle :
+            // aucune de ces requetes ne prend de nom ni d'email en parametre).
+            return 'indisponible : '.$e::class.' — '.mb_substr($e->getMessage(), 0, 200);
+        }
+    }
+
+    /**
+     * Departement d'un code postal francais, ou 'inconnu'.
+     *
+     * Public et statique pour etre teste sur des valeurs choisies : Corse
+     * (2A jusqu'a 20199, 2B au-dela), outre-mer (trois caracteres), saisies
+     * sales (espaces, prefixe « F- », ville tapee dans le champ). Tout ce qui
+     * ne donne pas exactement cinq chiffres est 'inconnu' : mieux vaut
+     * compter une saisie douteuse comme inexploitable que l'attribuer a un
+     * departement au hasard.
+     */
+    public static function departementDuCodePostal(?string $codePostal): string
+    {
+        $chiffres = preg_replace('/\D/', '', (string) $codePostal);
+
+        if (strlen($chiffres) !== 5) {
+            return 'inconnu';
+        }
+
+        if (str_starts_with($chiffres, '20')) {
+            return (int) $chiffres < 20200 ? '2A' : '2B';
+        }
+
+        if (str_starts_with($chiffres, '97') || str_starts_with($chiffres, '98')) {
+            return substr($chiffres, 0, 3);
+        }
+
+        return substr($chiffres, 0, 2);
+    }
+
+    /**
+     * Repartition par departement d'un groupement (code postal, effectif),
+     * triee par effectif decroissant. Le code postal ne sort jamais d'ici :
+     * seul le departement est renvoye.
+     *
+     * @param  iterable<object{code_postal: ?string, n: int|string}>  $lignes
+     * @return array{par_departement: array<string, int>, inexploitables: int}
+     */
+    private static function regrouperParDepartement(iterable $lignes): array
+    {
+        $parDepartement = [];
+        $inexploitables = 0;
+
+        foreach ($lignes as $ligne) {
+            $departement = self::departementDuCodePostal($ligne->code_postal);
+            $parDepartement[$departement] = ($parDepartement[$departement] ?? 0) + (int) $ligne->n;
+
+            // Renseigne mais illisible : une donnee a nettoyer, pas une
+            // donnee absente.
+            if ($departement === 'inconnu' && trim((string) $ligne->code_postal) !== '') {
+                $inexploitables += (int) $ligne->n;
+            }
+        }
+
+        arsort($parDepartement);
+
+        return ['par_departement' => $parDepartement, 'inexploitables' => $inexploitables];
+    }
+
+    /**
+     * Fond sous « autres » les departements dont l'effectif est inferieur a
+     * SEUIL_SECRET_STATISTIQUE. Reserve aux personnes physiques (candidats) :
+     * une offre ou une entreprise est publique sur le site, un candidat non.
+     * « inconnu » n'est pas un departement mais une mesure de qualite de la
+     * donnee : il reste tel quel, quel que soit son effectif.
+     *
+     * @param  array<string, int>  $parDepartement
+     * @return array{par_departement: array<string, int>, departements_regroupes: int}
+     */
+    private static function masquerPetitsEffectifs(array $parDepartement): array
+    {
+        $resultat = [];
+        $autres = 0;
+        $regroupes = 0;
+
+        foreach ($parDepartement as $departement => $n) {
+            if ($departement !== 'inconnu' && $n < self::SEUIL_SECRET_STATISTIQUE) {
+                $autres += $n;
+                $regroupes++;
+            } else {
+                $resultat[$departement] = $n;
+            }
+        }
+
+        if ($regroupes > 0) {
+            $resultat['autres'] = $autres;
+            arsort($resultat);
+        }
+
+        return ['par_departement' => $resultat, 'departements_regroupes' => $regroupes];
+    }
+
+    private function statsCandidats(): array
+    {
+        // Comptes supprimes (RGPD, conserves pour la comptabilite) et
+        // suspendus sont hors du match, donc hors de ces comptages. Comptes
+        // a part, pour que total + exclus reste egal a CandidateProfile::count().
+        $joignables = fn () => DB::table('candidate_profiles')
+            ->join('users', 'users.id', '=', 'candidate_profiles.user_id')
+            ->where('users.is_suspended', false)
+            ->whereNull('users.deleted_account_at');
+
+        $exclus = DB::table('candidate_profiles')
+            ->join('users', 'users.id', '=', 'candidate_profiles.user_id')
+            ->where(fn ($q) => $q->where('users.is_suspended', true)->orWhereNotNull('users.deleted_account_at'))
+            ->count();
+
+        $repartition = self::regrouperParDepartement(
+            $joignables()
+                ->selectRaw('candidate_profiles.postal_code AS code_postal, COUNT(*) AS n')
+                ->groupBy('candidate_profiles.postal_code')
+                ->get()
+        );
+        $masque = self::masquerPetitsEffectifs($repartition['par_departement']);
+
+        // Moins de 16 ans <=> ne le sera au plus tot que demain <=> ne a
+        // partir de (aujourd'hui - 16 ans + 1 jour). Un « >= » sur une date
+        // du lendemain plutot qu'un « > » sur le jour meme : SQLite compare
+        // des chaines et une date stockee avec son heure (« ...-22 00:00:00 »)
+        // depasserait « ...-22 », comptant un jeune de 16 ans tout juste.
+        $neApres = now()->subYears(self::AGE_MINIMUM_APP)->addDay()->toDateString();
+
+        return [
+            'total' => $joignables()->count(),
+            'exclus_supprimes_ou_suspendus' => $exclus,
+            'par_departement' => $masque['par_departement'],
+            'departements_regroupes_sous_autres' => $masque['departements_regroupes'],
+            'code_postal_vide_mais_ville_renseignee' => $joignables()
+                ->where(fn ($q) => $q->whereNull('candidate_profiles.postal_code')->orWhere('candidate_profiles.postal_code', ''))
+                ->whereNotNull('candidate_profiles.city')
+                ->where('candidate_profiles.city', '!=', '')
+                ->count(),
+            'code_postal_renseigne_mais_inexploitable' => $repartition['inexploitables'],
+            'visibles_en_cvtheque' => $joignables()->where('candidate_profiles.is_visible_in_cvtheque', true)->count(),
+            'avec_date_de_naissance' => $joignables()->whereNotNull('candidate_profiles.birth_date')->count(),
+            'moins_de_'.self::AGE_MINIMUM_APP.'_ans' => $joignables()
+                ->whereNotNull('candidate_profiles.birth_date')
+                ->where('candidate_profiles.birth_date', '>=', $neApres)
+                ->count(),
+            // Texte libre (« B », « Permis B », « en cours »...) : non vide
+            // est le seul critere possible tant qu'il n'y a pas de categorie.
+            'avec_permis' => $joignables()
+                ->whereNotNull('candidate_profiles.driving_license')
+                ->where('candidate_profiles.driving_license', '!=', '')
+                ->count(),
+            'avec_photo' => $joignables()
+                ->whereNotNull('candidate_profiles.photo_url')
+                ->where('candidate_profiles.photo_url', '!=', '')
+                ->count(),
+            'avec_cv_depose' => $joignables()
+                ->whereNotNull('candidate_profiles.cv_file_url')
+                ->where('candidate_profiles.cv_file_url', '!=', '')
+                ->count(),
+        ];
+    }
+
+    private function statsOffresJeuncy(): array
+    {
+        $parStatut = DB::table('job_offers')
+            ->selectRaw('status, COUNT(*) AS n')
+            ->groupBy('status')
+            ->get()
+            ->mapWithKeys(fn ($ligne) => [(string) $ligne->status => (int) $ligne->n])
+            ->all();
+
+        // Une offre n'a pas de code postal : celui de son proprietaire,
+        // entreprise ou CFA (jamais les deux, invariant de JobOfferService).
+        $codePostalProprietaire = 'COALESCE(companies.postal_code, cfa_organizations.postal_code)';
+
+        $repartition = self::regrouperParDepartement(
+            DB::table('job_offers')
+                ->leftJoin('companies', 'companies.id', '=', 'job_offers.company_id')
+                ->leftJoin('cfa_organizations', 'cfa_organizations.id', '=', 'job_offers.cfa_organization_id')
+                ->where('job_offers.status', JobOfferStatus::PUBLISHED->value)
+                ->selectRaw("{$codePostalProprietaire} AS code_postal, COUNT(*) AS n")
+                ->groupByRaw($codePostalProprietaire)
+                ->get()
+        );
+
+        return [
+            'par_statut' => $parStatut,
+            'publiees_par_departement' => $repartition['par_departement'],
+            'publiees_sans_code_postal_exploitable' => $repartition['par_departement']['inconnu'] ?? 0,
+        ];
+    }
+
+    private function statsOffresPartenaires(): array
+    {
+        $actives = fn () => DB::table('external_job_offers')
+            ->where('status', ExternalJobOfferStatus::ACTIVE->value);
+
+        $top = $actives()
+            ->selectRaw('department, COUNT(*) AS n')
+            ->groupBy('department')
+            ->orderByDesc('n')
+            ->limit(10)
+            ->get()
+            ->mapWithKeys(fn ($ligne) => [(string) ($ligne->department ?? 'inconnu') => (int) $ligne->n])
+            ->all();
+
+        return [
+            'total' => $actives()->count(),
+            'sans_coordonnees' => $actives()
+                ->where(fn ($q) => $q->whereNull('latitude')->orWhereNull('longitude'))
+                ->count(),
+            'dans_le_66' => $actives()->where('department', '66')->count(),
+            'autour_de_perpignan' => $this->mesure(fn () => $this->autourDePerpignan()),
+            'top_10_departements' => $top,
+        ];
+    }
+
+    /**
+     * Offres partenaires actives a moins de 10, 30 et 50 km de Perpignan,
+     * par la formule de haversine en SQL, en une seule requete.
+     *
+     * Volontairement en SQL et non en PHP : c'est ce que fera la decouverte
+     * par distance en production, et c'est donc CE chemin qu'il faut savoir
+     * possible et rapide sur le serveur. SQLite (tests) n'a pas SIN/COS/ASIN :
+     * l'appelant renvoie alors « indisponible » via mesure().
+     */
+    private function autourDePerpignan(): array
+    {
+        $distanceKm = '6371 * 2 * ASIN(SQRT('
+            .'POWER(SIN(RADIANS(latitude - ?) / 2), 2)'
+            .' + COS(RADIANS(?)) * COS(RADIANS(latitude))'
+            .' * POWER(SIN(RADIANS(longitude - ?) / 2), 2)))';
+
+        $sommes = implode(', ', array_map(
+            fn (int $km) => "SUM(CASE WHEN distance_km <= {$km} THEN 1 ELSE 0 END) AS km_{$km}",
+            self::RAYONS_KM,
+        ));
+
+        $ligne = DB::selectOne(
+            "SELECT {$sommes} FROM (SELECT {$distanceKm} AS distance_km FROM external_job_offers"
+            .' WHERE status = ? AND latitude IS NOT NULL AND longitude IS NOT NULL) AS d',
+            [
+                self::PERPIGNAN_LATITUDE,
+                self::PERPIGNAN_LATITUDE,
+                self::PERPIGNAN_LONGITUDE,
+                ExternalJobOfferStatus::ACTIVE->value,
+            ],
+        );
+
+        $resultat = [];
+        foreach (self::RAYONS_KM as $km) {
+            $resultat["{$km}_km"] = (int) ($ligne->{"km_{$km}"} ?? 0);
+        }
+
+        return $resultat;
+    }
+
+    private function statsOrganisations(): array
+    {
+        $entreprises = Company::count();
+        $avecSiret = Company::query()->whereNotNull('siret')->where('siret', '!=', '')->count();
+
+        return [
+            'entreprises' => [
+                'total' => $entreprises,
+                'avec_siret' => $avecSiret,
+                'sans_siret' => $entreprises - $avecSiret,
+                'publiques' => Company::query()->where('is_public', true)->count(),
+            ],
+            'cfa' => [
+                'total' => CfaOrganization::count(),
+            ],
+        ];
+    }
+
+    private function statsServeur(): array
+    {
+        return [
+            'php' => PHP_VERSION,
+            'base_de_donnees' => [
+                'pilote' => $this->mesure(fn () => DB::connection()->getDriverName()),
+                'version' => $this->mesure(fn () => (string) DB::selectOne('SELECT VERSION() AS v')->v),
+                'st_distance_sphere' => $this->stDistanceSphere(),
+            ],
+            'extensions' => [
+                'gd' => extension_loaded('gd'),
+                'imagick' => extension_loaded('imagick'),
+            ],
+            'php_ini' => [
+                'memory_limit' => ini_get('memory_limit'),
+                'upload_max_filesize' => ini_get('upload_max_filesize'),
+                'post_max_size' => ini_get('post_max_size'),
+                'max_execution_time' => ini_get('max_execution_time'),
+                'max_input_time' => ini_get('max_input_time'),
+            ],
+            'queue_default' => config('queue.default'),
+            'cache_default' => config('cache.default'),
+            // Presence seulement, jamais la valeur.
+            'secrets_presents' => [
+                'RESEND_API_KEY' => filled(config('services.resend.key')),
+                'LBA_API_KEY' => filled(config('services.lba.api_key')),
+                'JWT_SECRET' => filled(config('jwt.secret')),
+            ],
+            'fuseau_horaire' => config('app.timezone'),
+            'heure_serveur' => now()->toDateTimeString(),
+        ];
+    }
+
+    // MySQL 5.7+ sait calculer une distance sur la sphere nativement ; si la
+    // fonction existe sur l'hebergement, la decouverte par distance peut s'en
+    // servir au lieu de la formule de haversine ecrite a la main.
+    private function stDistanceSphere(): array
+    {
+        try {
+            $metres = DB::selectOne('SELECT ST_Distance_Sphere(POINT(0, 0), POINT(1, 1)) AS m')->m;
+
+            return ['disponible' => true, 'metres_entre_0_0_et_1_1' => (int) round((float) $metres)];
+        } catch (\Throwable $e) {
+            return ['disponible' => false, 'erreur' => mb_substr($e->getMessage(), 0, 160)];
+        }
     }
 
     public function migrate(string $token): Response
