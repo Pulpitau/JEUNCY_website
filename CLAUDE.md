@@ -1284,7 +1284,7 @@ terminé, sonde à déployer**
   modération/relances/admin, 5 cohérence web + légal, 6 pilote 66 + stores.
   Compte Apple Developer à vérifier (Apple ID ≠ Developer Program).
 
-**Modèle match — lot 1, socle backend (2026-09-22) : terminé, à déployer**
+**Modèle match — lot 1, socle backend (2026-09-22) : terminé et déployé**
 
 - **807 tests verts** (543 avant le lot), Pint propre, web build + lint OK.
   Contrat technique dans `docs/mobile/lot-1-backend.md`, manifeste
@@ -1333,3 +1333,50 @@ terminé, sonde à déployer**
   donc à voir des cartes de mineurs — email de domaine ou validation humaine à
   prévoir avant d'ouvrir au-delà d'IDA. Action humaine après déploiement :
   saisir le code postal de l'offre d'IDA (sinon `JOB_OFFER_NOT_LOCATED`).
+
+**Lot 1 : mise en production (2026-09-22) — deux pièges qui ont coûté une panne**
+
+- **L'API est tombée entièrement (500 sur toutes les routes)** après une
+  synchronisation WinSCP lancée sur `apps/api` en entier. Cause réelle :
+  le dossier **`bootstrap/cache/`**, gitignoré et propre au poste de dev, a
+  été envoyé. Son `packages.php` liste les extensions découvertes **avec les
+  paquets de `require-dev`** (`laravel/pail`, `laravel/pao`,
+  `nunomaduro/collision`), absents d'un `composer install --no-dev`. Laravel
+  tentait donc d'enregistrer `Laravel\Pail\PailServiceProvider` à chaque
+  requête. Réparation : **supprimer `bootstrap/cache/packages.php` et
+  `services.php` sur le serveur**, Laravel les régénère seul.
+- Ce qui a permis de trancher sans deviner : `/api/...` renvoyait quand même
+  l'enveloppe JSON `{success:false}` de `bootstrap/app.php`. Une app qui rend
+  **sa propre** page d'erreur a démarré : ni `vendor` ni l'autoloader ne
+  peuvent être en cause. Un autoloader cassé donne une erreur PHP brute.
+- **Ne jamais synchroniser `apps/api` à la racine.** Masque d'exclusion à
+  régler une fois pour toutes dans WinSCP :
+  `vendor/; bootstrap/cache/; storage/; .env; tests/; .phpunit.result.cache`
+- **`create_external_interests_table` échouait en production, pas en test** :
+  MySQL limite les identifiants à 64 caractères, Laravel générait
+  `external_interests_candidate_profile_id_external_job_offer_id_unique`
+  (68). **SQLite n'a pas cette limite** — 807 tests verts, production en
+  échec. Nom d'index explicite désormais
+  (`external_interests_profile_offer_unique`). Leçon générale : toute
+  migration créant un index composite sur des colonnes à nom long doit être
+  jouée contre un vrai MySQL avant l'envoi ; les tests SQLite ne le voient pas.
+- MySQL ne défait pas le DDL déjà exécuté : la table avait été créée avant
+  l'échec de l'index, sans ligne dans `migrations`. `up()` commence donc par
+  un `Schema::dropIfExists` commenté, pour se rattraper sans accès SQL direct
+  au serveur (il n'y en a pas sur l'hébergement mutualisé).
+- **État vérifié après déploiement** : 12/12 migrations appliquées, 0 en
+  attente ; selftest **16/16 vert** ; parcours match complet exercé en
+  production (deck candidat 1 offre Jeuncy + 20 partenaires à 30 km dans le
+  66, deck employeur sans aucune clé interdite, double intérêt → match,
+  matchs des deux côtés, 3 notifications, enum MySQL acceptée) ; site
+  reconstruit et servi (empreinte du bundle identique au build local).
+- **La CVthèque du site est tombée entre-temps** : l'API du lot 1 avait été
+  déployée sans reconstruire `apps/web`. Prouvé en téléchargeant le bundle en
+  ligne et en y comptant les clés de la nouvelle API (`last_name_initial`,
+  `age_band`, `has_vehicle` : zéro occurrence). **Le lot 1 change la forme de
+  la CVthèque : API et site doivent partir ensemble.** Ordre d'envoi des
+  fichiers du site : les `assets/` d'abord, `index.html` en dernier.
+- Restes connus : le code postal de l'offre d'IDA n'est toujours pas saisi
+  (elle reste hors du deck, `offres_publiees_sans_coordonnees: 1`) ; 2 profils
+  sur 115 ont un code postal que le géocodeur ne résout pas et restent sans
+  coordonnées (passe idempotente, relançable).

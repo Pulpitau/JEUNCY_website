@@ -22,6 +22,13 @@ return new class extends Migration
 {
     public function up(): void
     {
+        // Rattrapage : le premier passage en production a cree la table puis
+        // echoue sur le nom d index trop long (MySQL ne defait pas le DDL
+        // deja execute). Il reste donc une table partielle, sans index et
+        // sans ligne dans la table des migrations. Aucune donnee ne peut y
+        // exister — rien n ecrit encore dedans — donc on repart propre.
+        Schema::dropIfExists('external_interests');
+
         Schema::create('external_interests', function (Blueprint $table) {
             $table->id();
             $table->foreignId('candidate_profile_id')->constrained()->cascadeOnDelete();
@@ -39,7 +46,11 @@ return new class extends Migration
 
             // MySQL admet plusieurs NULL dans un index unique : les lignes
             // dont l'offre a disparu ne se genent pas entre elles.
-            $table->unique(['candidate_profile_id', 'external_job_offer_id']);
+            // Nom explicite : le nom genere par Laravel
+            // (external_interests_candidate_profile_id_external_job_offer_id_unique,
+            // 68 caracteres) depasse la limite de 64 de MySQL. SQLite n'a pas
+            // cette limite, donc les tests ne l'auraient jamais montre.
+            $table->unique(['candidate_profile_id', 'external_job_offer_id'], 'external_interests_profile_offer_unique');
             $table->index(['candidate_profile_id', 'decision']);
         });
     }
