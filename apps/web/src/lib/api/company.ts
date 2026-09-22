@@ -1,4 +1,4 @@
-import type { WorkMode } from '@jeuncy/shared';
+import type { VerificationStatus, WorkMode } from '@jeuncy/shared';
 import { apiRequest } from './client';
 
 export interface Company {
@@ -6,6 +6,11 @@ export interface Company {
   user_id: number;
   name: string;
   siret: string | null;
+  // Vérification de l'employeur (MOBILE.md §4.0). Le statut est public (signal
+  // de confiance montré au candidat) ; la note, elle, n'est servie qu'au
+  // propriétaire et à l'admin — d'où son absence sur la fiche publique.
+  verification_status: VerificationStatus;
+  verification_note?: string | null;
   description: string | null;
   logo_url: string | null;
   website: string | null;
@@ -20,7 +25,10 @@ export interface Company {
 
 export interface CompanyInput {
   name: string;
-  siret?: string | null;
+  // Requis depuis le lot 1 : c'est lui qui déclenche la vérification. Le
+  // serveur répond INVALID_INPUT sans lui, à la création comme à la
+  // modification.
+  siret: string;
   description?: string | null;
   website?: string | null;
   address?: string | null;

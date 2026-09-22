@@ -16,4 +16,13 @@ enum NotificationType: string
     // Une offre publiee correspond au profil d un candidat : il en est
     // prevenu pour pouvoir postuler lui-meme (voir JobOfferMatchService).
     case JOB_OFFER_MATCH = 'JOB_OFFER_MATCH';
+
+    // Modele match (MOBILE.md §5, migration 2026_09_22_100010) :
+    //  - NEW_MATCH : les deux parties ont dit oui (in-app + email aux deux) ;
+    //  - INTEREST_RECEIVED : un employeur s'interesse au candidat (in-app
+    //    seulement, l'offre remonte en tete de sa pile) ;
+    //  - MATCH_CLOSED : l'offre ou le dossier n'est plus disponible.
+    case NEW_MATCH = 'NEW_MATCH';
+    case INTEREST_RECEIVED = 'INTEREST_RECEIVED';
+    case MATCH_CLOSED = 'MATCH_CLOSED';
 }

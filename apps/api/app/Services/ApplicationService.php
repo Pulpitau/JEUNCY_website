@@ -2,17 +2,22 @@
 
 namespace App\Services;
 
+use App\Enums\ApplicationSource;
 use App\Enums\ApplicationStatus;
+use App\Enums\InterestDecision;
 use App\Enums\JobOfferStatus;
+use App\Enums\MatchClosedReason;
 use App\Enums\NotificationType;
 use App\Exceptions\ApiException;
 use App\Models\Application;
 use App\Models\CandidateProfile;
 use App\Models\GeneratedCv;
 use App\Models\JobOffer;
+use App\Models\OfferInterest;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -24,8 +29,19 @@ class ApplicationService
         private readonly JobOfferService $jobOfferService,
         private readonly SubscriptionService $subscriptionService,
         private readonly MailService $mailService,
+        private readonly MatchService $matchService,
+        private readonly MatchClosingService $matchClosingService,
+        private readonly CompanyVerificationService $verificationService,
+        private readonly BlockService $blockService,
     ) {}
 
+    /**
+     * UN DOSSIER VAUT « Ca m'interesse ». Sans cela, une offre a laquelle le
+     * candidat vient de postuler resterait dans sa pile Decouvrir, et un
+     * match ne d'un dossier n'existerait jamais comme match. Rien n'est
+     * envoye sans geste du candidat — postuler EST le geste, et le plus fort
+     * des deux.
+     */
     public function applyForUser(
         User $user,
         JobOffer $jobOffer,
@@ -33,6 +49,7 @@ class ApplicationService
         ?string $contactPhone = null,
         ?int $generatedCvId = null,
         ?UploadedFile $cvFile = null,
+        bool $fromMobile = false,
     ): Application {
         $profile = $this->candidateProfileService->requireProfile($user);
 
@@ -56,15 +73,68 @@ class ApplicationService
         $generatedCv = $generatedCvId !== null ? $this->requireOwnedCv($profile, $generatedCvId) : null;
         $cvFileUrl = $cvFile !== null ? $this->storeUploadedCv($profile, $cvFile) : null;
 
-        $application = Application::create([
-            'candidate_profile_id' => $profile->id,
-            'job_offer_id' => $jobOffer->id,
-            'status' => ApplicationStatus::SENT,
-            'cover_letter' => $coverLetter,
-            'contact_phone' => $contactPhone,
-            'generated_cv_id' => $generatedCv?->id,
-            'cv_file_url' => $cvFileUrl,
-        ]);
+        $application = DB::transaction(function () use ($profile, $jobOffer, $coverLetter, $contactPhone, $generatedCv, $cvFileUrl, $fromMobile) {
+            $application = Application::create([
+                'candidate_profile_id' => $profile->id,
+                'job_offer_id' => $jobOffer->id,
+                'status' => ApplicationStatus::SENT,
+                'cover_letter' => $coverLetter,
+                'contact_phone' => $contactPhone,
+                'generated_cv_id' => $generatedCv?->id,
+                'cv_file_url' => $cvFileUrl,
+                'source' => $this->sourceDe($profile, $jobOffer, $fromMobile),
+            ]);
+
+            // Un PASS anterieur cede devant un dossier : c'est le SEUL cas ou
+            // une decision deja posee change. Passer puis postuler n'est pas
+            // une contradiction a refuser, c'est un avis qui a evolue — et
+            // repondre INTEREST_ALREADY_DECIDED a quelqu'un qui postule
+            // n'aurait aucun sens de son point de vue.
+            $existant = OfferInterest::query()
+                ->where('candidate_profile_id', $profile->id)
+                ->where('job_offer_id', $jobOffer->id)
+                ->lockForUpdate()
+                ->first();
+
+            if ($existant !== null && $existant->closed_at !== null
+                && $existant->closed_reason === MatchClosedReason::APPLICATION_WITHDRAWN) {
+                // Le candidat avait retire un dossier, il en envoie un
+                // nouveau : la ligne se rouvre telle qu'elle etait. La
+                // laisser fermee ferait echouer la deuxieme candidature avec
+                // INTEREST_CLOSED, alors que retirer puis repostuler est un
+                // parcours normal (c'est meme pour cela que withdrawForUser
+                // supprime la ligne au lieu de poser un statut).
+                $existant->closed_at = null;
+                $existant->closed_reason = null;
+                $existant->application_id = null;
+                $existant->save();
+            }
+
+            if ($existant !== null && $existant->candidate_decision === InterestDecision::PASS) {
+                $this->matchService->clearDecision($existant, MatchService::SIDE_CANDIDATE);
+            }
+
+            // notify: false — la notification NEW_APPLICATION ci-dessous
+            // annonce deja la meme chose a l'employeur ; un NEW_MATCH en plus
+            // la dirait deux fois.
+            $interest = $this->matchService->record(
+                $profile->id,
+                $jobOffer->id,
+                MatchService::SIDE_CANDIDATE,
+                InterestDecision::LIKE,
+                notify: false,
+            );
+
+            $application->interest_id = $interest->id;
+            $application->save();
+
+            if ($interest->application_id === null) {
+                $interest->application_id = $application->id;
+                $interest->save();
+            }
+
+            return $application;
+        });
 
         $owner = $this->jobOfferService->ownerUser($jobOffer);
         $owner?->notifications()->create([
@@ -109,6 +179,11 @@ class ApplicationService
     {
         $this->jobOfferService->requireOwnedOffer($user, $jobOffer);
 
+        // Verification AVANT l'acces payant : « jamais d'employeur non
+        // VERIFIED face a un candidat » est un invariant, pas une option
+        // qu'un abonnement rachete.
+        $this->verificationService->requireVerified($user);
+
         $hasAccess = $jobOffer->applications_unlocked_at !== null
             || $this->subscriptionService->hasPaidAccess($user);
 
@@ -120,10 +195,36 @@ class ApplicationService
             );
         }
 
+        $bloques = $this->blockService->blockedUserIdsFor($user);
+
         return $jobOffer->applications()
             ->with(['candidateProfile.user:id,email', 'generatedCv'])
+            ->when($bloques !== [], fn ($q) => $q->whereHas(
+                'candidateProfile',
+                fn ($p) => $p->whereNotIn('user_id', $bloques),
+            ))
             ->latest()
             ->get();
+    }
+
+    /**
+     * D'ou vient le dossier. MATCH prime sur le client : ce qui compte pour
+     * lire les chiffres plus tard, c'est qu'un match l'ait precede, pas
+     * l'appareil utilise ce jour-la.
+     */
+    private function sourceDe(CandidateProfile $profile, JobOffer $jobOffer, bool $fromMobile): ApplicationSource
+    {
+        $matche = OfferInterest::query()
+            ->where('candidate_profile_id', $profile->id)
+            ->where('job_offer_id', $jobOffer->id)
+            ->whereNotNull('matched_at')
+            ->exists();
+
+        if ($matche) {
+            return ApplicationSource::MATCH;
+        }
+
+        return $fromMobile ? ApplicationSource::APP : ApplicationSource::SITE;
     }
 
     // Rejette un CV appartenant a un autre candidat (IDOR) ou deja archive
@@ -178,6 +279,12 @@ class ApplicationService
             $this->deleteStoredCv($application->cv_file_url);
         }
 
+        // Fermeture AVANT la suppression : offer_interests.application_id est
+        // nullOnDelete, donc apres le delete() plus rien ne relierait le
+        // match au dossier retire, et l'employeur garderait une carte
+        // ouverte sur quelqu'un qui s'est desiste.
+        $this->matchClosingService->closeForApplication($application, MatchClosedReason::APPLICATION_WITHDRAWN);
+
         $application->delete();
     }
 
@@ -194,7 +301,14 @@ class ApplicationService
         $jobOffer = $application->jobOffer;
         $this->jobOfferService->requireOwnedOffer($user, $jobOffer);
 
-        $application->update(['status' => $status]);
+        // Premiere reponse de l'employeur, quelle qu'elle soit : c'est la
+        // promesse « reponse garantie » (MOBILE.md §5) qui se mesure ici, et
+        // elle ne se mesure qu'une fois — un passage de SEEN a REJECTED plus
+        // tard ne doit pas repousser la date.
+        $application->update([
+            'status' => $status,
+            'responded_at' => $application->responded_at ?? now(),
+        ]);
 
         $candidateUser = $application->candidateProfile->user;
         $candidateUser->notifications()->create([

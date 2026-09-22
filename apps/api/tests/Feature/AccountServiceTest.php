@@ -2,14 +2,21 @@
 
 namespace Tests\Feature;
 
+use App\Enums\NotificationType;
 use App\Enums\PaymentStatus;
 use App\Enums\UserRole;
 use App\Exceptions\ApiException;
 use App\Models\CandidateProfile;
 use App\Models\CfaOrganization;
 use App\Models\Company;
+use App\Models\ExternalInterest;
+use App\Models\JobOffer;
+use App\Models\Notification;
+use App\Models\OfferInterest;
 use App\Models\Payment;
+use App\Models\Report;
 use App\Models\User;
+use App\Models\UserBlock;
 use App\Services\AccountService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -196,5 +203,140 @@ class AccountServiceTest extends TestCase
 
         $this->assertFalse(User::query()->notDeleted()->whereKey($user->id)->exists());
         $this->assertTrue(User::find($user->id)->isDeletedAccount());
+    }
+
+    // ------------------------------------------------------------------
+    // Modele match : ce que l'export doit contenir, ce que la suppression
+    // doit fermer (contrat lot 1 §2.3)
+    // ------------------------------------------------------------------
+
+    /**
+     * Un employeur verifie, son offre publiee, et un candidat : le decor
+     * minimal d'un match.
+     *
+     * @return array{0: User, 1: JobOffer}
+     */
+    private function makeEmployerWithPublishedOffer(string $email = 'rh@recrute.example.com'): array
+    {
+        $user = User::create(['email' => $email, 'password_hash' => 'x', 'role' => UserRole::COMPANY]);
+        $company = Company::factory()->verified()->create(['user_id' => $user->id, 'name' => 'NexaTech']);
+        $offer = JobOffer::factory()->published()->create(['company_id' => $company->id]);
+
+        return [$user->fresh(), $offer];
+    }
+
+    // Portabilite (RGPD art. 20) : les gestes du modele match sont des
+    // donnees du titulaire au meme titre que ses candidatures. Un export qui
+    // les tait est incomplet.
+    public function test_export_includes_interests_and_blocks(): void
+    {
+        $user = $this->makeCandidate();
+        $profile = $user->candidateProfile;
+        [, $offer] = $this->makeEmployerWithPublishedOffer();
+
+        OfferInterest::factory()->candidateLiked()->create([
+            'candidate_profile_id' => $profile->id,
+            'job_offer_id' => $offer->id,
+        ]);
+        ExternalInterest::factory()->create(['candidate_profile_id' => $profile->id]);
+        $bloque = User::create(['email' => 'genant@example.com', 'password_hash' => 'x', 'role' => UserRole::COMPANY]);
+        UserBlock::create(['blocker_user_id' => $user->id, 'blocked_user_id' => $bloque->id]);
+        Report::factory()->create(['reporter_user_id' => $user->id, 'reported_user_id' => $bloque->id]);
+
+        $data = $this->service->exportData($user);
+
+        $this->assertCount(1, $data['offer_interests']);
+        $this->assertSame($offer->title, $data['offer_interests'][0]->jobOffer->title);
+        $this->assertCount(1, $data['external_interests']);
+        $this->assertCount(1, $data['user_blocks']);
+        $this->assertCount(1, $data['reports']);
+    }
+
+    // $hidden retire les coordonnees du profil partout ailleurs (candidature
+    // complete, cartes). L'export est la seule sortie ou elles doivent
+    // reapparaitre : c'est la position stockee sur le serveur, elle
+    // appartient au titulaire.
+    public function test_export_includes_the_stored_device_location(): void
+    {
+        $user = $this->makeCandidate();
+        $profile = $user->candidateProfile;
+        $profile->latitude = 42.70;
+        $profile->longitude = 2.90;
+        $profile->device_latitude = 42.69;
+        $profile->device_longitude = 2.89;
+        $profile->device_located_at = now();
+        $profile->saveQuietly();
+
+        $payload = $this->service->exportData($user->fresh())['candidate_profile']->toArray();
+
+        $this->assertSame(42.7, $payload['latitude']);
+        $this->assertSame(42.69, $payload['device_latitude']);
+        $this->assertArrayHasKey('device_located_at', $payload);
+    }
+
+    // Les lignes offer_interests partent en cascade avec le profil. Sans
+    // fermeture prealable, l'employeur verrait sa carte disparaitre sans un
+    // mot — et aucune trace ne lui dirait pourquoi.
+    public function test_delete_closes_matches_and_notifies_employers(): void
+    {
+        $user = $this->makeCandidate();
+        [$employeur, $offer] = $this->makeEmployerWithPublishedOffer();
+
+        OfferInterest::factory()->matched()->create([
+            'candidate_profile_id' => $user->candidateProfile->id,
+            'job_offer_id' => $offer->id,
+        ]);
+
+        $this->service->deleteAccount($user, 'lea@example.com');
+
+        $notification = Notification::where('user_id', $employeur->id)
+            ->where('type', NotificationType::MATCH_CLOSED)
+            ->first();
+
+        $this->assertNotNull($notification, "L'employeur doit apprendre la fermeture du match.");
+        $this->assertSame(0, OfferInterest::count(), 'les lignes partent avec le profil, apres notification');
+    }
+
+    // Symetrique, et c'est le chemin qui manquait le plus : supprimer un
+    // compte entreprise supprime l'organisation, donc ses offres, donc leurs
+    // offer_interests — par cascade, sans qu'aucun candidat matche ne soit
+    // prevenu.
+    public function test_company_deletion_closes_its_offers_matches_and_notifies_candidates(): void
+    {
+        [$employeur, $offer] = $this->makeEmployerWithPublishedOffer('rh@nexatech.example.com');
+        $candidat = $this->makeCandidate();
+
+        OfferInterest::factory()->matched()->create([
+            'candidate_profile_id' => $candidat->candidateProfile->id,
+            'job_offer_id' => $offer->id,
+        ]);
+
+        $this->service->deleteAccount($employeur, 'rh@nexatech.example.com');
+
+        $notification = Notification::where('user_id', $candidat->id)
+            ->where('type', NotificationType::MATCH_CLOSED)
+            ->first();
+
+        $this->assertNotNull($notification, 'le candidat doit etre prevenu que l\'offre disparait');
+        $this->assertSame(0, OfferInterest::count());
+    }
+
+    // Un interet sans match ne vaut pas notification : personne, en face, ne
+    // savait qu'il existait. Le fermer silencieusement suffit.
+    public function test_a_simple_interest_closes_without_notifying_anyone(): void
+    {
+        $user = $this->makeCandidate();
+        [$employeur, $offer] = $this->makeEmployerWithPublishedOffer();
+
+        OfferInterest::factory()->candidateLiked()->create([
+            'candidate_profile_id' => $user->candidateProfile->id,
+            'job_offer_id' => $offer->id,
+        ]);
+
+        $this->service->deleteAccount($user, 'lea@example.com');
+
+        $this->assertSame(0, Notification::where('user_id', $employeur->id)
+            ->where('type', NotificationType::MATCH_CLOSED)
+            ->count());
     }
 }

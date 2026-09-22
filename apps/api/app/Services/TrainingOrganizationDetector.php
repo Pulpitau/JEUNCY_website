@@ -44,6 +44,15 @@ class TrainingOrganizationDetector
     // (85.52Z) sont des employeurs, pas des concurrents.
     private const BLOCKED_NAF = ['85.31Z', '85.32Z', '85.41Z', '85.42Z', '85.59A', '85.59B', '85.60Z'];
 
+    /**
+     * Reponses du registre deja obtenues pendant CETTE requete (le service
+     * n'est pas un singleton : le cache meurt avec elle). Voir
+     * lookupEstablishment.
+     *
+     * @var array<string, array{naf: string|null, active: bool}|null>
+     */
+    private array $lookups = [];
+
     // Sur le nom, apres suppression des accents et passage en minuscules.
     private const NAME_PATTERNS = [
         '/\bcfa\b/' => 'CFA',
@@ -173,11 +182,51 @@ class TrainingOrganizationDetector
     // Null si le SIRET est absent, inconnu, ou si l'API ne repond pas.
     public function nafFor(?string $siret): ?string
     {
+        return $this->lookupEstablishment($siret)['naf'] ?? null;
+    }
+
+    /**
+     * Fiche d'etablissement au registre public des entreprises.
+     *
+     * Extraite de nafFor parce que CompanyVerificationService a besoin de
+     * DEUX informations du meme appel — l'activite et l'etat administratif —
+     * et qu'une fiche creee ou modifiee declenche les deux chemins (detection
+     * d'ecole, puis verification) dans la meme requete : sans memorisation,
+     * l'entreprise attendrait deux fois le registre.
+     *
+     * Null = SIRET inexploitable, inconnu du registre, ou registre
+     * indisponible. Les trois cas se ressemblent a dessein : aucun n'autorise
+     * a conclure quoi que ce soit.
+     *
+     * 'matched' dit si le SIRET DEMANDE figure bien parmi les etablissements
+     * rendus. Le registre repond a une recherche plein texte : interroger un
+     * numero qui n'existe pas mais dont les neuf premiers chiffres forment un
+     * SIREN reel rend l'unite legale, pas l'etablissement. Le detecteur
+     * d'ecoles se contente de ce repli (le NAF du siege reste un signal), la
+     * verification non : elle ouvre l'acces a des fiches de mineurs, elle
+     * exige le vrai numero.
+     *
+     * @return array{naf: string|null, active: bool, matched: bool}|null
+     */
+    public function lookupEstablishment(?string $siret): ?array
+    {
         $siret = preg_replace('/\D/', '', (string) $siret) ?? '';
         if (strlen($siret) !== 14) {
             return null;
         }
 
+        if (array_key_exists($siret, $this->lookups)) {
+            return $this->lookups[$siret];
+        }
+
+        return $this->lookups[$siret] = $this->fetchEstablishment($siret);
+    }
+
+    /**
+     * @return array{naf: string|null, active: bool, matched: bool}|null
+     */
+    private function fetchEstablishment(string $siret): ?array
+    {
         try {
             $response = Http::timeout(4)
                 ->acceptJson()
@@ -192,14 +241,27 @@ class TrainingOrganizationDetector
             }
 
             foreach ($unit['matching_etablissements'] ?? [] as $etablissement) {
-                if (($etablissement['siret'] ?? null) === $siret && ! empty($etablissement['activite_principale'])) {
-                    return (string) $etablissement['activite_principale'];
+                if (($etablissement['siret'] ?? null) === $siret) {
+                    return [
+                        'naf' => ! empty($etablissement['activite_principale'])
+                            ? (string) $etablissement['activite_principale']
+                            : (isset($unit['activite_principale']) ? (string) $unit['activite_principale'] : null),
+                        'active' => ($etablissement['etat_administratif'] ?? null) === 'A',
+                        'matched' => true,
+                    ];
                 }
             }
 
-            return isset($unit['activite_principale']) ? (string) $unit['activite_principale'] : null;
+            // Aucun etablissement apparie : on se rabat sur l'unite legale
+            // pour le NAF seulement (voir lookupEstablishment). matched reste
+            // faux : rien ici ne prouve que le SIRET demande existe.
+            return [
+                'naf' => isset($unit['activite_principale']) ? (string) $unit['activite_principale'] : null,
+                'active' => ($unit['etat_administratif'] ?? null) === 'A',
+                'matched' => false,
+            ];
         } catch (\Throwable $e) {
-            Log::warning("Consultation du NAF impossible pour le SIRET {$siret} : {$e->getMessage()}");
+            Log::warning("Consultation du registre impossible pour le SIRET {$siret} : {$e->getMessage()}");
 
             return null;
         }

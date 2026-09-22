@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Enums\JobOfferStatus;
+use App\Enums\MatchClosedReason;
 use App\Enums\NotificationType;
 use App\Enums\PaymentStatus;
 use App\Models\JobOffer;
@@ -10,6 +11,7 @@ use App\Models\Notification;
 use App\Models\User;
 use App\Services\JobOfferService;
 use App\Services\MailService;
+use App\Services\MatchClosingService;
 use App\Services\SubscriptionService;
 use Illuminate\Console\Command;
 use Illuminate\Database\Eloquent\Builder;
@@ -48,6 +50,7 @@ class ExpireJobOffers extends Command
         private readonly JobOfferService $jobOfferService,
         private readonly SubscriptionService $subscriptionService,
         private readonly MailService $mailService,
+        private readonly MatchClosingService $matchClosingService,
     ) {
         parent::__construct();
     }
@@ -181,6 +184,12 @@ class ExpireJobOffers extends Command
             // applications_unlocked_at n'est pas efface.
             $offre->update(['status' => JobOfferStatus::EXPIRED]);
             $retirees++;
+
+            // Une offre qui sort de la ligne emporte ses matchs : le candidat
+            // qui attendait une reponse doit l'apprendre autrement qu'en
+            // voyant sa carte disparaitre. Fermeture idempotente, donc sans
+            // risque si la commande repasse sur la meme offre.
+            $this->matchClosingService->closeForOffer($offre, MatchClosedReason::OFFER_EXPIRED);
 
             if (! $proprietaire) {
                 continue;

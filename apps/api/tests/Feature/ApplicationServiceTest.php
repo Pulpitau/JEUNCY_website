@@ -2,21 +2,28 @@
 
 namespace Tests\Feature;
 
+use App\Enums\ApplicationSource;
 use App\Enums\ApplicationStatus;
 use App\Enums\ContractType;
+use App\Enums\InterestDecision;
 use App\Enums\JobOfferStatus;
+use App\Enums\MatchClosedReason;
 use App\Enums\NotificationType;
 use App\Enums\SubscriptionStatus;
 use App\Enums\UserRole;
+use App\Enums\VerificationStatus;
 use App\Exceptions\ApiException;
 use App\Models\CandidateProfile;
 use App\Models\GeneratedCv;
 use App\Models\JobOffer;
+use App\Models\Notification;
+use App\Models\OfferInterest;
 use App\Models\Subscription;
 use App\Models\User;
 use App\Services\ApplicationService;
 use App\Services\CandidateProfileService;
 use App\Services\CompanyService;
+use App\Services\DiscoverService;
 use App\Services\JobOfferService;
 use App\Services\MailService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -66,7 +73,15 @@ class ApplicationServiceTest extends TestCase
     private function makePublishedOffer(string $companyEmail = 'rh@nexatech.example.com'): JobOffer
     {
         $owner = User::create(['email' => $companyEmail, 'password_hash' => 'x', 'role' => UserRole::COMPANY]);
-        $this->companyService->createForUser($owner, ['name' => 'NexaTech']);
+        $company = $this->companyService->createForUser($owner, ['name' => 'NexaTech']);
+        // Depuis le 2026-09-22, listForOffer exige une entreprise VERIFIED :
+        // « jamais d'employeur non verifie face a un candidat » est un
+        // invariant, pas une option. Les tests d'acces payant gardent leur
+        // sens avec une entreprise verifiee mais sans abonnement.
+        $company->forceFill([
+            'verification_status' => VerificationStatus::VERIFIED,
+            'verified_at' => now(),
+        ])->saveQuietly();
         $offer = $this->jobOfferService->createForUser($owner->fresh(), [
             'title' => 'Développeur web full-stack en alternance',
             'description' => 'Rejoins notre équipe.',
@@ -382,5 +397,162 @@ class ApplicationServiceTest extends TestCase
 
         $this->assertNotNull($application->id);
         $this->assertDatabaseHas('applications', ['id' => $application->id]);
+    }
+
+    // ---------------------------------------------------------------------
+    // Modele match (2026-09-22). UN DOSSIER VAUT « Ca m'interesse » : sans
+    // cela, une offre a laquelle le candidat vient de postuler resterait
+    // dans sa pile Decouvrir, et un match ne d'un dossier n'existerait
+    // jamais comme match.
+    // ---------------------------------------------------------------------
+
+    public function test_apply_sets_source_site_app_or_match(): void
+    {
+        $offer = $this->makePublishedOffer();
+        $candidate = $this->makeCandidate();
+
+        $depuisLeSite = $this->service->applyForUser($candidate, $offer, null);
+        $this->assertSame(ApplicationSource::SITE, $depuisLeSite->source);
+
+        $offer2 = $this->makePublishedOffer('rh2@nexatech.example.com');
+        $depuisLApp = $this->service->applyForUser($candidate, $offer2, null, null, null, null, fromMobile: true);
+        $this->assertSame(ApplicationSource::APP, $depuisLApp->source);
+
+        // Un match prime sur le client : ce qui compte pour lire les
+        // chiffres, c'est qu'un match ait precede le dossier.
+        $offer3 = $this->makePublishedOffer('rh3@nexatech.example.com');
+        OfferInterest::create([
+            'candidate_profile_id' => $candidate->candidateProfile->id,
+            'job_offer_id' => $offer3->id,
+            'candidate_decision' => InterestDecision::LIKE,
+            'employer_decision' => InterestDecision::LIKE,
+            'matched_at' => now(),
+        ]);
+        $apresMatch = $this->service->applyForUser($candidate, $offer3, null, null, null, null, fromMobile: true);
+        $this->assertSame(ApplicationSource::MATCH, $apresMatch->source);
+    }
+
+    public function test_apply_links_interest_both_ways(): void
+    {
+        $offer = $this->makePublishedOffer();
+        $candidate = $this->makeCandidate();
+
+        $application = $this->service->applyForUser($candidate, $offer, null);
+        $interest = OfferInterest::firstOrFail();
+
+        $this->assertSame($interest->id, $application->fresh()->interest_id);
+        $this->assertSame($application->id, $interest->application_id);
+        $this->assertSame(InterestDecision::LIKE, $interest->candidate_decision);
+    }
+
+    public function test_apply_records_candidate_like_and_matches_silently_when_employer_liked_first(): void
+    {
+        $offer = $this->makePublishedOffer();
+        $candidate = $this->makeCandidate();
+
+        OfferInterest::create([
+            'candidate_profile_id' => $candidate->candidateProfile->id,
+            'job_offer_id' => $offer->id,
+            'employer_decision' => InterestDecision::LIKE,
+            'employer_decided_at' => now(),
+        ]);
+
+        $application = $this->service->applyForUser($candidate, $offer, null);
+        $interest = OfferInterest::firstOrFail();
+
+        $this->assertNotNull($interest->matched_at);
+        $this->assertSame($application->id, $interest->application_id);
+        // Silencieux : la notification NEW_APPLICATION dit deja la meme
+        // chose a l'employeur, un NEW_MATCH en plus la dirait deux fois.
+        $this->assertSame(0, Notification::where('type', NotificationType::NEW_MATCH)->count());
+        $this->assertNotNull($interest->candidate_notified_at);
+    }
+
+    public function test_a_previous_pass_gives_way_to_an_application(): void
+    {
+        $offer = $this->makePublishedOffer();
+        $candidate = $this->makeCandidate();
+
+        OfferInterest::create([
+            'candidate_profile_id' => $candidate->candidateProfile->id,
+            'job_offer_id' => $offer->id,
+            'candidate_decision' => InterestDecision::PASS,
+            'candidate_decided_at' => now(),
+        ]);
+
+        // Passer puis postuler n'est pas une contradiction a refuser : c'est
+        // un avis qui a evolue, et postuler est le geste le plus fort.
+        $this->service->applyForUser($candidate, $offer, null);
+
+        $this->assertSame(InterestDecision::LIKE, OfferInterest::firstOrFail()->candidate_decision);
+    }
+
+    public function test_applied_offer_leaves_the_candidate_pile(): void
+    {
+        $offer = $this->makePublishedOffer();
+        $candidate = $this->makeCandidate();
+
+        $this->service->applyForUser($candidate, $offer, null);
+
+        $pile = $this->app->make(DiscoverService::class)
+            ->offersForCandidate($candidate->fresh());
+
+        $this->assertSame([], array_column($pile['jeuncy'], 'id'));
+    }
+
+    public function test_update_status_sets_responded_at_once(): void
+    {
+        $offer = $this->makePublishedOffer();
+        $candidate = $this->makeCandidate();
+        $owner = $this->jobOfferService->ownerUser($offer);
+        $application = $this->service->applyForUser($candidate, $offer, null);
+
+        $this->service->updateStatus($owner, $application, ApplicationStatus::SEEN);
+        $premiereReponse = $application->fresh()->responded_at;
+        $this->assertNotNull($premiereReponse);
+
+        $this->travel(2)->days();
+        $this->service->updateStatus($owner, $application->fresh(), ApplicationStatus::REJECTED);
+
+        // La promesse « reponse garantie » se mesure a la PREMIERE reponse :
+        // un changement de statut ulterieur ne doit pas repousser la date.
+        $this->assertEquals($premiereReponse, $application->fresh()->responded_at);
+        $this->travelBack();
+    }
+
+    public function test_withdraw_closes_match_and_notifies_employer(): void
+    {
+        $offer = $this->makePublishedOffer();
+        $candidate = $this->makeCandidate();
+        $owner = $this->jobOfferService->ownerUser($offer);
+
+        OfferInterest::create([
+            'candidate_profile_id' => $candidate->candidateProfile->id,
+            'job_offer_id' => $offer->id,
+            'employer_decision' => InterestDecision::LIKE,
+            'employer_decided_at' => now(),
+        ]);
+        $application = $this->service->applyForUser($candidate, $offer, null);
+        $this->assertNotNull(OfferInterest::firstOrFail()->matched_at);
+
+        $this->service->withdrawForUser($candidate, $application);
+
+        $interest = OfferInterest::firstOrFail();
+        $this->assertNotNull($interest->closed_at);
+        $this->assertSame(MatchClosedReason::APPLICATION_WITHDRAWN, $interest->closed_reason);
+        $this->assertSame(1, Notification::where('user_id', $owner->id)
+            ->where('type', NotificationType::MATCH_CLOSED)->count());
+    }
+
+    public function test_list_for_offer_requires_verified_company(): void
+    {
+        $offer = $this->makePublishedOffer();
+        $owner = $this->jobOfferService->ownerUser($offer);
+        $owner->company->forceFill(['verification_status' => VerificationStatus::PENDING])->saveQuietly();
+
+        $this->expectException(ApiException::class);
+        $this->expectExceptionMessage("Ton entreprise doit être vérifiée avant d'accéder aux candidats.");
+
+        $this->service->listForOffer($owner->fresh(), $offer);
     }
 }

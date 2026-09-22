@@ -2,7 +2,9 @@
 
 namespace App\Services;
 
+use App\Enums\ContractType;
 use App\Enums\JobOfferStatus;
+use App\Enums\MatchClosedReason;
 use App\Enums\PaymentStatus;
 use App\Enums\UserRole;
 use App\Exceptions\ApiException;
@@ -14,6 +16,7 @@ use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\DB;
 
 class JobOfferService
 {
@@ -32,6 +35,7 @@ class JobOfferService
         private readonly MailService $mailService,
         private readonly SubscriptionService $subscriptionService,
         private readonly JobOfferMatchService $matchService,
+        private readonly GeocodingService $geocodingService,
     ) {}
 
     public function listOwn(User $user): Collection
@@ -55,28 +59,62 @@ class JobOfferService
             $this->syncSkills($jobOffer, $skillNames);
         }
 
+        if ($jobOffer->postal_code !== null) {
+            $this->geocodingService->apply($jobOffer, $jobOffer->postal_code, $jobOffer->city);
+        }
+
         return $jobOffer->load('skills');
     }
 
-    // Restreint au brouillon (comme le paiement, voir requireOwnedDraftOffer) :
-    // une fois publiee (payee), une offre ne doit plus pouvoir changer de
-    // contenu librement en gardant son statut/date de publication — le
-    // frontend ne montre deja le bouton "Modifier" que pour une offre en
-    // brouillon, cette restriction cote service ferme juste l'acces direct
-    // par API. Archiver puis recreer reste possible pour changer le contenu.
+    // Restreint au brouillon (comme le paiement, voir requireOwnedDraftOffer)
+    // OU a une offre publiee GRATUITEMENT.
+    //
+    // La restriction historique protegeait ce qui avait ete paye : une offre
+    // achetee ne doit pas changer de contenu en gardant sa date de
+    // publication. Une offre gratuite n'a rien achete, et deux besoins
+    // exigent qu'elle reste modifiable : l'offre express est publiee des sa
+    // creation et doit etre completee ensuite (MOBILE.md §4.1), et la seule
+    // offre publiee de production (IDA) doit pouvoir recevoir son code postal
+    // pour entrer dans Decouvrir. Statut, published_at et
+    // applications_unlocked_at sont conserves.
     public function updateForUser(User $user, JobOffer $jobOffer, array $data): JobOffer
     {
-        $jobOffer = $this->requireOwnedDraftOffer($user, $jobOffer);
+        $jobOffer = $this->requireOwnedEditableOffer($user, $jobOffer);
 
         $skillNames = array_key_exists('skills', $data) ? $data['skills'] : null;
         unset($data['skills']);
+
+        $locationChanged = (array_key_exists('postal_code', $data) && $data['postal_code'] !== $jobOffer->postal_code)
+            || (array_key_exists('city', $data) && $data['city'] !== $jobOffer->city);
+
         $jobOffer->update($data);
 
         if ($skillNames !== null) {
             $this->syncSkills($jobOffer, $skillNames);
         }
 
+        if ($locationChanged) {
+            $this->geocodingService->apply($jobOffer, $jobOffer->postal_code, $jobOffer->city);
+        }
+
         return $jobOffer->load('skills');
+    }
+
+    // Offre modifiable : brouillon, ou publiee gratuitement (voir
+    // updateForUser). Une offre payee, en essai ou par abonnement reste
+    // fermee a la modification.
+    private function requireOwnedEditableOffer(User $user, JobOffer $jobOffer): JobOffer
+    {
+        $jobOffer = $this->requireOwnedOffer($user, $jobOffer);
+
+        $publishedForFree = $jobOffer->status === JobOfferStatus::PUBLISHED
+            && $jobOffer->payment_status === PaymentStatus::FREE;
+
+        if ($jobOffer->status !== JobOfferStatus::DRAFT && ! $publishedForFree) {
+            throw new ApiException('JOB_OFFER_NOT_DRAFT', "Cette offre n'est plus en brouillon.", 409);
+        }
+
+        return $jobOffer;
     }
 
     // Meme pattern de dedoublonnage par nom que
@@ -113,6 +151,11 @@ class JobOfferService
 
         $jobOffer->update(['status' => JobOfferStatus::ARCHIVED]);
 
+        // Les matchs nes sur cette offre n'ont plus d'objet : on les ferme et
+        // on previent l'autre partie. Un candidat qui a matche ne doit pas
+        // attendre indefiniment un dossier a envoyer sur une offre retiree.
+        $this->closeMatches($jobOffer, MatchClosedReason::OFFER_ARCHIVED);
+
         return $jobOffer;
     }
 
@@ -128,7 +171,25 @@ class JobOfferService
     public function deleteForUser(User $user, JobOffer $jobOffer): void
     {
         $jobOffer = $this->requireOwnedOffer($user, $jobOffer);
+
+        // AVANT le delete : offer_interests part en cascade avec l'offre, et
+        // une ligne supprimee ne peut plus prevenir personne.
+        $this->closeMatches($jobOffer, MatchClosedReason::OFFER_DELETED);
+
         $jobOffer->delete();
+    }
+
+    /**
+     * Ferme les interets ouverts d'une offre (lot 1, MatchClosingService).
+     *
+     * Resolu par le conteneur a l'appel et non injecte au constructeur :
+     * MatchClosingService n'a pas besoin de JobOfferService, mais l'inverse
+     * est vrai, et une injection croisee au constructeur serait une
+     * dependance circulaire pour deux appels.
+     */
+    private function closeMatches(JobOffer $jobOffer, MatchClosedReason $reason): void
+    {
+        app(MatchClosingService::class)->closeForOffer($jobOffer, $reason);
     }
 
     // Reutilise par PaymentService avant de creer une session de paiement : une
@@ -279,6 +340,7 @@ class JobOfferService
         }
 
         $jobOffer = $this->requirePayableOffer($user, $jobOffer);
+        $this->ensureLocated($jobOffer);
 
         $jobOffer->update([
             'status' => JobOfferStatus::PUBLISHED,
@@ -300,6 +362,98 @@ class JobOfferService
         $this->matchService->notifyMatchingCandidates($jobOffer);
 
         return $jobOffer;
+    }
+
+    /**
+     * Offre express (MOBILE.md §4.1) : intitule, contrat, commune + code
+     * postal, secteur, rayon — creee ET publiee en une requete.
+     *
+     * Le deck de candidats ne doit jamais etre verrouille derriere le
+     * formulaire long : une entreprise qui decouvre l'app doit pouvoir
+     * publier en une minute, puis completer depuis « Mes offres » (ce que
+     * requireOwnedEditableOffer autorise desormais pour une offre gratuite).
+     *
+     * Transaction : une offre creee mais non publiee serait un brouillon
+     * fantome que personne n'a demande.
+     */
+    public function createExpressForUser(User $user, array $data): JobOffer
+    {
+        // Le geocodage AVANT d'ouvrir la transaction, jamais dedans : c'est
+        // un appel reseau de 4 secondes au pire, et une transaction MySQL
+        // tenue ouverte le temps qu'un service tiers reponde bloque ses
+        // lignes pour rien. Cet appel remplit geocode_cache ; les deux
+        // appels qui suivent (createForUser puis ensureLocated) y lisent la
+        // reponse sans toucher au reseau.
+        $this->geocodingService->geocode($data['postal_code'] ?? null, $data['city'] ?? null);
+
+        return DB::transaction(function () use ($user, $data) {
+            $jobOffer = $this->createForUser($user, [
+                ...$data,
+                'description' => $this->expressDescription($data),
+            ]);
+
+            return $this->publishFreeForUser($user, $jobOffer);
+        });
+    }
+
+    private function expressDescription(array $data): string
+    {
+        $contract = $this->contractLabel(ContractType::tryFrom((string) ($data['contract_type'] ?? '')));
+        $city = trim((string) ($data['city'] ?? ''));
+        $postalCode = trim((string) ($data['postal_code'] ?? ''));
+
+        return trim("{$data['title']} — {$contract} à {$city} ({$postalCode}). Description à compléter depuis Mes offres.");
+    }
+
+    private function contractLabel(?ContractType $contractType): string
+    {
+        return match ($contractType) {
+            ContractType::ALTERNANCE => 'alternance',
+            ContractType::SAISONNIER => 'emploi saisonnier',
+            ContractType::BENEVOLAT => 'bénévolat',
+            ContractType::JOB_ETUDIANT => 'job étudiant',
+            ContractType::STAGE => 'stage',
+            default => 'poste',
+        };
+    }
+
+    /**
+     * Une offre entre dans Decouvrir par son code postal : la commune seule
+     * est ambigue (MOBILE.md §6). Repli sur celui de l'organisation, parce
+     * qu'une PME publie presque toujours pour son propre etablissement ;
+     * sinon on refuse la publication en disant quoi faire, plutot que de
+     * publier une offre que personne ne verra jamais dans sa pile.
+     */
+    private function ensureLocated(JobOffer $jobOffer): void
+    {
+        if (blank($jobOffer->postal_code)) {
+            $organization = $this->organizationOf($jobOffer);
+
+            if (blank($organization?->postal_code)) {
+                throw new ApiException(
+                    'JOB_OFFER_POSTAL_CODE_REQUIRED',
+                    'Indique le code postal du poste avant de publier.',
+                    409,
+                );
+            }
+
+            $jobOffer->postal_code = $organization->postal_code;
+            if (blank($jobOffer->city)) {
+                $jobOffer->city = $organization->city;
+            }
+            $jobOffer->save();
+        }
+
+        if (! $jobOffer->hasCoordinates()) {
+            $this->geocodingService->apply($jobOffer, $jobOffer->postal_code, $jobOffer->city);
+        }
+    }
+
+    private function organizationOf(JobOffer $jobOffer): Company|CfaOrganization|null
+    {
+        return $jobOffer->company_id !== null
+            ? $jobOffer->company
+            : $jobOffer->cfaOrganization;
     }
 
     public static function gratuit(): bool

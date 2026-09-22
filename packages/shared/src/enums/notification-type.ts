@@ -8,6 +8,9 @@ export const NotificationType = {
   VIDEO_ROOM_REMINDER: 'VIDEO_ROOM_REMINDER',
   PAYMENT_REFUNDED: 'PAYMENT_REFUNDED',
   JOB_OFFER_MATCH: 'JOB_OFFER_MATCH',
+  NEW_MATCH: 'NEW_MATCH',
+  INTEREST_RECEIVED: 'INTEREST_RECEIVED',
+  MATCH_CLOSED: 'MATCH_CLOSED',
 } as const;
 
 export type NotificationType = (typeof NotificationType)[keyof typeof NotificationType];

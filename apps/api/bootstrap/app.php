@@ -1,6 +1,7 @@
 <?php
 
 use App\Exceptions\ApiException;
+use App\Http\Middleware\EnsureMatchAge;
 use App\Http\Middleware\EnsureUserHasRole;
 use App\Http\Middleware\WrapApiResponse;
 use Illuminate\Console\Scheduling\Schedule;
@@ -68,6 +69,12 @@ return Application::configure(basePath: dirname(__DIR__))
         // sont a la creation de leur profil. Restent ceux qui ne touchent plus a
         // leur profil — ce balayage les couvre. Idempotent (voir la commande).
         $unePasseParPeriode('job-offers:notify-matching-candidates', 'jour');
+        // Rattrapage du geocodage : un profil, une offre ou une organisation
+        // cree pendant une panne de l'IGN reste sans coordonnees, donc hors
+        // de Decouvrir des deux cotes. La commande est idempotente (elle ne
+        // reprend que les lignes avec code postal et sans coordonnees) et ne
+        // rappelle le geocodeur que pour celles-la.
+        $unePasseParPeriode('geocode:backfill', 'jour');
         // Applique reellement la duree de conservation de 3 ans annoncee aux
         // candidats dans la politique de confidentialite (section 4 ter).
         // Hebdomadaire et non quotidien : le delai se compte en annees, une
@@ -122,6 +129,11 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
         $middleware->alias([
             'role' => EnsureUserHasRole::class,
+            // Seize ans minimum sur toute route du match, quel que soit le
+            // client (MOBILE.md §9.3). Declare ici et non dans chaque
+            // controleur : une route du match ajoutee demain sans la garde
+            // se verrait dans routes/api/*, pas dans un service.
+            'match.age' => EnsureMatchAge::class,
         ]);
         // API pure, aucune route 'login' web : ne jamais rediriger un invite,
         // toujours lever AuthenticationException (rendue en JSON 401 ci-dessous).

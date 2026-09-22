@@ -128,6 +128,32 @@ return [
         // Un CFA qui s'inscrirait librement acceder aux memes candidats que
         // l'ecole partenaire — c'est precisement ce qu'on ne veut pas.
         'inscription_cfa_ouverte' => filter_var(env('JEUNCY_INSCRIPTION_CFA_OUVERTE', false), FILTER_VALIDATE_BOOLEAN),
+        // Perimetre d'ouverture du modele match (MOBILE.md §6, decision 6) :
+        // les Pyrenees-Orientales au lancement, ouverture departement par
+        // departement ensuite. '*' = partout.
+        //
+        // ATTENTION, le sens d'une valeur VIDE est l'INVERSE de
+        // lba.departements juste au-dessus : vide = FERME, aucun departement.
+        // La leçon du 2026-09-18 (une liste vide aurait vide le site en une
+        // nuit) vaut dans les deux sens — ici, le risque serait d'ouvrir la
+        // France entiere par omission, c'est-a-dire de montrer des cartes de
+        // mineurs a des employeurs qu'on n'a pas encore rencontres.
+        //
+        // Ce perimetre ne restreint QUE le cote employeur (Decouvrir des
+        // candidats, interet employeur). La pile du candidat n'est jamais
+        // bornee : il peut marquer son interet sur n'importe quelle offre
+        // Jeuncy publiee.
+        'match_departements' => (function () {
+            $brut = trim((string) env('JEUNCY_MATCH_DEPARTEMENTS', '66'));
+
+            if ($brut === '') {
+                return [];
+            }
+
+            return $brut === '*'
+                ? ['*']
+                : array_values(array_filter(array_map('trim', explode(',', $brut))));
+        })(),
     ],
 
     'ses' => [

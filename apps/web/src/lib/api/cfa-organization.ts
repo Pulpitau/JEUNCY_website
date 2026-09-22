@@ -1,4 +1,4 @@
-import type { WorkMode } from '@jeuncy/shared';
+import type { VerificationStatus, WorkMode } from '@jeuncy/shared';
 import { apiRequest } from './client';
 
 export interface CfaOrganization {
@@ -6,6 +6,10 @@ export interface CfaOrganization {
   user_id: number;
   name: string;
   siret: string | null;
+  // Voir Company : statut public, note réservée au propriétaire. Les CFA
+  // existants (IDA) sont passés VERIFIED par la migration.
+  verification_status: VerificationStatus;
+  verification_note?: string | null;
   nda_number: string | null;
   qualiopi_number: string | null;
   description: string | null;
@@ -24,6 +28,8 @@ export interface CfaOrganization {
 
 export interface CfaOrganizationInput {
   name: string;
+  // Requis à la création (voir CompanyInput). L'inscription CFA étant fermée,
+  // seuls les comptes existants passent ici, en modification.
   siret?: string | null;
   nda_number?: string | null;
   qualiopi_number?: string | null;

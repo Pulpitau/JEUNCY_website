@@ -11,6 +11,13 @@ use Illuminate\Http\Request;
 
 class ApplicationController extends Controller
 {
+    // Meme en-tete que AuthController : c'est ainsi qu'un client natif se
+    // declare. Sert ici a renseigner applications.source (SITE / APP), pas a
+    // changer le comportement.
+    private const MOBILE_CLIENT_HEADER = 'X-Jeuncy-Client';
+
+    private const MOBILE_CLIENT_VALUE = 'mobile';
+
     public function __construct(private readonly ApplicationService $service) {}
 
     public function store(StoreApplicationRequest $request): JsonResponse
@@ -24,6 +31,7 @@ class ApplicationController extends Controller
             $validated['contact_phone'],
             $validated['generated_cv_id'] ?? null,
             $request->file('cv_file'),
+            $this->isMobileClient($request),
         );
 
         return response()->json($application, 201);
@@ -39,5 +47,11 @@ class ApplicationController extends Controller
         $this->service->withdrawForUser($request->user(), $application);
 
         return response()->json(['withdrawn' => true]);
+    }
+
+    private function isMobileClient(Request $request): bool
+    {
+        return strtolower(trim((string) $request->header(self::MOBILE_CLIENT_HEADER, '')))
+            === self::MOBILE_CLIENT_VALUE;
     }
 }

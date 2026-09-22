@@ -19,6 +19,9 @@ class CvthequeController extends Controller
         );
     }
 
+    // find() rend un tableau (la carte du presenteur + cv_available), pas un
+    // modele : c'est CandidateCardPresenter qui decide de ce qui sort, il n'y
+    // a plus de profil a serialiser ici.
     public function show(Request $request, int $candidateProfile): JsonResponse
     {
         return response()->json(

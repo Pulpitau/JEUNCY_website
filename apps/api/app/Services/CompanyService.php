@@ -14,8 +14,16 @@ use Illuminate\Support\Str;
 class CompanyService
 {
     public function __construct(
-        private readonly TrainingOrganizationDetector $trainingOrganizationDetector,
+        private readonly CompanyVerificationService $verificationService,
+        private readonly GeocodingService $geocodingService,
     ) {}
+
+    // Un seul detecteur par requete (voir CompanyVerificationService::detector) :
+    // la detection d'ecole et la verification interrogent le meme registre.
+    private function trainingOrganizationDetector(): TrainingOrganizationDetector
+    {
+        return $this->verificationService->detector();
+    }
 
     // Annuaire public : n'importe quel visiteur peut parcourir les entreprises
     // inscrites, aucune authentification requise (voir routes/api/companies.php).
@@ -93,13 +101,21 @@ class CompanyService
         // Une ecole qui se presente en entreprise est refusee ICI, au moment
         // ou elle decline son identite — pas a l'inscription du compte, ou
         // l'on ne connait qu'un email (voir TrainingOrganizationDetector).
-        $this->trainingOrganizationDetector->assertNotTrainingOrganization(
+        $this->trainingOrganizationDetector()->assertNotTrainingOrganization(
             $data['name'] ?? null,
             $data['description'] ?? null,
             $data['siret'] ?? null,
         );
 
-        return $this->withOwnerFields($user->company()->create($data));
+        $company = $user->company()->create($data);
+
+        // Dans cet ordre : la fiche existe d'abord, les deux appels reseau
+        // ensuite. Ni le geocodeur ni le registre ne peuvent faire perdre
+        // une fiche que l'entreprise vient de saisir.
+        $this->geocodingService->apply($company, $company->postal_code, $company->city);
+        $this->verificationService->verify($company);
+
+        return $this->withOwnerFields($company);
     }
 
     public function updateForUser(User $user, array $data): Company
@@ -111,14 +127,42 @@ class CompanyService
         // des trois champs bouge — la consultation du registre est un appel
         // reseau, inutile pour un changement de ville ou de logo.
         if (array_intersect_key($data, array_flip(['name', 'description', 'siret'])) !== []) {
-            $this->trainingOrganizationDetector->assertNotTrainingOrganization(
+            $this->trainingOrganizationDetector()->assertNotTrainingOrganization(
                 array_key_exists('name', $data) ? $data['name'] : $company->name,
                 array_key_exists('description', $data) ? $data['description'] : $company->description,
                 array_key_exists('siret', $data) ? $data['siret'] : $company->siret,
             );
         }
 
+        // Le SIRET est la seule preuve d'existence dont Jeuncy dispose
+        // (MOBILE.md §4.0) : on ne peut pas le retirer apres coup, sans quoi
+        // une fiche verifiee deviendrait une fiche anonyme tout en gardant
+        // son statut. La garde porte sur la valeur APRES fusion, pas sur le
+        // corps de la requete : envoyer siret: null est le seul moyen de
+        // l'effacer, et c'est precisement ce qu'on refuse.
+        $siretAfterMerge = array_key_exists('siret', $data) ? $data['siret'] : $company->siret;
+        if (blank($siretAfterMerge)) {
+            throw new ApiException('SIRET_REQUIRED', 'Le numéro SIRET est obligatoire pour une fiche entreprise.', 400);
+        }
+
+        $siretChanged = array_key_exists('siret', $data) && $data['siret'] !== $company->siret;
+        $locationChanged = (array_key_exists('postal_code', $data) && $data['postal_code'] !== $company->postal_code)
+            || (array_key_exists('city', $data) && $data['city'] !== $company->city);
+
         $company->update($data);
+
+        if ($locationChanged) {
+            $this->geocodingService->apply($company, $company->postal_code, $company->city);
+        }
+
+        // Re-verifiee quand le SIRET change (nouvelle identite a prouver) ou
+        // quand la fiche n'est pas VERIFIED : c'est la seule seconde chance
+        // d'une entreprise restee PENDING parce que le registre etait en
+        // panne le jour de son inscription (pas de re-verification planifiee
+        // dans ce lot).
+        if ($siretChanged || ! $company->isVerified()) {
+            $this->verificationService->verify($company);
+        }
 
         return $this->withOwnerFields($company);
     }

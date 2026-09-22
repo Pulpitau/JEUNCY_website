@@ -6,6 +6,7 @@ use App\Enums\ContractType;
 use App\Enums\JobOfferStatus;
 use App\Enums\PaymentStatus;
 use App\Enums\UserRole;
+use App\Enums\VerificationStatus;
 use App\Models\CfaOrganization;
 use App\Models\Company;
 use App\Models\JobOffer;
@@ -35,6 +36,15 @@ class PublicDataExposureTest extends TestCase
         'siret',
         'trial_started_at',
         'trial_offers_count',
+        // Ajoutes le 2026-09-22 avec la porte de verification (MOBILE.md
+        // §4.0) : qui a verifie et pourquoi sont un detail interne, et les
+        // coordonnees sont une donnee de calcul, pas de presentation.
+        // verification_status, lui, reste public : c'est le signal de
+        // confiance montre au candidat (test dedie plus bas).
+        'verified_by',
+        'verification_note',
+        'latitude',
+        'longitude',
     ];
 
     private function makeCompany(): Company
@@ -51,9 +61,18 @@ class PublicDataExposureTest extends TestCase
             'city' => 'Perpignan',
         ]);
 
-        // Etat d'essai renseigne : sans ca, des champs nuls passeraient le
-        // test sans rien prouver.
-        $company->forceFill(['trial_started_at' => now(), 'trial_offers_count' => 1])->save();
+        // Etat d'essai ET etat de verification renseignes : sans ca, des
+        // champs nuls passeraient le test sans rien prouver.
+        $company->forceFill([
+            'trial_started_at' => now(),
+            'trial_offers_count' => 1,
+            'verification_status' => VerificationStatus::VERIFIED,
+            'verified_at' => now(),
+            'verified_by' => $this->adminId(),
+            'verification_note' => 'Etablissement actif au registre.',
+            'latitude' => 42.70,
+            'longitude' => 2.90,
+        ])->save();
 
         return $company->refresh();
     }
@@ -74,9 +93,28 @@ class PublicDataExposureTest extends TestCase
             'city' => 'Montpellier',
         ]);
 
-        $cfa->forceFill(['trial_started_at' => now(), 'trial_offers_count' => 1])->save();
+        $cfa->forceFill([
+            'trial_started_at' => now(),
+            'trial_offers_count' => 1,
+            'verification_status' => VerificationStatus::VERIFIED,
+            'verified_at' => now(),
+            'verified_by' => $this->adminId(),
+            'verification_note' => 'CFA partenaire.',
+            'latitude' => 43.61,
+            'longitude' => 3.88,
+        ])->save();
 
         return $cfa->refresh();
+    }
+
+    // Un admin verificateur, cree une seule fois : verified_by est une
+    // cle etrangere, il lui faut une vraie ligne.
+    private function adminId(): int
+    {
+        return User::firstOrCreate(
+            ['email' => 'admin@jeuncy.test'],
+            ['password_hash' => 'x', 'role' => UserRole::ADMIN],
+        )->id;
     }
 
     private function assertNothingSensitive(array $payload, string $context): void
@@ -122,6 +160,36 @@ class PublicDataExposureTest extends TestCase
             $results->items()[0]->toArray(),
             'La liste publique des CFA',
         );
+    }
+
+    // La porte de verification (MOBILE.md §4.0) ajoute cinq colonnes aux
+    // deux tables d'organisation. Une seule est destinee au public.
+    public function test_public_company_hides_verified_by_note_and_coordinates(): void
+    {
+        $company = $this->makeCompany();
+
+        $payload = app(CompanyService::class)->findPublic($company->id)->toArray();
+
+        $this->assertNothingSensitive($payload, 'La fiche publique d’une entreprise verifiee');
+
+        // Le badge « entreprise verifiee » suppose que le statut sorte.
+        $this->assertSame(VerificationStatus::VERIFIED->value, $payload['verification_status']);
+
+        // Et le proprietaire, lui, doit pouvoir lire la raison d'un refus.
+        $this->assertSame(
+            'Etablissement actif au registre.',
+            $company->makeVisible(Company::OWNER_VISIBLE)->toArray()['verification_note'],
+        );
+    }
+
+    public function test_public_cfa_hides_verified_by_note_and_coordinates(): void
+    {
+        $cfa = $this->makeCfa();
+
+        $payload = app(CfaOrganizationService::class)->findPublic($cfa->id)->toArray();
+
+        $this->assertNothingSensitive($payload, 'La fiche publique d’un CFA verifie');
+        $this->assertSame(VerificationStatus::VERIFIED->value, $payload['verification_status']);
     }
 
     // Les certifications restent visibles : un CFA les met en avant, elles

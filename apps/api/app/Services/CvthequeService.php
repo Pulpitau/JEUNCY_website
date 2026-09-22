@@ -3,20 +3,23 @@
 namespace App\Services;
 
 use App\Enums\CvSource;
+use App\Enums\UserRole;
 use App\Exceptions\ApiException;
+use App\Models\Application;
 use App\Models\CandidateProfile;
+use App\Models\Company;
 use App\Models\CvDownload;
 use App\Models\User;
+use App\Presenters\CandidateCardPresenter;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
-// CVtheque : recherche de profils candidats reservee aux entreprises et CFA
-// disposant d'un abonnement actif (decision produit du 2026-08-17 — c'est la
-// contrepartie principale de l'abonnement, elle n'est plus achetable a l'unite).
+// CVtheque : recherche de profils candidats, ouverte aux entreprises et CFA
+// (gratuite depuis le 2026-09-15, la garde d'abonnement subsiste pour les
+// comptes qui n'ont aucun acces paye — voir SubscriptionService).
 //
-// Deux garde-fous RGPD structurent tout ce service, et ils ne doivent pas etre
+// Trois garde-fous structurent tout ce service, et ils ne doivent pas etre
 // contournes par une future evolution :
 //
 //  1. Seuls les profils dont le candidat n'a pas coupe la visibilite
@@ -24,30 +27,51 @@ use Illuminate\Support\Str;
 //     premier, sur chaque requete, liste comme detail — un profil retire ne
 //     doit pas rester accessible en tapant son identifiant directement.
 //
-//  2. Minimisation : la liste ne renvoie AUCUNE coordonnee directe (email,
-//     telephone, adresse precise, date de naissance). Un recruteur qui parcourt
-//     des resultats n'a pas besoin de pouvoir moissonner des contacts ; il voit
-//     de quoi juger la pertinence d'un profil, et les coordonnees seulement
-//     apres avoir ouvert la fiche (voir LIST_COLUMNS et DETAIL_RELATIONS).
+//  2. Regle d'exposition unique (MOBILE.md §4.3, contrat lot 1 §4) : ni la
+//     liste ni la fiche ne renvoient le modele. Les deux passent par
+//     CandidateCardPresenter, une liste blanche partagee avec le deck
+//     employeur de l'app. Avant qu'un candidat ait postule, un recruteur ne
+//     voit ni son nom complet, ni sa ville, ni ses coordonnees, ni son CV.
+//     Corollaire : on ne CHERCHE pas non plus dans ce qu'on ne montre pas
+//     (ville, bio, nom) — un filtre qui reduit les resultats revele la donnee
+//     par inference, meme sans jamais l'afficher.
+//
+//  3. Le CV n'est servi que si le candidat a postule a une offre de cet
+//     employeur (CV_NOT_SHARED sinon). Le document part quand le candidat
+//     fait le geste, pas quand le recruteur le decide.
 class CvthequeService
 {
     public function __construct(
         private readonly SubscriptionService $subscriptionService,
         private readonly CvService $cvService,
         private readonly CandidateProfileService $profileService,
+        private readonly CompanyVerificationService $verificationService,
+        private readonly BlockService $blockService,
+        private readonly CandidateCardPresenter $presenter,
     ) {}
 
-    // Colonnes renvoyees en liste. Volontairement restreint : ni phone, ni
-    // address, ni birth_date, ni l'email du compte. La ville reste exposee, un
-    // recruteur devant pouvoir filtrer geographiquement — c'est une donnee de
-    // localisation grossiere, pas une adresse postale.
+    // Colonnes chargees : exactement celles dont le presenteur a besoin.
+    // Selectionner moins que la table entiere ne remplace pas la liste
+    // blanche du presenteur, c'est une seconde barriere : une colonne jamais
+    // lue ne peut pas fuir par un oubli de serialisation.
     //
-    // birth_date est selectionnee UNIQUEMENT pour calculer l'age (accesseur
-    // du modele) : elle est masquee de la reponse dans search() et find().
-    // Le recruteur voit « 22 ans », jamais la date de naissance.
-    private const LIST_COLUMNS = [
-        'id', 'user_id', 'first_name', 'last_name', 'headline', 'city',
-        'photo_url', 'bio', 'driving_license', 'birth_date',
+    // birth_date est chargee UNIQUEMENT pour calculer la tranche d'age
+    // (accesseur age_band) ; elle ne sort jamais du presenteur.
+    private const PRESENTER_COLUMNS = [
+        'id', 'user_id', 'first_name', 'last_name', 'birth_date', 'headline',
+        'pitch', 'wanted_contract_types', 'wanted_sectors', 'has_driving_license',
+        'driving_license_categories', 'has_vehicle', 'available_from',
+        'photo_url', 'show_photo_to_employers', 'cv_file_url', 'updated_at',
+    ];
+
+    // Relations lues par le presenteur. Chargees ici plutot que laissees en
+    // lazy load : 12 profils par page feraient sinon 60 requetes.
+    private const PRESENTER_RELATIONS = [
+        'skills:id,name',
+        'software:id,name',
+        'languages:id,candidate_profile_id,name,level',
+        'educations',
+        'experiences',
     ];
 
     // hasPaidAccess et non hasActiveSubscription : un compte ADMIN consulte la
@@ -68,22 +92,47 @@ class CvthequeService
         }
     }
 
-    public function search(User $user, array $filters): LengthAwarePaginator
+    /**
+     * Les deux gardes d'entree, TOUJOURS dans cet ordre.
+     *
+     * L'abonnement d'abord : un compte sans acces doit recevoir son 402, pas
+     * un 403 de verification qui lui ferait chercher le probleme du mauvais
+     * cote (et qui, pour un compte sans fiche entreprise du tout, serait de
+     * surcroit trompeur).
+     *
+     * requireVerified laisse passer ADMIN et STAFF : ils n'ont pas
+     * d'organisation a verifier. L'appeler sans condition evite de dupliquer
+     * cette liste de roles ici.
+     */
+    private function requireAccess(User $user): void
     {
         $this->requireCvthequeAccess($user);
+        $this->verificationService->requireVerified($user);
+    }
+
+    /**
+     * @return LengthAwarePaginator<int, array<string, mixed>>
+     */
+    public function search(User $user, array $filters): LengthAwarePaginator
+    {
+        $this->requireAccess($user);
 
         $query = CandidateProfile::query()
-            ->select(self::LIST_COLUMNS)
+            ->select(self::PRESENTER_COLUMNS)
             ->where('is_visible_in_cvtheque', true)
-            ->with(['skills:id,name', 'software:id,name', 'languages:id,candidate_profile_id,name,level'])
+            ->with(self::PRESENTER_RELATIONS)
             ->latest('updated_at');
 
-        if (! empty($filters['city'])) {
-            $query->where('city', 'like', '%'.$filters['city'].'%');
+        // Blocage mutuel : ni celui que l'employeur a bloque, ni celui qui a
+        // bloque l'employeur. Exclusion silencieuse — un profil absent est
+        // indiscernable d'un profil qui n'existe pas.
+        $blockedUserIds = $this->blockService->blockedUserIdsFor($user);
+        if ($blockedUserIds !== []) {
+            $query->whereNotIn('user_id', $blockedUserIds);
         }
 
-        if (! empty($filters['driving_license'])) {
-            $query->whereNotNull('driving_license')->where('driving_license', '!=', '');
+        if (! empty($filters['has_driving_license'])) {
+            $query->where('has_driving_license', true);
         }
 
         // Filtre par age. Le cout d'un alternant depend de sa tranche d'age,
@@ -115,86 +164,82 @@ class CvthequeService
             $query->whereHas('languages', fn (Builder $q) => $q->where('name', 'like', '%'.$filters['language'].'%'));
         }
 
-        // Recherche libre : titre pro, bio, et le contenu des experiences et
-        // formations — c'est la que se trouve le metier reellement exerce.
+        // Recherche libre : titre pro, experiences, formations — c'est la que
+        // se trouve le metier reellement exerce.
+        //
+        // Ni bio ni ville ici, et le nom seulement pour l'equipe Jeuncy : ces
+        // trois champs ne sont plus montres, et chercher dedans les revelerait
+        // par inference (taper « Perpignan » et compter les resultats vaut
+        // affichage de la ville). Le besoin du collegue STAFF — retrouver
+        // quelqu'un qu'il vient d'avoir au telephone — reste servi, lui,
+        // parce que l'equipe est deja responsable de traitement de ces
+        // donnees.
         if (! empty($filters['q'])) {
             $term = '%'.$filters['q'].'%';
-            $query->where(function (Builder $q) use ($term) {
-                // Le nom en premier : c'est par lui qu'on retrouve quelqu'un
-                // qu'on vient d'avoir au telephone ou de rencontrer sur un
-                // salon. Il manquait, et personne — pas meme un admin — ne
-                // pouvait retrouver un candidat par son nom.
+            $internal = $this->isInternal($user);
+            $query->where(function (Builder $q) use ($term, $internal) {
                 $q->where('first_name', 'like', $term)
-                    ->orWhere('last_name', 'like', $term)
-                    ->orWhereRaw("CONCAT(first_name, ' ', last_name) like ?", [$term])
                     ->orWhere('headline', 'like', $term)
-                    ->orWhere('bio', 'like', $term)
                     ->orWhereHas('experiences', fn (Builder $sub) => $sub->where('title', 'like', $term)->orWhere('company', 'like', $term))
                     ->orWhereHas('educations', fn (Builder $sub) => $sub->where('degree', 'like', $term)->orWhere('field_of_study', 'like', $term)->orWhere('school', 'like', $term));
+
+                if ($internal) {
+                    $q->orWhere('last_name', 'like', $term)
+                        ->orWhereRaw("CONCAT(first_name, ' ', last_name) like ?", [$term]);
+                }
             });
         }
 
         return $query->paginate(12)
             ->withQueryString()
-            // La date a servi a calculer l'age : elle ne sort pas d'ici.
-            ->through(fn (CandidateProfile $profile) => $profile->makeHidden('birth_date'));
+            ->through(fn (CandidateProfile $profile) => $this->presenter->present($profile));
     }
 
-    // Fiche complete : coordonnees incluses, parce que c'est precisement ce que
-    // le recruteur vient chercher une fois le profil juge pertinent. Le filtre
-    // de visibilite est reapplique ici — sans lui, un profil retire de la
-    // CVtheque resterait consultable par son identifiant.
-    public function find(User $user, int $candidateProfileId): CandidateProfile
+    /**
+     * Fiche d'un candidat. Meme liste blanche que la liste : ouvrir une fiche
+     * n'ouvre plus de coordonnees, elle donne le detail (competences,
+     * formations, experiences) et dit si le CV est partageable.
+     *
+     * Renvoie un tableau et non le modele : c'est le presenteur qui decide
+     * de ce qui sort, il n'y a plus de modele a serialiser.
+     *
+     * @return array<string, mixed>
+     */
+    public function find(User $user, int $candidateProfileId): array
     {
-        $this->requireCvthequeAccess($user);
+        $this->requireAccess($user);
 
-        $profile = CandidateProfile::where('id', $candidateProfileId)
-            ->where('is_visible_in_cvtheque', true)
-            ->with([
-                'user:id,email',
-                'experiences',
-                'educations',
-                'languages',
-                'skills:id,name',
-                'software:id,name',
-            ])
-            ->first();
+        $profile = $this->visibleProfileOrFail($user, $candidateProfileId);
 
-        if (! $profile) {
-            throw new ApiException('CANDIDATE_PROFILE_NOT_FOUND', 'Profil introuvable.', 404);
-        }
-
-        // cv_file_url masquee : le recruteur ne doit jamais recevoir l'URL
-        // publique du fichier. Avec elle il pourrait recuperer le CV en
-        // contournant downloadCv(), donc sans passer par la garde d'abonnement
-        // ni par le journal de telechargement — et la partager telle quelle.
-        // Le telechargement passe exclusivement par cvtheque/{id}/cv.
-        // birth_date masquee elle aussi : la fiche porte l'age (accesseur du
-        // modele), qui suffit au recruteur. La date exacte reste au candidat.
-        $profile->makeHidden(['cv_file_url', 'birth_date']);
-
-        // Le recruteur voit en revanche si le CV est celui que le candidat a
-        // lui-meme depose, et de quand il date : un CV choisi par le candidat
-        // n'a pas le meme statut qu'une fiche mise en page par Jeuncy.
-        $profile->setAttribute('has_uploaded_cv', $profile->cv_file_url !== null);
-
-        return $profile;
+        return $this->presenter->present($profile) + [
+            'cv_available' => $this->isCvSharedWith($user, $profile),
+        ];
     }
 
-    // Telechargement du CV d'un candidat par un recruteur abonne.
-    //
-    // Passe deliberement par find() : la garde d'abonnement ET le filtre de
-    // visibilite CVtheque sont donc reappliques ici. Un candidat qui s'est
-    // retire de la CVtheque ne doit pas voir son CV rester telechargeable par
-    // quiconque aurait garde l'URL sous la main.
+    // Telechargement du CV d'un candidat par un recruteur.
     //
     // Renvoie les octets du PDF plutot qu'une redirection vers le fichier
     // stocke : l'URL publique du CV ne doit jamais fuiter cote recruteur,
-    // sinon elle circule ensuite hors de toute garde d'abonnement et hors du
-    // journal de telechargement.
+    // sinon elle circule ensuite hors de toute garde et hors du journal de
+    // telechargement.
+    //
+    // Ne passe plus par find() : celui-ci rend desormais un tableau, et le
+    // rendu du PDF a besoin du modele. Les memes gardes sont reappliquees ici
+    // — abonnement, verification, visibilite, blocage — plus le partage du CV.
     public function downloadCv(User $user, int $candidateProfileId): array
     {
-        $profile = $this->find($user, $candidateProfileId);
+        $this->requireAccess($user);
+
+        $profile = $this->visibleProfileOrFail($user, $candidateProfileId);
+
+        if (! $this->isCvSharedWith($user, $profile)) {
+            throw new ApiException(
+                'CV_NOT_SHARED',
+                "Le CV est partagé quand le candidat postule à l'une de tes offres.",
+                403,
+            );
+        }
+
         [$source, $contents] = $this->resolveCvFor($profile);
 
         CvDownload::create([
@@ -209,15 +254,76 @@ class CvthequeService
         ];
     }
 
+    /**
+     * Le profil, s'il est consultable par cet utilisateur. Une seule requete
+     * pour la fiche et pour le telechargement : la garde de visibilite et
+     * celle de blocage ne peuvent pas diverger entre les deux.
+     *
+     * Un profil bloque rend le meme CANDIDATE_PROFILE_NOT_FOUND qu'un profil
+     * retire : confirmer l'existence d'une ligne bloquee serait deja une
+     * information.
+     */
+    private function visibleProfileOrFail(User $user, int $candidateProfileId): CandidateProfile
+    {
+        $query = CandidateProfile::query()
+            ->where('id', $candidateProfileId)
+            ->where('is_visible_in_cvtheque', true)
+            ->with(self::PRESENTER_RELATIONS);
+
+        $blockedUserIds = $this->blockService->blockedUserIdsFor($user);
+        if ($blockedUserIds !== []) {
+            $query->whereNotIn('user_id', $blockedUserIds);
+        }
+
+        $profile = $query->first();
+
+        if (! $profile) {
+            throw new ApiException('CANDIDATE_PROFILE_NOT_FOUND', 'Profil introuvable.', 404);
+        }
+
+        return $profile;
+    }
+
+    /**
+     * Le CV est-il partage avec cet utilisateur ?
+     *
+     * ADMIN et STAFF : oui, acces interne deja assume par la route
+     * (routes/api/cvtheque.php). Un employeur : seulement si le candidat a
+     * postule a l'une de SES offres — c'est le dossier qui ouvre le CV, et le
+     * dossier suppose un geste du candidat.
+     */
+    private function isCvSharedWith(User $user, CandidateProfile $profile): bool
+    {
+        if ($this->isInternal($user)) {
+            return true;
+        }
+
+        $organization = $this->verificationService->organizationFor($user);
+        if (! $organization) {
+            return false;
+        }
+
+        $column = $organization instanceof Company ? 'company_id' : 'cfa_organization_id';
+
+        return Application::query()
+            ->where('candidate_profile_id', $profile->id)
+            ->whereHas('jobOffer', fn (Builder $q) => $q->where($column, $organization->id))
+            ->exists();
+    }
+
+    private function isInternal(User $user): bool
+    {
+        return in_array($user->role, [UserRole::ADMIN, UserRole::STAFF], true);
+    }
+
     // Ordre de priorite : ce que le candidat a choisi de presenter passe avant
     // ce que Jeuncy sait fabriquer.
     //
     //  1. Son CV depose (Canva, Word...) — c'est SON document.
-    //  2. Son dernier CV genere sur Jeuncy et encore sur le disque.
-    //  3. A defaut, un PDF fabrique a la volee depuis les donnees du profil.
+    //  2. A defaut, un PDF fabrique a la volee depuis les donnees du profil.
     //
-    // Le troisieme cas n'est pas un repli de secours mais le cas majoritaire
-    // au demarrage : les profils deja en base n'ont pour la plupart jamais
+    // Le second n'est pas un repli de secours mais le cas majoritaire au
+    // demarrage : les profils deja en base n'ont pour la plupart jamais
     // clique sur "Generer mon CV". Sans lui, la CVtheque serait vide de CV
     // pour presque tout le monde.
     private function resolveCvFor(CandidateProfile $profile): array
@@ -259,12 +365,5 @@ class CvthequeService
         $name = trim(($profile->first_name ?? '').' '.($profile->last_name ?? ''));
 
         return 'CV-'.(Str::slug($name) ?: 'candidat-'.$profile->id).'.pdf';
-    }
-
-    private function relativeStoragePath(string $url): string
-    {
-        $base = rtrim(Storage::disk('public')->url(''), '/').'/';
-
-        return Str::startsWith($url, $base) ? substr($url, strlen($base)) : $url;
     }
 }

@@ -5,17 +5,23 @@ namespace Tests\Feature;
 use App\Enums\ContractType;
 use App\Enums\JobOfferStatus;
 use App\Enums\UserRole;
+use App\Enums\VerificationStatus;
 use App\Enums\WorkMode;
 use App\Exceptions\ApiException;
 use App\Models\JobOffer;
 use App\Models\User;
 use App\Services\CompanyService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
 class CompanyServiceTest extends TestCase
 {
     use RefreshDatabase;
+
+    private const SIRET_VALIDE = CompanyVerificationServiceTest::SIRET_VALIDE;
+
+    private const SIRET_VALIDE_2 = CompanyVerificationServiceTest::SIRET_VALIDE_2;
 
     private CompanyService $service;
 
@@ -56,11 +62,86 @@ class CompanyServiceTest extends TestCase
     public function test_update_for_user_updates_existing_company(): void
     {
         $user = $this->makeUser();
-        $this->service->createForUser($user, ['name' => 'NexaTech']);
+        // Le SIRET est desormais exige a la modification (voir
+        // test_update_cannot_leave_siret_empty) : la fiche en porte un.
+        $this->service->createForUser($user, ['name' => 'NexaTech', 'siret' => self::SIRET_VALIDE]);
 
         $updated = $this->service->updateForUser($user->fresh(), ['city' => 'Nantes']);
 
         $this->assertSame('Nantes', $updated->city);
+    }
+
+    // ------------------------------------------------------------------
+    // SIRET, verification et geocodage (modele match, MOBILE.md §4.0 et §6)
+    // ------------------------------------------------------------------
+
+    public function test_siret_is_required_on_create(): void
+    {
+        $this->actingAs($this->makeUser(), 'api')
+            ->postJson('/api/company', ['name' => 'NexaTech'])
+            ->assertStatus(400)
+            ->assertJsonPath('error.code', 'INVALID_INPUT');
+
+        $this->assertDatabaseCount('companies', 0);
+    }
+
+    public function test_update_cannot_leave_siret_empty(): void
+    {
+        $user = $this->makeUser();
+        $this->service->createForUser($user, ['name' => 'NexaTech', 'siret' => self::SIRET_VALIDE]);
+
+        try {
+            $this->service->updateForUser($user->fresh(), ['siret' => null]);
+            $this->fail('Une fiche verifiee ne doit pas pouvoir redevenir anonyme.');
+        } catch (ApiException $e) {
+            $this->assertSame('SIRET_REQUIRED', $e->errorCode);
+        }
+    }
+
+    public function test_siret_change_reverifies(): void
+    {
+        $user = $this->makeUser();
+        $company = $this->service->createForUser($user, ['name' => 'NexaTech', 'siret' => self::SIRET_VALIDE]);
+        // Le registre est muet au depart : la fiche reste PENDING.
+        $this->assertSame(VerificationStatus::PENDING, $company->verification_status);
+
+        $this->registreEntreprises = fn () => Http::response([
+            'results' => [[
+                'activite_principale' => '62.01Z',
+                'etat_administratif' => 'A',
+                'matching_etablissements' => [[
+                    'siret' => self::SIRET_VALIDE_2,
+                    'activite_principale' => '62.01Z',
+                    'etat_administratif' => 'A',
+                ]],
+            ]],
+        ]);
+
+        $updated = $this->service->updateForUser($user->fresh(), ['siret' => self::SIRET_VALIDE_2]);
+
+        $this->assertSame(VerificationStatus::VERIFIED, $updated->verification_status);
+        $this->assertNotNull($updated->verified_at);
+    }
+
+    public function test_city_change_geocodes(): void
+    {
+        $user = $this->makeUser();
+        $this->service->createForUser($user, ['name' => 'NexaTech', 'siret' => self::SIRET_VALIDE]);
+
+        $this->geocodeur = fn () => Http::response([
+            'features' => [['geometry' => ['coordinates' => [2.894833, 42.688700]]]],
+        ]);
+
+        $updated = $this->service->updateForUser($user->fresh(), ['city' => 'Perpignan', 'postal_code' => '66000']);
+
+        $this->assertSame(42.6887, $updated->fresh()->latitude);
+    }
+
+    public function test_a_company_is_never_verified_by_default(): void
+    {
+        $company = $this->service->createForUser($this->makeUser(), ['name' => 'NexaTech', 'siret' => self::SIRET_VALIDE]);
+
+        $this->assertSame(VerificationStatus::PENDING, $company->verification_status);
     }
 
     public function test_search_public_lists_all_companies(): void

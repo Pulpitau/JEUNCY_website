@@ -179,6 +179,8 @@ export function OrganizationProfile() {
                 name={companyQuery.data.name}
                 logoUrl={companyQuery.data.logo_url}
                 siret={companyQuery.data.siret}
+                verificationStatus={companyQuery.data.verification_status}
+                verificationNote={companyQuery.data.verification_note}
                 city={companyQuery.data.city}
                 website={companyQuery.data.website}
                 description={companyQuery.data.description}
@@ -204,6 +206,8 @@ export function OrganizationProfile() {
               name={cfaQuery.data.name}
               logoUrl={cfaQuery.data.logo_url}
               siret={cfaQuery.data.siret}
+              verificationStatus={cfaQuery.data.verification_status}
+              verificationNote={cfaQuery.data.verification_note}
               ndaNumber={cfaQuery.data.nda_number}
               qualiopiNumber={cfaQuery.data.qualiopi_number}
               city={cfaQuery.data.city}

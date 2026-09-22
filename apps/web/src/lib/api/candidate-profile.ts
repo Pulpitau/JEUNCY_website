@@ -1,3 +1,4 @@
+import type { ContractType, DrivingLicenseCategory, OfferSector } from '@jeuncy/shared';
 import { apiRequest } from './client';
 
 export interface Experience {
@@ -64,6 +65,22 @@ export interface CandidateProfile {
   cv_file_url: string | null;
   cv_original_filename: string | null;
   cv_uploaded_at: string | null;
+  // Preferences du modele match (« ce que je cherche », « mobilite »),
+  // renvoyees en lecture par GET candidate-profile. Toutes optionnelles : les
+  // ecrans de saisie arrivent au lot 5 du mobile, et un profil cree avant
+  // cette version n'en porte aucune.
+  wanted_contract_types?: ContractType[] | null;
+  wanted_sectors?: OfferSector[] | null;
+  search_radius_km?: number;
+  mobility_radius_km?: number;
+  has_driving_license?: boolean;
+  driving_license_categories?: DrivingLicenseCategory[] | null;
+  has_vehicle?: boolean;
+  available_from?: string | null;
+  pitch?: string | null;
+  // Opt-in, defaut false : le portrait n'est montre aux entreprises que si le
+  // candidat l'a explicitement accepte.
+  show_photo_to_employers?: boolean;
   experiences: Experience[];
   educations: Education[];
   skills: Skill[];

@@ -30,7 +30,13 @@ class AuthService
         return $user;
     }
 
-    public function register(string $email, string $password, UserRole $role): array
+    // $ageConfirmed : la case « J'ai 15 ans ou plus » du formulaire. Elle
+    // n'etait validee nulle part et n'etait ENREGISTREE nulle part — une
+    // declaration qu'on ne garde pas ne prouve rien le jour ou on doit la
+    // produire (Apple, CNIL). La regle des 15 ans du site ne change pas :
+    // c'est la date de naissance du profil qui fait foi, la case n'est qu'une
+    // trace datee du consentement.
+    public function register(string $email, string $password, UserRole $role, bool $ageConfirmed = false): array
     {
         self::assertRoleOpenForRegistration($role);
 
@@ -43,6 +49,7 @@ class AuthService
             'password_hash' => $password,
             'role' => $role,
             'last_login_at' => now(),
+            'age_confirmed_at' => $ageConfirmed ? now() : null,
         ]);
 
         $this->sendWelcomeEmail($user);

@@ -17,6 +17,13 @@ Route::prefix('candidate-profile')->middleware(['auth:api', 'role:CANDIDATE'])->
     Route::post('/', [CandidateProfileController::class, 'store']);
     Route::patch('/', [CandidateProfileController::class, 'update']);
 
+    // « Ce que je cherche » et « Mobilite » (MOBILE.md §3.1).
+    Route::put('preferences', [CandidateProfileController::class, 'updatePreferences']);
+    // Position GPS facultative, effacable (MOBILE.md §6). Elle ne sert qu'a
+    // la pile du candidat, jamais au deck employeur.
+    Route::put('location', [CandidateProfileController::class, 'updateLocation']);
+    Route::delete('location', [CandidateProfileController::class, 'clearLocation']);
+
     Route::post('experiences', [ExperienceController::class, 'store']);
     Route::patch('experiences/{experience}', [ExperienceController::class, 'update']);
     Route::delete('experiences/{experience}', [ExperienceController::class, 'destroy']);

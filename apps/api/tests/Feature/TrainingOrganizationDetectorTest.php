@@ -182,7 +182,10 @@ class TrainingOrganizationDetectorTest extends TestCase
     public function test_creating_a_company_profile_as_a_school_is_refused(): void
     {
         $this->actingAs($this->companyUser(), 'api')
-            ->postJson('/api/company', ['name' => 'CFA des Métiers du Sud'])
+            // Le SIRET est desormais obligatoire (modele match, MOBILE.md
+            // §4.0) : sans lui, la requete serait refusee en validation avant
+            // meme d'atteindre le detecteur d'ecoles.
+            ->postJson('/api/company', ['name' => 'CFA des Métiers du Sud', 'siret' => '73282932000074'])
             ->assertStatus(403)
             ->assertJsonPath('error.code', 'TRAINING_ORGANIZATION_NOT_ALLOWED');
 
@@ -217,7 +220,9 @@ class TrainingOrganizationDetectorTest extends TestCase
     public function test_a_real_employer_creates_its_profile_normally(): void
     {
         $this->actingAs($this->companyUser(), 'api')
-            ->postJson('/api/company', ['name' => 'Auto-école du Roussillon', 'siret' => '12345678900019'])
+            // SIRET a cle de Luhn correcte : depuis le modele match, une
+            // faute de frappe est refusee a la saisie (App\Rules\ValidSiret).
+            ->postJson('/api/company', ['name' => 'Auto-école du Roussillon', 'siret' => '73282932000074'])
             ->assertStatus(201);
     }
 }

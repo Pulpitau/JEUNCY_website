@@ -3,11 +3,11 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
   Search,
-  MapPin,
   Car,
   Cake,
   Lock,
   Languages as LanguagesIcon,
+  Briefcase,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -15,19 +15,25 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import {
   searchCvtheque,
-  type CvthequeCandidate,
+  type CandidateCard as CandidateCardData,
   type CvthequeSearchFilters,
 } from '@/lib/api/cvtheque';
 import { ApiError } from '@/lib/api/client';
+import { ageBandLabel } from '@/lib/age-band-labels';
+import { contractTypeLabel } from '@/lib/contract-type-labels';
+import { offerSectorLabel } from '@/lib/offer-sector-labels';
 
 // Etat de recherche porte par l'URL (comme JobOffers.tsx) : un recruteur peut
 // mettre une recherche en favori ou la partager a un collegue.
+//
+// Plus de filtre « ville » : la ville n'est plus montree, et pouvoir filtrer
+// dessus la revelerait par inference — taper « Perpignan » et compter les
+// resultats vaut affichage (MOBILE.md §4.3).
 function filtersFromParams(params: URLSearchParams): CvthequeSearchFilters {
   return {
     q: params.get('q') ?? undefined,
-    city: params.get('city') ?? undefined,
     language: params.get('language') ?? undefined,
-    driving_license: params.get('driving_license') === '1' || undefined,
+    has_driving_license: params.get('has_driving_license') === '1' || undefined,
     age_min: Number(params.get('age_min')) || undefined,
     age_max: Number(params.get('age_max')) || undefined,
     skills: params.getAll('skills').filter(Boolean),
@@ -35,8 +41,16 @@ function filtersFromParams(params: URLSearchParams): CvthequeSearchFilters {
   };
 }
 
-function initials(candidate: CvthequeCandidate): string {
-  return `${candidate.first_name.charAt(0)}${candidate.last_name.charAt(0)}`.toUpperCase();
+// Prenom + initiale : c'est tout ce que porte la carte. L'initiale vient du
+// serveur (last_name_initial), le nom complet n'est jamais transmis.
+function candidateDisplayName(candidate: CandidateCardData): string {
+  return candidate.last_name_initial
+    ? `${candidate.first_name} ${candidate.last_name_initial}.`
+    : candidate.first_name;
+}
+
+function initials(candidate: CandidateCardData): string {
+  return `${candidate.first_name.charAt(0)}${candidate.last_name_initial}`.toUpperCase();
 }
 
 // Ecran affiche si le serveur repond 402. Depuis que Jeuncy est gratuit
@@ -69,7 +83,34 @@ function SubscriptionGate() {
   );
 }
 
-function CandidateCard({ candidate }: { candidate: CvthequeCandidate }) {
+// Ecran affiche si le serveur repond 403 COMPANY_NOT_VERIFIED. Le message du
+// serveur est repris tel quel : c'est lui qui sait pourquoi (SIRET manquant,
+// registre en panne, activite refusee).
+function VerificationGate({ message }: { message: string }) {
+  return (
+    <Card className="mx-auto max-w-2xl overflow-hidden border-2 border-primary/40">
+      <div className="h-1 bg-jeuncy-gradient" />
+      <CardContent className="flex flex-col items-center gap-4 p-8 text-center">
+        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-jeuncy-gradient text-white">
+          <Lock className="h-6 w-6" aria-hidden="true" />
+        </div>
+        <h2 className="font-poppins text-2xl font-bold text-foreground">
+          Ton entreprise doit être vérifiée
+        </h2>
+        <p className="max-w-md font-inter text-sm text-muted-foreground">{message}</p>
+        <Link to="/organization">
+          <Button variant="gradient" size="lg">
+            Compléter ma fiche entreprise
+          </Button>
+        </Link>
+      </CardContent>
+    </Card>
+  );
+}
+
+function CandidateCard({ candidate }: { candidate: CandidateCardData }) {
+  const ageLabel = ageBandLabel(candidate.age_band);
+
   return (
     // min-w-0 indispensable : un enfant de grille a min-width:auto par defaut
     // et refuse de descendre sous la largeur intrinseque de son contenu. Sans
@@ -82,6 +123,8 @@ function CandidateCard({ candidate }: { candidate: CvthequeCandidate }) {
       className="group flex min-w-0 flex-col gap-3 rounded-lg border border-border bg-card p-5 transition-all duration-200 hover:-translate-y-0.5 hover:border-primary hover:shadow-md"
     >
       <div className="flex items-center gap-3">
+        {/* Photo seulement si le candidat l'a autorisee : le serveur renvoie
+            null sinon, il n'y a donc rien a masquer cote client. */}
         {candidate.photo_url ? (
           <img
             src={candidate.photo_url}
@@ -98,7 +141,7 @@ function CandidateCard({ candidate }: { candidate: CvthequeCandidate }) {
         )}
         <div className="min-w-0">
           <p className="truncate font-poppins font-semibold text-foreground">
-            {candidate.first_name} {candidate.last_name}
+            {candidateDisplayName(candidate)}
           </p>
           {candidate.headline && (
             <p className="truncate font-inter text-sm text-muted-foreground">
@@ -108,23 +151,22 @@ function CandidateCard({ candidate }: { candidate: CvthequeCandidate }) {
         </div>
       </div>
 
+      {/* Aucune ville ici, et ce n'est pas un oubli : le lieu de residence
+          n'est pas montre avant candidature. */}
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 font-inter text-xs text-muted-foreground">
-        {candidate.city && (
-          <span className="inline-flex items-center gap-1">
-            <MapPin className="h-3.5 w-3.5" aria-hidden="true" />
-            {candidate.city}
-          </span>
-        )}
-        {candidate.age !== null && (
+        {ageLabel && (
           <span className="inline-flex items-center gap-1">
             <Cake className="h-3.5 w-3.5" aria-hidden="true" />
-            {candidate.age} ans
+            {ageLabel}
           </span>
         )}
-        {candidate.driving_license && (
+        {candidate.has_driving_license && (
           <span className="inline-flex items-center gap-1">
             <Car className="h-3.5 w-3.5" aria-hidden="true" />
-            {candidate.driving_license}
+            {candidate.driving_license_categories.length > 0
+              ? `Permis ${candidate.driving_license_categories.join(', ')}`
+              : 'Permis'}
+            {candidate.has_vehicle ? ' · véhicule' : ''}
           </span>
         )}
         {candidate.languages.length > 0 && (
@@ -134,6 +176,19 @@ function CandidateCard({ candidate }: { candidate: CvthequeCandidate }) {
           </span>
         )}
       </div>
+
+      {(candidate.wanted_contract_types.length > 0 ||
+        candidate.wanted_sectors.length > 0) && (
+        <p className="inline-flex items-start gap-1 font-inter text-xs text-muted-foreground">
+          <Briefcase className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+          <span>
+            {[
+              ...candidate.wanted_contract_types.map(contractTypeLabel),
+              ...candidate.wanted_sectors.map(offerSectorLabel),
+            ].join(' · ')}
+          </span>
+        </p>
+      )}
 
       {candidate.skills.length > 0 && (
         <div className="flex flex-wrap gap-1.5">
@@ -160,27 +215,27 @@ export function Cvtheque() {
   // Champs pilotes localement puis pousses dans l'URL a la soumission : eviter
   // une requete a chaque frappe.
   const [q, setQ] = useState(filters.q ?? '');
-  const [city, setCity] = useState(filters.city ?? '');
   const [language, setLanguage] = useState(filters.language ?? '');
-  const [hasLicense, setHasLicense] = useState(Boolean(filters.driving_license));
+  const [hasLicense, setHasLicense] = useState(Boolean(filters.has_driving_license));
   const [ageMin, setAgeMin] = useState(filters.age_min ? String(filters.age_min) : '');
   const [ageMax, setAgeMax] = useState(filters.age_max ? String(filters.age_max) : '');
 
   const query = useQuery({
     queryKey: ['cvtheque', searchParams.toString()],
     queryFn: () => searchCvtheque(filters),
-    // Un 402 signifie "il faut s'abonner", pas une panne : inutile de reessayer.
+    // Un 402 (acces) et un 403 (verification) sont des reponses, pas des
+    // pannes : inutile de reessayer.
     retry: (failureCount, error) =>
-      !(error instanceof ApiError && error.status === 402) && failureCount < 3,
+      !(error instanceof ApiError && [402, 403].includes(error.status)) &&
+      failureCount < 3,
   });
 
   function applyFilters(event: React.FormEvent) {
     event.preventDefault();
     const next = new URLSearchParams();
     if (q.trim()) next.set('q', q.trim());
-    if (city.trim()) next.set('city', city.trim());
     if (language.trim()) next.set('language', language.trim());
-    if (hasLicense) next.set('driving_license', '1');
+    if (hasLicense) next.set('has_driving_license', '1');
     if (ageMin.trim()) next.set('age_min', ageMin.trim());
     if (ageMax.trim()) next.set('age_max', ageMax.trim());
     setSearchParams(next);
@@ -192,8 +247,10 @@ export function Cvtheque() {
     setSearchParams(next);
   }
 
-  const needsSubscription =
-    query.isError && query.error instanceof ApiError && query.error.status === 402;
+  const apiError = query.error instanceof ApiError ? query.error : null;
+  const needsSubscription = query.isError && apiError?.status === 402;
+  const needsVerification = query.isError && apiError?.code === 'COMPANY_NOT_VERIFIED';
+  const blocked = needsSubscription || needsVerification;
 
   return (
     <main className="mx-auto max-w-6xl px-4 py-10">
@@ -209,13 +266,17 @@ export function Cvtheque() {
         </h1>
         <p className="mt-2 max-w-2xl font-inter text-muted-foreground">
           Recherchez directement dans les profils des candidats, sans attendre qu'ils
-          postulent.
+          postulent. Les coordonnées et le CV vous parviennent quand le candidat postule à
+          l'une de vos offres.
         </p>
       </div>
 
-      {needsSubscription ? (
-        <SubscriptionGate />
-      ) : (
+      {needsSubscription && <SubscriptionGate />}
+      {needsVerification && (
+        <VerificationGate message={apiError?.message ?? 'Vérification en attente.'} />
+      )}
+
+      {!blocked && (
         <>
           <form
             onSubmit={applyFilters}
@@ -234,17 +295,6 @@ export function Cvtheque() {
                 />
               </div>
               <div>
-                <label htmlFor="cvtheque-city" className="sr-only">
-                  Ville
-                </label>
-                <Input
-                  id="cvtheque-city"
-                  value={city}
-                  onChange={(e) => setCity(e.target.value)}
-                  placeholder="Ville"
-                />
-              </div>
-              <div>
                 <label htmlFor="cvtheque-language" className="sr-only">
                   Langue
                 </label>
@@ -256,7 +306,8 @@ export function Cvtheque() {
                 />
               </div>
               {/* L'age : le cout d'un alternant depend de sa tranche d'age,
-                  c'est un critere de selection a part entiere. */}
+                  c'est un critere de selection a part entiere. Minimum 16, age
+                  d'entree dans le modele match. */}
               <div className="flex items-center gap-2">
                 <label htmlFor="cvtheque-age-min" className="sr-only">
                   Âge minimum
@@ -264,7 +315,7 @@ export function Cvtheque() {
                 <Input
                   id="cvtheque-age-min"
                   type="number"
-                  min={15}
+                  min={16}
                   max={99}
                   inputMode="numeric"
                   value={ageMin}
@@ -278,7 +329,7 @@ export function Cvtheque() {
                 <Input
                   id="cvtheque-age-max"
                   type="number"
-                  min={15}
+                  min={16}
                   max={99}
                   inputMode="numeric"
                   value={ageMax}
@@ -308,7 +359,7 @@ export function Cvtheque() {
             <p className="font-inter text-muted-foreground">Chargement des profils…</p>
           )}
 
-          {query.isError && !needsSubscription && (
+          {query.isError && (
             <p role="alert" className="font-inter text-destructive">
               Impossible de charger les profils pour le moment.
             </p>

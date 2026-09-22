@@ -6,6 +6,7 @@ use App\Enums\ContractType;
 use App\Enums\JobOfferStatus;
 use App\Enums\PaymentStatus;
 use App\Enums\UserRole;
+use App\Enums\VerificationStatus;
 use App\Models\CandidateProfile;
 use App\Models\JobOffer;
 use App\Models\User;
@@ -14,6 +15,7 @@ use App\Services\CompanyService;
 use App\Services\JobOfferService;
 use App\Services\MailService;
 use App\Services\SubscriptionService;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Config;
 use Mockery;
@@ -38,10 +40,20 @@ class ModeGratuitTest extends TestCase
         Config::set('services.jeuncy.gratuit', true);
     }
 
+    // Les fixtures portent desormais un code postal et un statut VERIFIED :
+    // le modele match exige le premier a la publication et le second pour
+    // approcher un candidat (MOBILE.md §4.0 et §6). Aucune assertion de ce
+    // fichier ne change — ce qu'il verifie, c'est que la gratuite ne
+    // rencontre aucun prix, pas la façon dont la fiche est remplie.
     private function company(string $email = 'rh@nexatech.example.com'): User
     {
         $user = User::create(['email' => $email, 'password_hash' => 'x', 'role' => UserRole::COMPANY]);
-        $this->app->make(CompanyService::class)->createForUser($user, ['name' => 'NexaTech']);
+        $company = $this->app->make(CompanyService::class)->createForUser($user, [
+            'name' => 'NexaTech',
+            'city' => 'Perpignan',
+            'postal_code' => '66000',
+        ]);
+        $this->verifier($company);
 
         return $user->fresh();
     }
@@ -49,9 +61,23 @@ class ModeGratuitTest extends TestCase
     private function cfa(): User
     {
         $user = User::create(['email' => 'contact@ida.example.com', 'password_hash' => 'x', 'role' => UserRole::CFA]);
-        $this->app->make(CfaOrganizationService::class)->createForUser($user, ['name' => 'IDA']);
+        $cfa = $this->app->make(CfaOrganizationService::class)->createForUser($user, [
+            'name' => 'IDA',
+            'city' => 'Perpignan',
+            'postal_code' => '66000',
+        ]);
+        $this->verifier($cfa);
 
         return $user->fresh();
+    }
+
+    // verification_status n'est pas fillable : pose par affectation directe,
+    // comme le ferait CompanyVerificationService.
+    private function verifier(Model $organization): void
+    {
+        $organization->verification_status = VerificationStatus::VERIFIED;
+        $organization->verified_at = now();
+        $organization->saveQuietly();
     }
 
     private function draftOfferFor(User $owner): JobOffer
@@ -61,6 +87,7 @@ class ModeGratuitTest extends TestCase
             'description' => 'Rejoins notre equipe.',
             'contract_type' => ContractType::ALTERNANCE->value,
             'city' => 'Perpignan',
+            'postal_code' => '66000',
         ]);
     }
 

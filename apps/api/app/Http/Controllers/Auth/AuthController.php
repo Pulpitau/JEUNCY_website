@@ -40,6 +40,7 @@ class AuthController extends Controller
             $validated['email'],
             $validated['password'],
             UserRole::from($validated['role']),
+            (bool) ($validated['age_confirmed'] ?? false),
         );
 
         return $this->respondWithTokens($request, $result['user'], $result['tokens'], 201);

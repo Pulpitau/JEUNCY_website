@@ -22,4 +22,34 @@ class UserFactory extends Factory
             'role' => fake()->randomElement(UserRole::cases()),
         ];
     }
+
+    public function candidate(): static
+    {
+        return $this->state(fn () => ['role' => UserRole::CANDIDATE]);
+    }
+
+    public function company(): static
+    {
+        return $this->state(fn () => ['role' => UserRole::COMPANY]);
+    }
+
+    public function cfa(): static
+    {
+        return $this->state(fn () => ['role' => UserRole::CFA]);
+    }
+
+    public function staff(): static
+    {
+        return $this->state(fn () => ['role' => UserRole::STAFF]);
+    }
+
+    public function admin(): static
+    {
+        return $this->state(fn () => ['role' => UserRole::ADMIN]);
+    }
+
+    public function suspended(): static
+    {
+        return $this->state(fn () => ['is_suspended' => true]);
+    }
 }

@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Enums\ExternalJobOfferStatus;
 use App\Enums\WorkMode;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 // Offre importee d'une source externe (La bonne alternance). Voir la
@@ -22,6 +23,8 @@ use Illuminate\Database\Eloquent\Model;
 ])]
 class ExternalJobOffer extends Model
 {
+    use HasFactory;
+
     protected $table = 'external_job_offers';
 
     public const SOURCE_LBA = 'lba';

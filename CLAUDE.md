@@ -1283,3 +1283,53 @@ terminé, sonde à déployer**
   intérêts + match + dossier, 3 deck candidat complet + rayon + GPS, 4
   modération/relances/admin, 5 cohérence web + légal, 6 pilote 66 + stores.
   Compte Apple Developer à vérifier (Apple ID ≠ Developer Program).
+
+**Modèle match — lot 1, socle backend (2026-09-22) : terminé, à déployer**
+
+- **807 tests verts** (543 avant le lot), Pint propre, web build + lint OK.
+  Contrat technique dans `docs/mobile/lot-1-backend.md`, manifeste
+  d'envoi dans `docs/mobile/lot-1-deploiement.md` (**114 fichiers**, 74
+  nouveaux, empreintes sha256(16) et tailles, procédure WinSCP par
+  synchronisation dossier par dossier, `deploy-tools-29`).
+- Tables nouvelles : `offer_interests` (une ligne par couple candidat/offre,
+  `candidate_decision`/`employer_decision`, `matched_at`, `application_id`,
+  `closed_at`/`closed_reason`), `external_interests` (offres partenaires
+  gardées, colonnes dénormalisées car `LbaImportService` supprime chaque nuit
+  les offres absentes de l'export), `organization_photos` non, `reports`,
+  `user_blocks`, `geocode_cache`. Colonnes ajoutées : préférences et mobilité
+  du candidat, permis structuré, `show_photo_to_employers` ; `postal_code`,
+  coordonnées, `recruitment_radius_km`, `sector`, `minimum_age` sur les
+  offres ; `verification_status` sur les organisations ; `interest_id`,
+  `source`, `responded_at` sur les candidatures ; `age_confirmed_at`.
+- **Deux paires de coordonnées** sur `candidate_profiles` : `latitude/longitude`
+  (commune géocodée) et `device_*` (GPS). Le deck employeur ne lit
+  structurellement jamais `device_*` — la décision « aucune distance côté
+  employeur » est garantie par le schéma, pas par une règle qu'on peut oublier.
+- Routes : `discover/offers`, `discover/candidates`, `interests` (+`batch`,
+  `last`), `matches`, `external-interests`, `blocks`, `reports`,
+  `candidate-profile/preferences`+`location`, `job-offers/express`.
+  124 routes API au total, 0 doublon. Garde `match.age` (16 ans) sur tout le
+  parcours match ; `JEUNCY_MATCH_DEPARTEMENTS=66` ne restreint **que** le côté
+  employeur.
+- **Règle d'exposition unique** (`CandidateCardPresenter`) appliquée au deck,
+  aux matchs **et à la CVthèque du site** : prénom + initiale, tranche d'âge,
+  jamais ville/email/téléphone/adresse/coordonnées/CV. Le filtre « ville » de
+  la CVthèque est supprimé (filtrer sans afficher révèle par inférence) et la
+  recherche par nom est réservée à ADMIN/STAFF. Le PDF n'est servi qu'après
+  une candidature sur une offre de cet employeur (`CV_NOT_SHARED`).
+- Vérification employeur : SIRET (Luhn) + registre public ; **jamais VERIFIED
+  par défaut** (registre muet = PENDING). Sans VERIFIED : ni deck candidats,
+  ni intérêt, ni CVthèque, ni candidatures reçues.
+- **Défaut trouvé en testant la sonde elle-même** : le gestionnaire d'auth est
+  un singleton qui mémorise l'utilisateur entre sous-requêtes du selftest —
+  sans `Auth::forgetGuards()`, l'employeur était vu comme le candidat
+  précédent et le parcours « marchait » avec 0 match. Le selftest doit être
+  testé, sinon il ment.
+- `matchDebug` rebranché sur `MatchScorer` (les méthodes extraites de
+  `JobOfferMatchService` auraient levé `ReflectionException` en production).
+  Nouvelle route `/deploy/{token}/geocode-backfill` (compte par défaut,
+  `?executer=1`, idempotente, relançable).
+- Risque résiduel assumé : un SIRET public actif suffit à devenir VERIFIED,
+  donc à voir des cartes de mineurs — email de domaine ou validation humaine à
+  prévoir avant d'ouvrir au-delà d'IDA. Action humaine après déploiement :
+  saisir le code postal de l'offre d'IDA (sinon `JOB_OFFER_NOT_LOCATED`).

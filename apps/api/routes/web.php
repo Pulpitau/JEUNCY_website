@@ -37,3 +37,6 @@ Route::get('/deploy/{token}/selftest', [DeployController::class, 'selfTest']);
 // Explique, candidat par candidat, pourquoi une offre le notifie ou non.
 // Sans elle, un defaut de correspondance ne se diagnostique qu'a l'aveugle.
 Route::get('/deploy/{token}/match/{jobOffer}', [DeployController::class, 'matchDebug'])->whereNumber('jobOffer');
+// Rattrapage du geocodage (lot 1 du match). Compte seulement par defaut :
+// ?executer=1 lance la passe. Idempotente, relancable autant que necessaire.
+Route::get('/deploy/{token}/geocode-backfill', [DeployController::class, 'geocodeBackfill']);

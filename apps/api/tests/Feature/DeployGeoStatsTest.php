@@ -71,18 +71,9 @@ class DeployGeoStatsTest extends TestCase
         ], $profil));
     }
 
-    // SQLite n'a pas de fonctions trigonometriques : on lui prete celles de
-    // PHP, pour que la haversine ecrite en SQL s'execute reellement dans les
-    // tests, avec les memes noms qu'elle appelle sur MySQL.
-    private function activerTrigonometrieSqlite(): void
-    {
-        $pdo = DB::connection()->getPdo();
-
-        foreach (['sin' => 'sin', 'cos' => 'cos', 'asin' => 'asin', 'sqrt' => 'sqrt', 'radians' => 'deg2rad'] as $nom => $php) {
-            $pdo->sqliteCreateFunction($nom, $php, 1);
-        }
-        $pdo->sqliteCreateFunction('power', 'pow', 2);
-    }
+    // La trigonometrie manquante de SQLite est desormais pretee par
+    // Tests\TestCase::setUp pour toute la suite (lot 1) : c'est ici qu'elle
+    // est nee, elle a juste change de place.
 
     private function offrePartenaire(array $overrides = []): ExternalJobOffer
     {
@@ -315,8 +306,6 @@ class DeployGeoStatsTest extends TestCase
     // offre sans coordonnees ou non active n'entre dans aucun rayon.
     public function test_partner_offers_are_counted_within_each_radius_around_perpignan(): void
     {
-        $this->activerTrigonometrieSqlite();
-
         $this->offrePartenaire(['department' => '66', 'latitude' => 42.6887, 'longitude' => 2.8948]); // Perpignan, 0 km
         $this->offrePartenaire(['department' => '11', 'latitude' => 43.1839, 'longitude' => 3.0042]); // Narbonne, 55,8 km
         $this->offrePartenaire(['department' => '31', 'latitude' => 43.6045, 'longitude' => 1.4440]); // Toulouse, 155,6 km

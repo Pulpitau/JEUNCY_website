@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Enums\SubscriptionStatus;
 use App\Enums\UserRole;
 use App\Models\CandidateProfile;
+use App\Models\Company;
 use App\Models\Subscription;
 use App\Models\User;
 use App\Services\CvthequeService;
@@ -13,13 +14,14 @@ use Illuminate\Support\Carbon;
 use Tests\TestCase;
 
 /**
- * L'age du candidat, visible des recruteurs.
+ * L'age du candidat, tel que le recruteur le voit.
  *
  * Le cout d'un alternant depend de sa tranche d'age : c'est un critere de
- * selection a part entiere pour une entreprise. Ces tests verifient que l'AGE
- * est expose — et que la date de naissance, elle, ne l'est jamais. Exposer le
- * premier permet de garder la seconde privee ; les deux ne se negocient pas
- * l'un contre l'autre.
+ * selection a part entiere pour une entreprise. Depuis le lot 1 le recruteur
+ * voit une TRANCHE ('<18', '18-20', '21-25', '26+') et non plus l'age exact :
+ * elle suffit a estimer ce cout, elle ne permet pas de retrouver quelqu'un.
+ * La date de naissance, elle, ne sort toujours jamais — et le filtre par age
+ * continue de s'appuyer dessus sans l'exposer.
  */
 class CandidateAgeTest extends TestCase
 {
@@ -45,6 +47,10 @@ class CandidateAgeTest extends TestCase
     private function abonne(): User
     {
         $user = User::create(['email' => 'rh@nexatech.example.com', 'password_hash' => 'x', 'role' => UserRole::COMPANY]);
+        // Fiche VERIFIED : la CVtheque exige desormais un employeur verifie
+        // (MOBILE.md §4.0). Sans Company, requireVerified refuserait tout et
+        // ces tests ne prouveraient plus rien sur l'age.
+        Company::factory()->verified()->create(['user_id' => $user->id, 'name' => 'NexaTech']);
         Subscription::create([
             'user_id' => $user->id,
             'status' => SubscriptionStatus::ACTIVE,
@@ -75,37 +81,39 @@ class CandidateAgeTest extends TestCase
     // Ce que voit le recruteur
     // ------------------------------------------------------------------
 
-    public function test_the_list_shows_the_age_but_never_the_birth_date(): void
+    public function test_list_shows_age_band_never_age_or_birth_date(): void
     {
-        $this->candidat('2004-05-01');
+        $this->candidat('2004-05-01'); // 22 ans le jour du test
 
-        $payload = $this->cvtheque->search($this->abonne(), [])->items()[0]->toArray();
+        $payload = $this->cvtheque->search($this->abonne(), [])->items()[0];
 
-        $this->assertSame(22, $payload['age']);
+        $this->assertSame('21-25', $payload['age_band']);
+        $this->assertArrayNotHasKey('age', $payload, "L'age exact ne sort plus de la liste.");
         $this->assertArrayNotHasKey('birth_date', $payload, 'La date de naissance ne doit jamais sortir de la liste.');
     }
 
-    public function test_the_detail_shows_the_age_but_never_the_birth_date(): void
+    public function test_detail_shows_age_band_never_age_or_birth_date(): void
     {
         $profil = $this->candidat('2008-09-11');
 
-        $payload = $this->cvtheque->find($this->abonne(), $profil->id)->toArray();
+        $payload = $this->cvtheque->find($this->abonne(), $profil->id);
 
-        // Anniversaire le jour du test : 18 ans revolus.
-        $this->assertSame(18, $payload['age']);
-        $this->assertArrayNotHasKey('birth_date', $payload, 'La fiche porte l\'age, pas la date.');
+        // Anniversaire le jour du test : 18 ans revolus, donc tranche 18-20.
+        $this->assertSame('18-20', $payload['age_band']);
+        $this->assertArrayNotHasKey('age', $payload);
+        $this->assertArrayNotHasKey('birth_date', $payload, 'La fiche porte la tranche, pas la date.');
     }
 
     // Un profil sans date de naissance (anciens comptes) reste visible : on
     // affiche simplement rien, on ne le cache pas.
-    public function test_a_profile_without_birth_date_is_still_listed_with_a_null_age(): void
+    public function test_a_profile_without_birth_date_is_still_listed_with_a_null_age_band(): void
     {
         $this->candidat(null);
 
-        $payload = $this->cvtheque->search($this->abonne(), [])->items()[0]->toArray();
+        $payload = $this->cvtheque->search($this->abonne(), [])->items()[0];
 
-        $this->assertArrayHasKey('age', $payload);
-        $this->assertNull($payload['age']);
+        $this->assertArrayHasKey('age_band', $payload);
+        $this->assertNull($payload['age_band']);
     }
 
     // ------------------------------------------------------------------
@@ -148,7 +156,9 @@ class CandidateAgeTest extends TestCase
         $this->candidat(null, 'Inconnu');
         $this->candidat('2004-05-01', 'Vingt');
 
-        $prenoms = collect($this->cvtheque->search($this->abonne(), ['age_min' => 15])->items())
+        // 16, borne basse du modele match depuis le lot 1 (la Form Request
+        // refuse desormais en dessous).
+        $prenoms = collect($this->cvtheque->search($this->abonne(), ['age_min' => 16])->items())
             ->pluck('first_name')->all();
 
         $this->assertSame(['Vingt'], $prenoms);

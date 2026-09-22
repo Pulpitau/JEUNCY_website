@@ -12,11 +12,11 @@ import type { Company, CompanyInput } from '@/lib/api/company';
 
 const companySchema = z.object({
   name: z.string().min(1, "Le nom de l'entreprise est requis."),
-  siret: z
-    .string()
-    .regex(/^\d{14}$/, 'Le SIRET doit contenir 14 chiffres.')
-    .optional()
-    .or(z.literal('')),
+  // Obligatoire depuis le lot 1 : c'est lui qui déclenche la vérification de
+  // l'entreprise auprès du registre officiel (MOBILE.md §4.0). Sans
+  // vérification, aucun candidat n'est visible — le rendre facultatif ici
+  // ferait échouer l'enregistrement côté serveur sans dire pourquoi.
+  siret: z.string().regex(/^\d{14}$/, 'Le SIRET doit contenir 14 chiffres.'),
   city: z.string().optional().or(z.literal('')),
   website: z.string().url('URL invalide.').optional().or(z.literal('')),
   description: z.string().optional().or(z.literal('')),
@@ -57,7 +57,7 @@ export function CompanyForm({
   async function handleFormSubmit(values: CompanyFormValues) {
     await onSubmit({
       name: values.name,
-      siret: values.siret || null,
+      siret: values.siret,
       city: values.city || null,
       website: values.website || null,
       description: values.description || null,
@@ -85,9 +85,15 @@ export function CompanyForm({
           <Label htmlFor="company-siret">SIRET</Label>
           <Input
             id="company-siret"
+            inputMode="numeric"
             aria-invalid={!!errors.siret}
+            aria-describedby="company-siret-help"
             {...register('siret')}
           />
+          <p id="company-siret-help" className="text-xs text-muted-foreground">
+            14 chiffres. Il sert à vérifier ton entreprise auprès du registre officiel :
+            sans lui, aucun candidat ne t'est proposé.
+          </p>
           {errors.siret && (
             <p role="alert" className="text-sm text-destructive">
               {errors.siret.message}

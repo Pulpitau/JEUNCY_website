@@ -126,6 +126,39 @@ class AuthServiceTest extends TestCase
         $this->assertNotEmpty($result['tokens']['refreshToken']);
     }
 
+    public function test_age_confirmed_sets_timestamp(): void
+    {
+        // La case « J'ai 15 ans ou plus » etait validee sans etre
+        // enregistree : une declaration qu'on ne garde pas ne prouve rien le
+        // jour ou il faut la produire.
+        $sans = $this->authService->register('sans@example.com', 'password123', UserRole::CANDIDATE);
+        $avec = $this->authService->register('avec@example.com', 'password123', UserRole::CANDIDATE, true);
+
+        $this->assertNull($sans['user']->age_confirmed_at);
+        $this->assertNotNull($avec['user']->age_confirmed_at);
+    }
+
+    public function test_the_registration_endpoint_records_the_declaration(): void
+    {
+        $this->postJson('/api/auth/register', [
+            'email' => 'lea@example.com',
+            'password' => 'password123',
+            'role' => UserRole::CANDIDATE->value,
+            'age_confirmed' => true,
+        ])->assertCreated();
+
+        $this->assertNotNull(User::firstWhere('email', 'lea@example.com')->age_confirmed_at);
+    }
+
+    public function test_google_registration_leaves_it_null(): void
+    {
+        // Aucune case n'est cochee dans un parcours Google : rien n'a ete
+        // declare, donc rien n'est date.
+        $user = $this->authService->validateGoogleUser('google-999', 'lea@example.com', UserRole::CANDIDATE);
+
+        $this->assertNull($user->age_confirmed_at);
+    }
+
     public function test_refresh_tokens_rejects_invalid_token(): void
     {
         $this->expectException(ApiException::class);

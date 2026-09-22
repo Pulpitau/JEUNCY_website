@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\JobOffer\StoreExpressJobOfferRequest;
 use App\Http\Requests\JobOffer\StoreJobOfferRequest;
 use App\Http\Requests\JobOffer\UpdateJobOfferRequest;
 use App\Models\JobOffer;
@@ -21,6 +22,14 @@ class JobOfferController extends Controller
     public function store(StoreJobOfferRequest $request): JsonResponse
     {
         $jobOffer = $this->service->createForUser($request->user(), $request->validated());
+
+        return response()->json($jobOffer, 201);
+    }
+
+    // Offre express : creee ET publiee en une requete (MOBILE.md §4.1).
+    public function storeExpress(StoreExpressJobOfferRequest $request): JsonResponse
+    {
+        $jobOffer = $this->service->createExpressForUser($request->user(), $request->validated());
 
         return response()->json($jobOffer, 201);
     }

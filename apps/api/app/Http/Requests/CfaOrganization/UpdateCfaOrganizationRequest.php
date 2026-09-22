@@ -3,6 +3,7 @@
 namespace App\Http\Requests\CfaOrganization;
 
 use App\Enums\WorkMode;
+use App\Rules\ValidSiret;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -18,7 +19,13 @@ class UpdateCfaOrganizationRequest extends FormRequest
         return [
             'name' => ['sometimes', 'string', 'max:255'],
             'is_public' => ['sometimes', 'boolean'],
-            'siret' => ['sometimes', 'nullable', 'string', 'size:14', Rule::unique('cfa_organizations', 'siret')->ignore($this->user()->cfaOrganization?->id)],
+            // Reste facultatif a la modification (voir
+            // CfaOrganizationService::updateForUser : exiger un SIRET ici
+            // bloquerait l'ecole partenaire sur un changement de logo), mais
+            // s'il est fourni il obeit aux memes regles qu'a la creation :
+            // 14 chiffres et cle de Luhn. Sans cela, « abcdefghijklmn »
+            // passait la saisie et n'etait refuse qu'a la verification.
+            'siret' => ['sometimes', 'nullable', 'string', 'regex:/^\d{14}$/', Rule::unique('cfa_organizations', 'siret')->ignore($this->user()->cfaOrganization?->id), new ValidSiret],
             'nda_number' => ['sometimes', 'nullable', 'string', 'max:50'],
             'qualiopi_number' => ['sometimes', 'nullable', 'string', 'max:50'],
             'description' => ['sometimes', 'nullable', 'string', 'max:2000'],

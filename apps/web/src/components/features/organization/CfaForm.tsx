@@ -11,24 +11,32 @@ import { WORK_MODE_LABELS } from '@/lib/work-mode-labels';
 import { DIPLOMA_LEVEL_OPTIONS } from '@/lib/diploma-level-options';
 import type { CfaOrganization, CfaOrganizationInput } from '@/lib/api/cfa-organization';
 
-const cfaSchema = z.object({
-  name: z.string().min(1, 'Le nom du CFA est requis.'),
-  siret: z
-    .string()
-    .regex(/^\d{14}$/, 'Le SIRET doit contenir 14 chiffres.')
-    .optional()
-    .or(z.literal('')),
-  nda_number: z.string().optional().or(z.literal('')),
-  qualiopi_number: z.string().optional().or(z.literal('')),
-  city: z.string().optional().or(z.literal('')),
-  website: z.string().url('URL invalide.').optional().or(z.literal('')),
-  description: z.string().optional().or(z.literal('')),
-  diplomas_offered: z.string().optional().or(z.literal('')),
-  diploma_level: z.string().optional().or(z.literal('')),
-  training_mode: z.union([z.nativeEnum(WorkMode), z.literal('')]).optional(),
-});
+// Le SIRET n'est obligatoire qu'a la CREATION, exactement comme cote serveur
+// (StoreCfaOrganizationRequest l'exige, UpdateCfaOrganizationRequest le laisse
+// nullable). L'inscription CFA etant fermee, seuls des comptes existants
+// passent ici : le rendre requis en modification bloquerait un CFA deja en
+// base qui n'en a pas, sur un ecran ou il vient changer tout autre chose.
+const cfaSchema = (isCreation: boolean) =>
+  z.object({
+    name: z.string().min(1, 'Le nom du CFA est requis.'),
+    siret: isCreation
+      ? z.string().regex(/^\d{14}$/, 'Le SIRET doit contenir 14 chiffres.')
+      : z
+          .string()
+          .regex(/^\d{14}$/, 'Le SIRET doit contenir 14 chiffres.')
+          .optional()
+          .or(z.literal('')),
+    nda_number: z.string().optional().or(z.literal('')),
+    qualiopi_number: z.string().optional().or(z.literal('')),
+    city: z.string().optional().or(z.literal('')),
+    website: z.string().url('URL invalide.').optional().or(z.literal('')),
+    description: z.string().optional().or(z.literal('')),
+    diplomas_offered: z.string().optional().or(z.literal('')),
+    diploma_level: z.string().optional().or(z.literal('')),
+    training_mode: z.union([z.nativeEnum(WorkMode), z.literal('')]).optional(),
+  });
 
-type CfaFormValues = z.infer<typeof cfaSchema>;
+type CfaFormValues = z.infer<ReturnType<typeof cfaSchema>>;
 
 interface CfaFormProps {
   cfaOrganization: CfaOrganization | null;
@@ -48,7 +56,7 @@ export function CfaForm({
     handleSubmit,
     formState: { errors },
   } = useForm<CfaFormValues>({
-    resolver: zodResolver(cfaSchema),
+    resolver: zodResolver(cfaSchema(cfaOrganization === null)),
     defaultValues: {
       name: cfaOrganization?.name ?? '',
       siret: cfaOrganization?.siret ?? '',

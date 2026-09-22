@@ -13,6 +13,11 @@ use Illuminate\Support\Str;
 
 class CfaOrganizationService
 {
+    public function __construct(
+        private readonly CompanyVerificationService $verificationService,
+        private readonly GeocodingService $geocodingService,
+    ) {}
+
     // Annuaire public : n'importe quel visiteur peut parcourir les CFA
     // inscrits, aucune authentification requise (voir routes/api/cfa-organizations.php).
     public function searchPublic(array $filters = []): LengthAwarePaginator
@@ -73,13 +78,40 @@ class CfaOrganizationService
             throw new ApiException('CFA_ORGANIZATION_ALREADY_EXISTS', 'Un profil CFA existe déjà pour ce compte.', 409);
         }
 
-        return $this->withOwnerFields($user->cfaOrganization()->create($data));
+        $cfaOrganization = $user->cfaOrganization()->create($data);
+
+        // Meme ordre que CompanyService : la fiche d'abord, le reseau
+        // ensuite. La verification d'un CFA ne regarde pas son code NAF
+        // d'enseignement (voir CompanyVerificationService) — c'est justement
+        // son metier.
+        $this->geocodingService->apply($cfaOrganization, $cfaOrganization->postal_code, $cfaOrganization->city);
+        $this->verificationService->verify($cfaOrganization);
+
+        return $this->withOwnerFields($cfaOrganization);
     }
 
     public function updateForUser(User $user, array $data): CfaOrganization
     {
         $cfaOrganization = $this->requireCfaOrganization($user);
+
+        // Pas de garde SIRET_REQUIRED ici, contrairement a l'entreprise :
+        // l'inscription CFA est fermee (AuthService::assertRoleOpenForRegistration),
+        // les seules fiches CFA existantes sont anterieures a cette colonne et
+        // exiger un SIRET a la modification bloquerait l'ecole partenaire sur
+        // un changement de logo. Le SIRET reste exige a la CREATION.
+        $siretChanged = array_key_exists('siret', $data) && $data['siret'] !== $cfaOrganization->siret;
+        $locationChanged = (array_key_exists('postal_code', $data) && $data['postal_code'] !== $cfaOrganization->postal_code)
+            || (array_key_exists('city', $data) && $data['city'] !== $cfaOrganization->city);
+
         $cfaOrganization->update($data);
+
+        if ($locationChanged) {
+            $this->geocodingService->apply($cfaOrganization, $cfaOrganization->postal_code, $cfaOrganization->city);
+        }
+
+        if ($siretChanged || ! $cfaOrganization->isVerified()) {
+            $this->verificationService->verify($cfaOrganization);
+        }
 
         return $this->withOwnerFields($cfaOrganization);
     }

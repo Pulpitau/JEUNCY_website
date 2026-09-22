@@ -1,66 +1,74 @@
+import type { ContractType, OfferSector } from '@jeuncy/shared';
 import { apiDownload, apiRequest } from './client';
 
-// Profil tel qu'il apparait DANS LA LISTE. Volontairement pauvre en donnees
-// personnelles : le backend ne renvoie ici ni telephone, ni adresse, ni date
-// de naissance, ni email (voir CvthequeService::LIST_COLUMNS). Ne pas etendre
-// ce type sans revoir la minimisation cote serveur — ajouter un champ ici ne
-// suffirait pas a le faire apparaitre, et ne devrait pas.
-export interface CvthequeCandidate {
+// Tranche d'age montree a un employeur avant le dossier. Jamais l'age exact :
+// une tranche suffit a estimer le cout d'un alternant, elle ne permet pas de
+// retrouver quelqu'un. Null quand le profil n'a pas de date de naissance.
+export type AgeBand = '<18' | '18-20' | '21-25' | '26+';
+
+// LA carte candidat, unique forme d'exposition d'un profil avant candidature
+// (MOBILE.md §4.3, App\Presenters\CandidateCardPresenter cote serveur). Le
+// deck de l'app et la CVtheque du site montrent exactement ceci.
+//
+// Ce type est une LISTE BLANCHE : ce qui n'y figure pas n'est pas envoye par
+// le serveur, et ne doit pas y etre ajoute sans revoir le presenteur. Ni nom
+// complet, ni ville, ni email, ni telephone, ni date de naissance, ni URL de
+// CV — ces champs n'existent plus dans la reponse, pas seulement dans
+// l'affichage.
+export interface CandidateCard {
   id: number;
   first_name: string;
-  last_name: string;
+  // Premiere lettre du nom, en majuscule : « Léa G. ».
+  last_name_initial: string;
+  age_band: AgeBand | null;
   headline: string | null;
-  city: string | null;
-  photo_url: string | null;
-  bio: string | null;
-  driving_license: string | null;
-  // Calcule cote serveur a partir de la date de naissance, qui elle n'est
-  // jamais transmise. Null pour les profils qui ne l'ont pas renseignee.
-  age: number | null;
-  skills: { id: number; name: string }[];
+  pitch: string | null;
+  wanted_contract_types: ContractType[];
+  wanted_sectors: OfferSector[];
+  // Present uniquement quand une offre est en contexte (deck employeur) :
+  // « sa zone de mobilite couvre ton offre », jamais une distance ni une
+  // commune. Absent de la CVtheque, qui n'a pas d'offre de reference.
+  mobility?: { covers_offer: boolean };
+  has_driving_license: boolean;
+  driving_license_categories: string[];
+  has_vehicle: boolean;
+  available_from: string | null;
+  skills: { id: number; name: string; in_common: boolean }[];
   software: { id: number; name: string }[];
-  languages: { id: number; name: string; level: string | null }[];
-}
-
-// Fiche complete : les coordonnees apparaissent ici, une fois le profil ouvert.
-export interface CvthequeCandidateDetail extends CvthequeCandidate {
-  phone: string | null;
-  address: string | null;
-  postal_code: string | null;
-  hobbies: string | null;
-  video_url: string | null;
-  portfolio_url: string | null;
-  linkedin_url: string | null;
-  user: { id: number; email: string };
-  experiences: {
-    id: number;
-    title: string;
-    company: string | null;
-    location: string | null;
-    start_date: string | null;
-    end_date: string | null;
-    description: string | null;
-  }[];
+  languages: { name: string; level: string | null }[];
   educations: {
-    id: number;
     degree: string;
     school: string | null;
     field_of_study: string | null;
     start_date: string | null;
     end_date: string | null;
   }[];
-  // Indique si le CV telechargeable est celui que le candidat a lui-meme
-  // depose (son PDF Canva, Word...) plutot qu'une mise en page produite par
-  // Jeuncy. L'URL du fichier, elle, n'est jamais transmise : le
-  // telechargement passe obligatoirement par downloadCvthequeCv.
+  // Ni lieu ni description : deux champs de texte libre ou une adresse ou un
+  // numero de telephone finissent regulierement.
+  experiences: {
+    title: string;
+    company: string | null;
+    start_date: string | null;
+    end_date: string | null;
+  }[];
+  // Null tant que le candidat n'a pas coche « montrer ma photo aux
+  // entreprises » (opt-in, defaut false).
+  photo_url: string | null;
   has_uploaded_cv: boolean;
+}
+
+// La fiche n'ajoute plus de coordonnees : elle ajoute seulement le droit de
+// telecharger le CV, qui s'ouvre quand le candidat postule a une offre de
+// cette entreprise.
+export interface CvthequeCandidateDetail extends CandidateCard {
+  cv_available: boolean;
 }
 
 export interface CvthequeSearchFilters {
   q?: string;
-  city?: string;
   language?: string;
-  driving_license?: boolean;
+  // Colonne structuree, remplace l'ancien filtre sur le texte libre.
+  has_driving_license?: boolean;
   age_min?: number;
   age_max?: number;
   skills?: string[];
@@ -78,9 +86,8 @@ export interface Paginated<T> {
 function toQueryString(filters: CvthequeSearchFilters): string {
   const params = new URLSearchParams();
   if (filters.q) params.set('q', filters.q);
-  if (filters.city) params.set('city', filters.city);
   if (filters.language) params.set('language', filters.language);
-  if (filters.driving_license) params.set('driving_license', '1');
+  if (filters.has_driving_license) params.set('has_driving_license', '1');
   if (filters.age_min) params.set('age_min', String(filters.age_min));
   if (filters.age_max) params.set('age_max', String(filters.age_max));
   if (filters.page && filters.page > 1) params.set('page', String(filters.page));
@@ -93,7 +100,7 @@ function toQueryString(filters: CvthequeSearchFilters): string {
 }
 
 export function searchCvtheque(filters: CvthequeSearchFilters) {
-  return apiRequest<Paginated<CvthequeCandidate>>(`/cvtheque${toQueryString(filters)}`);
+  return apiRequest<Paginated<CandidateCard>>(`/cvtheque${toQueryString(filters)}`);
 }
 
 export function getCvthequeCandidate(id: number) {
@@ -107,6 +114,7 @@ export function getCvthequeAccess() {
 // Telecharge le CV du candidat. Le serveur renvoie le PDF lui-meme (jamais son
 // URL) et journalise l'acces : chaque appel laisse une trace nominative,
 // exigence RGPD assumee cote produit — un CV telecharge quitte la plateforme.
+// Repond 403 CV_NOT_SHARED tant que le candidat n'a pas postule.
 export function downloadCvthequeCv(id: number) {
   return apiDownload(`/cvtheque/${id}/cv`);
 }

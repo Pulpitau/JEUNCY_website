@@ -2,26 +2,51 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\ContractType;
 use App\Enums\ExternalJobOfferStatus;
 use App\Enums\JobOfferStatus;
 use App\Enums\NotificationType;
+use App\Enums\OfferSector;
+use App\Enums\PaymentStatus;
+use App\Enums\UserRole;
+use App\Enums\VerificationStatus;
 use App\Models\CandidateProfile;
 use App\Models\CfaOrganization;
 use App\Models\Company;
+use App\Models\GeocodeCache;
 use App\Models\JobOffer;
 use App\Models\Notification;
+use App\Models\OfferInterest;
 use App\Models\Skill;
 use App\Models\Software;
+use App\Models\User;
+use App\Presenters\CandidateCardPresenter;
+use App\Services\AccountService;
 use App\Services\AdminService;
+use App\Services\ApplicationService;
+use App\Services\BlockService;
 use App\Services\CandidateProfileService;
+use App\Services\CompanyVerificationService;
 use App\Services\CvService;
+use App\Services\CvthequeService;
+use App\Services\DiscoverService;
+use App\Services\GeocodingService;
+use App\Services\InterestService;
 use App\Services\JobOfferMatchService;
 use App\Services\JobOfferService;
+use App\Services\JwtService;
 use App\Services\Lba\LbaClient;
 use App\Services\Lba\LbaImportService;
+use App\Services\MatchClosingService;
+use App\Services\MatchScorer;
+use App\Services\MatchService;
 use App\Services\PaymentService;
+use App\Support\MatchPerimeter;
 use Illuminate\Console\Scheduling\Schedule;
+use Illuminate\Contracts\Http\Kernel;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Symfony\Component\HttpFoundation\Response;
@@ -40,7 +65,7 @@ class DeployController extends Controller
     // ne peut pas savoir si le controleur lui-meme a bien ete redeploye : c est
     // arrive le 2026-09-02, ou clear-cache continuait d echouer avec une version
     // corrigee censement en place. A incrementer a chaque changement ici.
-    public const DEPLOY_TOOLS_VERSION = 'deploy-tools-28';
+    public const DEPLOY_TOOLS_VERSION = 'deploy-tools-29';
 
     // Perimetre de lancement du match mobile (decision du 2026-09-22) : les
     // Pyrenees-Orientales, mesurees autour de Perpignan (centre-ville).
@@ -659,6 +684,138 @@ class DeployController extends Controller
             'app/Http/Requests/ExternalJobOffer/SearchExternalJobOffersRequest.php',
             'bootstrap/app.php',
             'config/cors.php',
+
+            // ================================================================
+            // LOT 1 DU MODELE MATCH (2026-09-22). Cent onze fichiers, et la
+            // liste est longue A DESSEIN : les deux pannes les plus cheres de
+            // septembre (2026-09-04, 2026-09-08) venaient de fichiers ABSENTS
+            // du serveur, pas de code fautif — un enum sans sa valeur, un
+            // service sans son cablage. Un fichier manquant ne produit aucune
+            // erreur lisible : il produit une fonctionnalite qui ne fait
+            // simplement rien. Tout ce que ce lot touche est donc surveille,
+            // y compris les fichiers seulement MODIFIES pour brancher un
+            // appel — c'est exactement la ou etait la panne, deux fois.
+            // ================================================================
+
+            // Migrations. Sans elles, chaque ecriture echoue a la premiere
+            // colonne inconnue ; 100010 porte la valeur d'enum MySQL des
+            // trois nouveaux types de notification (le selftest la prouve).
+            'database/migrations/2026_09_22_100000_add_match_fields_to_candidate_profiles_table.php',
+            'database/migrations/2026_09_22_100001_add_match_fields_to_job_offers_table.php',
+            'database/migrations/2026_09_22_100002_add_verification_and_coordinates_to_organizations_tables.php',
+            'database/migrations/2026_09_22_100003_add_age_confirmed_at_to_users_table.php',
+            'database/migrations/2026_09_22_100004_create_geocode_cache_table.php',
+            'database/migrations/2026_09_22_100005_create_offer_interests_table.php',
+            'database/migrations/2026_09_22_100006_add_match_fields_to_applications_table.php',
+            'database/migrations/2026_09_22_100007_create_external_interests_table.php',
+            'database/migrations/2026_09_22_100008_create_user_blocks_table.php',
+            'database/migrations/2026_09_22_100009_create_reports_table.php',
+            'database/migrations/2026_09_22_100010_add_match_types_to_notifications_type_enum.php',
+            'database/migrations/2026_09_22_100011_add_coordinates_index_to_external_job_offers_table.php',
+
+            // Enums. Une valeur absente fait echouer l'insertion en silence.
+            'app/Enums/OfferSector.php',
+            'app/Enums/VerificationStatus.php',
+            'app/Enums/InterestDecision.php',
+            'app/Enums/ExternalInterestDecision.php',
+            'app/Enums/MatchClosedReason.php',
+            'app/Enums/ApplicationSource.php',
+            'app/Enums/DrivingLicenseCategory.php',
+            'app/Enums/ReportContext.php',
+
+            // Modeles : les cinq nouveaux et les sept modifies (colonnes
+            // fillable, casts, $hidden, relations).
+            'app/Models/OfferInterest.php',
+            'app/Models/ExternalInterest.php',
+            'app/Models/UserBlock.php',
+            'app/Models/Report.php',
+            'app/Models/GeocodeCache.php',
+            'app/Models/JobOffer.php',
+            'app/Models/Company.php',
+            'app/Models/CfaOrganization.php',
+            'app/Models/Application.php',
+            'app/Models/User.php',
+            'app/Models/ExternalJobOffer.php',
+
+            // Socle partage. Sans Haversine ou MatchPerimeter, les services
+            // qui les appellent plantent au demarrage du conteneur — panne
+            // bruyante, celle-la, mais totale.
+            'app/Support/Haversine.php',
+            'app/Support/PostalCodes.php',
+            'app/Support/MatchPerimeter.php',
+            'app/Presenters/CandidateCardPresenter.php',
+            'app/Rules/ValidSiret.php',
+
+            // Services. CvthequeService, AccountService, ApplicationService,
+            // JobOfferService, CandidateProfileService, CompanyService,
+            // CfaOrganizationService, AuthService, MailService,
+            // TrainingOrganizationDetector et JobOfferMatchService sont
+            // deja plus haut dans cette liste : ils y restent, une entree en
+            // double ne coute qu'une ligne de JSON.
+            'app/Services/GeocodingService.php',
+            'app/Services/CompanyVerificationService.php',
+            'app/Services/MatchClosingService.php',
+            'app/Services/BlockService.php',
+            'app/Services/MatchScorer.php',
+            'app/Services/DiscoverService.php',
+            'app/Services/InterestService.php',
+            'app/Services/MatchService.php',
+            'app/Services/ExternalInterestService.php',
+            'app/Services/ReportService.php',
+            'app/Services/AccountService.php',
+            'app/Services/ApplicationService.php',
+            'app/Services/CfaOrganizationService.php',
+
+            // Commandes : geocode:backfill rattrape les lignes sans
+            // coordonnees, candidates:migrate-driving-license reprend les 89
+            // textes de permis. Une commande absente ne produit aucune
+            // erreur — le cron passe et rien ne se fait.
+            'app/Console/Commands/GeocodeBackfill.php',
+            'app/Console/Commands/MigrateDrivingLicense.php',
+
+            // Middleware des 16 ans. Son absence ne casse pas le site : elle
+            // ouvre Decouvrir aux mineurs de moins de 16 ans, sans un mot.
+            'app/Http/Middleware/EnsureMatchAge.php',
+
+            // Controleurs.
+            'app/Http/Controllers/DiscoverController.php',
+            'app/Http/Controllers/InterestController.php',
+            'app/Http/Controllers/MatchController.php',
+            'app/Http/Controllers/ExternalInterestController.php',
+            'app/Http/Controllers/BlockController.php',
+            'app/Http/Controllers/ReportController.php',
+            'app/Http/Controllers/ApplicationController.php',
+            'app/Http/Controllers/CandidateProfileController.php',
+            'app/Http/Controllers/CvthequeController.php',
+
+            // Form Requests. Une requete absente = 500 a la resolution du
+            // controleur, donc une route entiere morte.
+            'app/Http/Requests/CandidateProfile/UpdateCandidatePreferencesRequest.php',
+            'app/Http/Requests/CandidateProfile/UpdateCandidateLocationRequest.php',
+            'app/Http/Requests/JobOffer/StoreExpressJobOfferRequest.php',
+            'app/Http/Requests/JobOffer/StoreJobOfferRequest.php',
+            'app/Http/Requests/JobOffer/UpdateJobOfferRequest.php',
+            'app/Http/Requests/Company/StoreCompanyRequest.php',
+            'app/Http/Requests/Company/UpdateCompanyRequest.php',
+            'app/Http/Requests/CfaOrganization/StoreCfaOrganizationRequest.php',
+            'app/Http/Requests/CfaOrganization/UpdateCfaOrganizationRequest.php',
+            'app/Http/Requests/Discover/DiscoverOffersRequest.php',
+            'app/Http/Requests/Discover/DiscoverCandidatesRequest.php',
+            'app/Http/Requests/Interest/StoreInterestRequest.php',
+            'app/Http/Requests/Interest/PassInterestsRequest.php',
+            'app/Http/Requests/ExternalInterest/StoreExternalInterestRequest.php',
+            'app/Http/Requests/Block/StoreBlockRequest.php',
+            'app/Http/Requests/Report/StoreReportRequest.php',
+
+            // Routes. routes/api.php porte les cinq nouveaux require : sans
+            // lui, tout le lot repond 404 alors que chaque fichier est la.
+            'routes/api.php',
+            'routes/api/discover.php',
+            'routes/api/interests.php',
+            'routes/api/matches.php',
+            'routes/api/external-interests.php',
+            'routes/api/blocks-reports.php',
+            'routes/api/candidate-profile.php',
         ];
 
         $etat = [];
@@ -729,9 +886,464 @@ class DeployController extends Controller
                     fn () => $this->tailleJson(app(AdminService::class)->listCandidateProfiles([]))
                 ),
                 'encodage_des_profils' => $this->essai(fn () => $this->profilsMalEncodes()),
+
+                // ---- Lot 1 du modele match (2026-09-22) ----
+                //
+                // Une empreinte prouve qu'un fichier est la ; ces essais
+                // prouvent que le code s'EXECUTE. Ils vont jusqu'a
+                // l'insertion, dans une transaction annulee : aucune donnee
+                // reelle n'est touchee, aucun email ne part.
+                'cablage_match' => $this->essai(fn () => $this->cablageDuMatch()),
+                'perimetre' => $this->essai(fn () => MatchPerimeter::departments() ?: ['(aucun — Decouvrir est ferme)']),
+                'cfa_verifiee' => $this->essai(fn () => $this->etatDesVerifications()),
+                'enum_notification_mysql' => $this->essai(fn () => $this->enumNotificationEcritEnBase()),
+                'geocodage_simule' => $this->essai(fn () => $this->geocodageSansReseau()),
+                'parcours_match' => $this->essai(fn () => $this->parcoursMatch()),
+                // Seul essai qui sort sur le reseau, et le dernier : une
+                // panne de l'IGN ne doit pas empecher de lire tout le reste.
+                'geocodeur' => $this->essai(fn () => $this->geocodeurReel()),
             ],
             'heure_serveur' => now()->toDateTimeString(),
-        ], 200, [], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+        ], 200, [], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    }
+
+    /**
+     * Les services du match recoivent-ils bien leurs collaborateurs ?
+     *
+     * Meme raison d'etre que cablageMatchService : une version perimee de
+     * ces fichiers se construit sans la moindre erreur et n'appelle
+     * simplement jamais ce qu'elle devrait. Ici, en plus, une classe absente
+     * (celles du socle partage) ferait echouer la resolution du conteneur —
+     * ce que l'essai rapporte au lieu de renvoyer 500.
+     *
+     * @return array<string, string>
+     */
+    private function cablageDuMatch(): array
+    {
+        $attendus = [
+            JobOfferMatchService::class => [MatchScorer::class],
+            DiscoverService::class => [CandidateCardPresenter::class, BlockService::class],
+            CvthequeService::class => [CandidateCardPresenter::class, CompanyVerificationService::class],
+            MatchService::class => [CandidateCardPresenter::class],
+            InterestService::class => [MatchService::class, BlockService::class],
+            ApplicationService::class => [MatchClosingService::class, MatchService::class],
+            AccountService::class => [MatchClosingService::class],
+        ];
+
+        $etat = [];
+
+        foreach ($attendus as $classe => $collaborateurs) {
+            $court = class_basename($classe);
+
+            if (! class_exists($classe)) {
+                $etat[$court] = 'CLASSE ABSENTE';
+
+                continue;
+            }
+
+            $constructeur = (new \ReflectionClass($classe))->getConstructor();
+            $recus = [];
+
+            foreach ($constructeur?->getParameters() ?? [] as $parametre) {
+                $type = $parametre->getType();
+                if ($type instanceof \ReflectionNamedType) {
+                    $recus[] = $type->getName();
+                }
+            }
+
+            $manquants = array_values(array_diff($collaborateurs, $recus));
+
+            $etat[$court] = $manquants === []
+                ? 'ok'
+                : 'NON CABLE — manque '.implode(', ', array_map('class_basename', $manquants));
+        }
+
+        return $etat;
+    }
+
+    /**
+     * Ce que la migration 100002 a reellement fait en base, et ce qu'il reste
+     * a saisir a la main.
+     *
+     * Sous RefreshDatabase les tests tournent sur une base vide : la partie
+     * DONNEES de cette migration (les CFA existants passent VERIFIED) ne peut
+     * etre prouvee qu'ici, en production.
+     *
+     * @return array<string, mixed>
+     */
+    private function etatDesVerifications(): array
+    {
+        return [
+            'cfa_verifies' => CfaOrganization::where('verification_status', VerificationStatus::VERIFIED->value)->count(),
+            'cfa_en_attente' => CfaOrganization::where('verification_status', VerificationStatus::PENDING->value)->count(),
+            'entreprises_verifiees' => Company::where('verification_status', VerificationStatus::VERIFIED->value)->count(),
+            'entreprises_en_attente' => Company::where('verification_status', VerificationStatus::PENDING->value)->count(),
+            // Attendu : 1 tant qu'IDA n'a pas saisi le code postal de son
+            // offre. Une offre sans coordonnees n'entre dans aucune pile et
+            // repond JOB_OFFER_NOT_LOCATED cote employeur.
+            'offres_publiees_sans_coordonnees' => JobOffer::where('status', JobOfferStatus::PUBLISHED->value)
+                ->where(fn ($q) => $q->whereNull('latitude')->orWhereNull('longitude'))
+                ->count(),
+            'communes_en_cache' => DB::table('geocode_cache')->count(),
+        ];
+    }
+
+    /**
+     * La valeur d'enum NEW_MATCH est-elle acceptee par la colonne MySQL ?
+     *
+     * C'est LA panne du 2026-09-08 : sans la valeur dans l'enum de la
+     * colonne, l'insertion echouait, et le try/catch qui protege
+     * l'enregistrement d'un profil avalait l'exception. SQLite ne prouve
+     * rien la-dessus, MySQL seul le peut. Ecriture reelle puis annulation.
+     */
+    private function enumNotificationEcritEnBase(): string
+    {
+        return $this->dansUneTransactionAnnulee(function () {
+            $sonde = $this->compteSonde('sonde-enum');
+            $poses = [];
+
+            foreach ([NotificationType::NEW_MATCH, NotificationType::INTEREST_RECEIVED, NotificationType::MATCH_CLOSED] as $type) {
+                Notification::create([
+                    'user_id' => $sonde->id,
+                    'type' => $type,
+                    'message' => 'sonde de deploiement',
+                    'link' => '/mes-candidatures',
+                ]);
+                $poses[] = $type->value;
+            }
+
+            return implode(', ', $poses).' : acceptes par la colonne';
+        });
+    }
+
+    /**
+     * Le geocodage traverse-t-il bien le cache, sans reseau ?
+     *
+     * Une commune deja resolue ne doit JAMAIS ressortir sur le reseau : c'est
+     * ce qui rend tenable un geocodage synchrone sur un hebergement sans
+     * worker. On seme la ligne de cache puis on demande la meme commune.
+     */
+    private function geocodageSansReseau(): string
+    {
+        return $this->dansUneTransactionAnnulee(function () {
+            $codePostal = '66000';
+            $commune = 'Perpignan';
+
+            GeocodeCache::updateOrCreate(
+                [
+                    'postal_code' => GeocodingService::normalizePostalCode($codePostal),
+                    'city_normalized' => GeocodingService::normalizeCity($commune),
+                ],
+                ['latitude' => self::PERPIGNAN_LATITUDE, 'longitude' => self::PERPIGNAN_LONGITUDE, 'resolved_at' => now()],
+            );
+
+            $coordonnees = app(GeocodingService::class)->geocode($codePostal, $commune);
+
+            if ($coordonnees === null) {
+                throw new \RuntimeException('le cache n\'a pas ete lu : geocode() a rendu null');
+            }
+
+            return sprintf('cache lu sans reseau : %.4f, %.4f', $coordonnees['lat'], $coordonnees['lng']);
+        });
+    }
+
+    /**
+     * Appel REEL au geocodeur de l'IGN. Le seul essai qui sort sur le
+     * reseau, et le seul qui puisse etre lent : quatre secondes de timeout.
+     * Une panne rend « indisponible » plutot qu'une exception — c'est
+     * precisement le comportement attendu du service.
+     */
+    private function geocodeurReel(): string
+    {
+        // Dans une transaction annulee comme les autres : le service met sa
+        // reponse en cache, et une sonde ne doit rien laisser derriere elle —
+        // pas meme une ligne utile. C'est geocode:backfill qui peuple le
+        // cache, volontairement et en une passe.
+        return $this->dansUneTransactionAnnulee(function () {
+            $coordonnees = app(GeocodingService::class)->geocode('66000', 'Perpignan');
+
+            return $coordonnees === null
+                ? 'INDISPONIBLE — l\'IGN n\'a pas repondu ou ne connait pas la commune (geocode:backfill rattrapera)'
+                : sprintf('%.5f, %.5f', $coordonnees['lat'], $coordonnees['lng']);
+        });
+    }
+
+    /**
+     * Le parcours complet du match, par le NOYAU HTTP.
+     *
+     * Le piege du 2026-09-04 est ecrit noir sur blanc dans CLAUDE.md : le
+     * selftest appelait le SERVICE sans passer par le controleur, donc il
+     * validait precisement la partie qui marchait. Ici chaque etape part
+     * d'une vraie requete HTTP avec un vrai jeton : middleware de role,
+     * middleware des 16 ans, Form Request, controleur, service, insertion.
+     *
+     * Tout se passe dans une transaction annulee, et la cle Resend est mise
+     * a null le temps de l'essai : un match cree ici ne doit envoyer aucun
+     * email a personne.
+     *
+     * @return array<string, mixed>
+     */
+    private function parcoursMatch(): array
+    {
+        $cleResend = config('services.resend.key');
+        config(['services.resend.key' => null]);
+        $requeteInitiale = request();
+
+        try {
+            return $this->dansUneTransactionAnnulee(function () {
+                [$employeur, $offre, $candidat, $profil] = $this->semerLeParcours();
+
+                $jetonEmployeur = app(JwtService::class)->issueAccessToken($employeur);
+                $jetonCandidat = app(JwtService::class)->issueAccessToken($candidat);
+
+                $etapes = [];
+
+                $pile = $this->appelApi('GET', '/api/discover/offers', $jetonCandidat);
+                $etapes['discover_offers'] = $this->resumePile($pile, $offre->id);
+
+                $deck = $this->appelApi('GET', '/api/discover/candidates?job_offer_id='.$offre->id, $jetonEmployeur);
+                $etapes['discover_candidates'] = $this->resumeDeck($deck, $profil->id);
+
+                $cote1 = $this->appelApi('POST', '/api/interests', $jetonEmployeur, [
+                    'job_offer_id' => $offre->id,
+                    'candidate_profile_id' => $profil->id,
+                ]);
+                $etapes['interet_employeur'] = [
+                    'statut' => $cote1['statut'],
+                    'matched' => $cote1['corps']['data']['matched'] ?? null,
+                    'attendu' => 'statut 201, matched false',
+                ];
+
+                $cote2 = $this->appelApi('POST', '/api/interests', $jetonCandidat, ['job_offer_id' => $offre->id]);
+                $etapes['interet_candidat'] = [
+                    'statut' => $cote2['statut'],
+                    'matched' => $cote2['corps']['data']['matched'] ?? null,
+                    'attendu' => 'statut 201, matched true',
+                ];
+
+                $etapes['match_en_base'] = OfferInterest::whereNotNull('matched_at')
+                    ->where('job_offer_id', $offre->id)
+                    ->count().' ligne(s) matchee(s)';
+
+                $matchsCandidat = $this->appelApi('GET', '/api/matches', $jetonCandidat);
+                $etapes['matches_candidat'] = [
+                    'statut' => $matchsCandidat['statut'],
+                    'lignes' => is_array($matchsCandidat['corps']['data'] ?? null) ? count($matchsCandidat['corps']['data']) : null,
+                ];
+
+                $matchsEmployeur = $this->appelApi('GET', '/api/matches', $jetonEmployeur);
+                $etapes['matches_employeur'] = [
+                    'statut' => $matchsEmployeur['statut'],
+                    'lignes' => is_array($matchsEmployeur['corps']['data'] ?? null) ? count($matchsEmployeur['corps']['data']) : null,
+                ];
+
+                $etapes['notifications_creees'] = Notification::where('user_id', $candidat->id)
+                    ->orWhere('user_id', $employeur->id)
+                    ->count();
+
+                return $etapes;
+            });
+        } finally {
+            config(['services.resend.key' => $cleResend]);
+            // Le noyau a remplace l'instance 'request' du conteneur a chaque
+            // sous-requete : sans cette remise en place, tout ce qui lit
+            // request() apres cet essai lirait la derniere sous-requete.
+            app()->instance('request', $requeteInitiale);
+        }
+    }
+
+    /**
+     * Employeur VERIFIED avec offre publiee geolocalisee dans le 66, et
+     * candidat de 18 ans a ~5 km.
+     *
+     * Rien n'utilise de factory : database/factories n'est pas deploye en
+     * production et fakerphp n'y est pas installe (composer --no-dev).
+     *
+     * @return array{0: User, 1: JobOffer, 2: User, 3: CandidateProfile}
+     */
+    private function semerLeParcours(): array
+    {
+        $employeur = $this->compteSonde('sonde-employeur', UserRole::COMPANY);
+        $entreprise = Company::create([
+            'user_id' => $employeur->id,
+            'name' => 'Sonde de deploiement',
+            'siret' => '00000000000000',
+            'city' => 'Perpignan',
+            'postal_code' => '66000',
+        ]);
+        $entreprise->verification_status = VerificationStatus::VERIFIED;
+        $entreprise->verified_at = now();
+        $entreprise->latitude = self::PERPIGNAN_LATITUDE;
+        $entreprise->longitude = self::PERPIGNAN_LONGITUDE;
+        $entreprise->saveQuietly();
+
+        $offre = JobOffer::create([
+            'company_id' => $entreprise->id,
+            'title' => 'Sonde de deploiement',
+            'description' => 'Offre de sonde, annulee avec la transaction.',
+            'contract_type' => ContractType::ALTERNANCE,
+            'city' => 'Perpignan',
+            'postal_code' => '66000',
+            'sector' => OfferSector::COMMERCE,
+            'recruitment_radius_km' => 30,
+            'minimum_age' => 16,
+        ]);
+        $offre->status = JobOfferStatus::PUBLISHED;
+        $offre->payment_status = PaymentStatus::FREE;
+        $offre->published_at = now();
+        $offre->applications_unlocked_at = now();
+        $offre->latitude = self::PERPIGNAN_LATITUDE;
+        $offre->longitude = self::PERPIGNAN_LONGITUDE;
+        $offre->saveQuietly();
+
+        $candidat = $this->compteSonde('sonde-candidat');
+        $profil = CandidateProfile::create([
+            'user_id' => $candidat->id,
+            'first_name' => 'Sonde',
+            'last_name' => 'Deploiement',
+            'birth_date' => now()->subYears(18)->toDateString(),
+            'city' => 'Perpignan',
+            'postal_code' => '66000',
+            'is_visible_in_cvtheque' => true,
+            'search_radius_km' => 30,
+            'mobility_radius_km' => 30,
+        ]);
+        // ~5 km au nord de Perpignan : assez pres pour entrer dans les deux
+        // rayons, assez loin pour que distance_km ne soit pas zero — un zero
+        // passerait aussi bien avec une haversine cassee.
+        $profil->latitude = round(self::PERPIGNAN_LATITUDE + 0.045, 2);
+        $profil->longitude = round(self::PERPIGNAN_LONGITUDE, 2);
+        $profil->saveQuietly();
+
+        return [$employeur, $offre, $candidat, $profil];
+    }
+
+    /**
+     * Compte jetable, cree DANS la transaction annulee. L'email porte un
+     * domaine reserve aux exemples (RFC 2606) : meme si une annulation
+     * echouait, aucun message ne pourrait partir vers une vraie boite.
+     */
+    private function compteSonde(string $prefixe, UserRole $role = UserRole::CANDIDATE): User
+    {
+        return User::create([
+            'email' => $prefixe.'-'.uniqid().'@selftest.invalid',
+            'password_hash' => 'sonde-sans-connexion-possible',
+            'role' => $role,
+        ]);
+    }
+
+    /**
+     * Une requete HTTP reelle, par le noyau, avec un jeton d'acces.
+     *
+     * @param  array<string, mixed>  $corps
+     * @return array{statut: int, corps: array<string, mixed>|null}
+     */
+    private function appelApi(string $methode, string $uri, string $jeton, array $corps = []): array
+    {
+        // INDISPENSABLE, et trouve en testant la sonde elle-meme : le
+        // gestionnaire d'authentification est un singleton du conteneur et
+        // MEMORISE l'utilisateur resolu. Sans cet oubli, la deuxieme
+        // sous-requete reutilisait le compte de la premiere : l'employeur
+        // etait vu comme le candidat, discover/candidates repondait 403 et
+        // les deux « Ca m'interesse » etaient poses du meme cote — la sonde
+        // rapportait un parcours qui « marchait » sans jamais creer de
+        // match. Exactement le genre de fausse assurance qu'un selftest doit
+        // rendre impossible.
+        Auth::forgetGuards();
+
+        $requete = Request::create($uri, $methode, $methode === 'GET' ? [] : $corps, [], [], [
+            'HTTP_AUTHORIZATION' => 'Bearer '.$jeton,
+            'HTTP_ACCEPT' => 'application/json',
+            'CONTENT_TYPE' => 'application/json',
+        ], $methode === 'GET' ? null : json_encode($corps));
+
+        $reponse = app(Kernel::class)->handle($requete);
+        $decode = json_decode((string) $reponse->getContent(), true);
+
+        return [
+            'statut' => $reponse->getStatusCode(),
+            'corps' => is_array($decode) ? $decode : null,
+        ];
+    }
+
+    /**
+     * Resume de la pile candidat. On ne renvoie ni titre ni employeur : les
+     * offres sont publiques, mais cette reponse-ci n'a aucune raison de les
+     * recopier.
+     *
+     * @param  array{statut: int, corps: array<string, mixed>|null}  $reponse
+     * @return array<string, mixed>
+     */
+    private function resumePile(array $reponse, int $offreAttendue): array
+    {
+        $jeuncy = $reponse['corps']['data']['jeuncy'] ?? [];
+        $ligne = collect(is_array($jeuncy) ? $jeuncy : [])->firstWhere('id', $offreAttendue);
+
+        return [
+            'statut' => $reponse['statut'],
+            'offres_jeuncy' => is_array($jeuncy) ? count($jeuncy) : 0,
+            'offres_partenaires' => count($reponse['corps']['data']['partner']['data'] ?? []),
+            'meta' => $reponse['corps']['data']['meta'] ?? null,
+            'offre_de_sonde_presente' => $ligne !== null,
+            // La distance prouve que la haversine SQL s'execute vraiment sur
+            // ce moteur : attendu ~5 km.
+            'distance_km_de_la_sonde' => $ligne['distance_km'] ?? null,
+            'erreur' => $reponse['corps']['error'] ?? null,
+        ];
+    }
+
+    /**
+     * Resume du deck employeur. Les cartes portent des donnees de vrais
+     * candidats : on ne renvoie que des COMPTAGES et la liste des CLES, plus
+     * le controle qu'aucune cle interdite n'apparait. Aucune valeur ne sort.
+     *
+     * @param  array{statut: int, corps: array<string, mixed>|null}  $reponse
+     * @return array<string, mixed>
+     */
+    private function resumeDeck(array $reponse, int $profilAttendu): array
+    {
+        $cartes = $reponse['corps']['data']['data'] ?? [];
+        $cartes = is_array($cartes) ? $cartes : [];
+
+        $interdites = [
+            'last_name', 'city', 'postal_code', 'address', 'phone', 'email',
+            'birth_date', 'age', 'latitude', 'longitude', 'device_latitude',
+            'device_longitude', 'cv_file_url', 'linkedin_url', 'video_url',
+            'portfolio_url', 'bio', 'hobbies', 'user_id',
+        ];
+
+        $fuites = [];
+        foreach ($cartes as $carte) {
+            if (! is_array($carte)) {
+                continue;
+            }
+            $fuites = array_merge($fuites, array_values(array_intersect($interdites, array_keys($carte))));
+        }
+
+        return [
+            'statut' => $reponse['statut'],
+            'cartes' => count($cartes),
+            'profil_de_sonde_present' => collect($cartes)->firstWhere('id', $profilAttendu) !== null,
+            'cles_de_la_premiere_carte' => $cartes === [] ? [] : array_keys((array) $cartes[0]),
+            'cles_interdites_trouvees' => $fuites === [] ? 'aucune' : array_values(array_unique($fuites)),
+            'erreur' => $reponse['corps']['error'] ?? null,
+        ];
+    }
+
+    /**
+     * Execute l'appel dans une transaction TOUJOURS annulee : la sonde ecrit
+     * pour de vrai (c'est le point), mais ne laisse rien derriere elle, meme
+     * en cas d'exception.
+     */
+    private function dansUneTransactionAnnulee(\Closure $appel): mixed
+    {
+        DB::beginTransaction();
+
+        try {
+            return $appel();
+        } finally {
+            DB::rollBack();
+        }
     }
 
     // Serialise reellement la reponse. json_encode echoue des qu'UNE valeur
@@ -845,6 +1457,12 @@ class DeployController extends Controller
         $service = app(JobOfferMatchService::class);
         $r = new \ReflectionClass($service);
 
+        // La regle de correspondance vit desormais dans MatchScorer, avec les
+        // memes noms de methodes mais PUBLIQUES (lot 1, contrat §2.2) : on
+        // l'appelle directement. Seul isReachable est reste prive dans
+        // JobOfferMatchService, d'ou la reflexion conservee pour lui seul.
+        $scorer = app(MatchScorer::class);
+
         $appeler = function (string $methode, array $args) use ($service, $r) {
             $m = $r->getMethod($methode);
             $m->setAccessible(true);
@@ -852,8 +1470,8 @@ class DeployController extends Controller
             return $m->invokeArgs($service, $args);
         };
 
-        $motsCles = $appeler('keywordsOf', [$offre]);
-        $villeOffre = $appeler('normalize', [(string) $offre->city]);
+        $motsCles = $scorer->keywordsOf($offre);
+        $villeOffre = $scorer->normalize((string) $offre->city);
 
         $profils = [];
 
@@ -862,11 +1480,11 @@ class DeployController extends Controller
             ->orderByDesc('id')
             ->limit(60)
             ->get()
-            ->each(function (CandidateProfile $profil) use ($offre, $motsCles, $villeOffre, $appeler, &$profils) {
+            ->each(function (CandidateProfile $profil) use ($offre, $motsCles, $villeOffre, $appeler, $scorer, &$profils) {
                 $joignable = $appeler('isReachable', [$profil]);
-                $memeVille = $villeOffre !== '' && $appeler('normalize', [(string) $profil->city]) === $villeOffre;
-                $motPartage = $appeler('sharesKeyword', [$profil, $motsCles]);
-                $contratExclu = $appeler('contractIsExcluded', [$profil, $offre]);
+                $memeVille = $villeOffre !== '' && $scorer->normalize((string) $profil->city) === $villeOffre;
+                $motPartage = $scorer->sharesKeyword($profil, $motsCles);
+                $contratExclu = $scorer->contractIsExcluded($profil, $offre);
 
                 $profils[] = [
                     'profil' => $profil->id,
@@ -899,9 +1517,9 @@ class DeployController extends Controller
             $diagnosticCible = $cible
                 ? [
                     'profil' => $cible->id,
-                    'ville_normalisee' => $appeler('normalize', [(string) $cible->city]),
+                    'ville_normalisee' => $scorer->normalize((string) $cible->city),
                     'ville_offre_normalisee' => $villeOffre,
-                    'villes_identiques' => $appeler('normalize', [(string) $cible->city]) === $villeOffre,
+                    'villes_identiques' => $scorer->normalize((string) $cible->city) === $villeOffre,
                     'notifications_existantes' => Notification::where('user_id', $cible->user_id)->count(),
                 ]
                 : 'PROFIL INTROUVABLE';
@@ -1128,6 +1746,10 @@ class DeployController extends Controller
         'video-rooms:send-reminders',
         'cv-downloads:purge',
         'job-offers:notify-matching-candidates',
+        // Rattrapage du geocodage (lot 1 du match) : sans elle, une ligne
+        // creee pendant une panne de l'IGN reste hors des deux piles
+        // indefiniment, sans qu'aucune erreur ne le signale.
+        'geocode:backfill',
     ];
 
     // Extrait du controleur pour etre testable sur des entrees choisies : le
@@ -1275,5 +1897,78 @@ class DeployController extends Controller
             'dernier_import' => LbaImportService::lastReport(),
             'aide' => '?maintenant=1 pour demander un import au prochain passage du cron, ?annuler=1 pour retirer la demande. Le resultat apparait ici et dans /admin (Offres partenaires).',
         ]);
+    }
+
+    /**
+     * Rattrapage du geocodage depuis le navigateur (pas de SSH sur OVH).
+     *
+     * Sans elle, la seule facon de geocoder les 115 profils, l'offre d'IDA et
+     * les organisations existantes serait d'attendre le passage nocturne du
+     * cron — et de ne rien pouvoir constater en attendant. Or c'est
+     * precisement le premier geste apres la migration : tant qu'une ligne n'a
+     * pas de coordonnees, elle n'entre dans aucune pile.
+     *
+     * Par defaut la route ne fait RIEN et se contente de compter ce qui
+     * reste a faire : une commande qui interroge un service externe des
+     * centaines de fois ne doit pas partir sur une simple visite d'URL.
+     * ?executer=1 lance la passe, ?chunk=N regle la taille des lots,
+     * ?only=profiles|offers|organizations la restreint. La commande est
+     * idempotente : elle ne reprend que les lignes avec code postal et sans
+     * coordonnees, donc on peut la relancer autant de fois que necessaire —
+     * ce qui est le mode d'emploi quand le temps d'execution de PHP coupe la
+     * passe en cours de route.
+     */
+    public function geocodeBackfill(string $token): Response
+    {
+        $this->assertAuthorized($token);
+
+        $restant = fn (string $table) => DB::table($table)
+            ->whereNotNull('postal_code')
+            ->where('postal_code', '!=', '')
+            ->where(fn ($q) => $q->whereNull('latitude')->orWhereNull('longitude'))
+            ->count();
+
+        $aFaire = [
+            'profils' => $restant('candidate_profiles'),
+            'offres' => $restant('job_offers'),
+            'entreprises' => $restant('companies'),
+            'cfa' => $restant('cfa_organizations'),
+            'communes_en_cache' => DB::table('geocode_cache')->count(),
+        ];
+
+        if (request()->query('executer') !== '1') {
+            return response()->json([
+                'a_geocoder' => $aFaire,
+                'aide' => 'Ajouter ?executer=1 pour lancer la passe. Options : &chunk=100 (taille des lots), &only=profiles|offers|organizations. Idempotente : relancer ne refait que ce qui reste.',
+            ], 200, [], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        }
+
+        // Le geocodeur repond en quelques centaines de millisecondes par
+        // commune inconnue, et rien du tout pour une commune deja en cache :
+        // la premiere passe est la seule longue. La limite est relevee comme
+        // pour l'import LBA, et le decoupage en lots permet de reprendre.
+        @set_time_limit(900);
+        $debut = microtime(true);
+
+        $options = ['--chunk' => (int) (request()->query('chunk') ?: 100)];
+        if (request()->query('only')) {
+            $options['--only'] = (string) request()->query('only');
+        }
+
+        $code = Artisan::call('geocode:backfill', $options);
+
+        return response()->json([
+            'execution' => $code === 0 ? 'ok' : "ECHEC (code {$code})",
+            'duree_s' => (int) round(microtime(true) - $debut),
+            'sortie' => trim(Artisan::output()),
+            'avant' => $aFaire,
+            'apres' => [
+                'profils' => $restant('candidate_profiles'),
+                'offres' => $restant('job_offers'),
+                'entreprises' => $restant('companies'),
+                'cfa' => $restant('cfa_organizations'),
+                'communes_en_cache' => DB::table('geocode_cache')->count(),
+            ],
+        ], 200, [], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
     }
 }

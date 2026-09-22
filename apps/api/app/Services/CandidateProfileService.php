@@ -17,11 +17,30 @@ use Illuminate\Support\Str;
 
 class CandidateProfileService
 {
-    public function __construct(private readonly JobOfferMatchService $matchService) {}
+    public function __construct(
+        private readonly JobOfferMatchService $matchService,
+        private readonly GeocodingService $geocodingService,
+    ) {}
+
+    // Le profil rendu a SON proprietaire porte ses coordonnees (masquees par
+    // defaut, voir CandidateProfile::$hidden) : c'est sa position, il a le
+    // droit de la voir et de l'effacer. Toute methode qui lui rend son profil
+    // passe par ici.
+    private function withOwnerFields(CandidateProfile $profile): CandidateProfile
+    {
+        return $profile->makeVisible(CandidateProfile::OWNER_VISIBLE);
+    }
+
+    private function loadForOwner(CandidateProfile $profile): CandidateProfile
+    {
+        return $this->withOwnerFields(
+            $profile->load(['experiences', 'educations', 'skills', 'languages', 'software']),
+        );
+    }
 
     public function getForUser(User $user): CandidateProfile
     {
-        return $this->requireProfile($user)->load(['experiences', 'educations', 'skills', 'languages', 'software']);
+        return $this->loadForOwner($this->requireProfile($user));
     }
 
     public function createForUser(User $user, array $data): CandidateProfile
@@ -32,19 +51,87 @@ class CandidateProfileService
 
         $profile = $user->candidateProfile()->create($data);
 
+        // Position PROFILE : geocodee a partir de la commune + code postal,
+        // arrondie a deux decimales (~1 km). Apres la creation, jamais
+        // avant : une panne du geocodeur ne doit pas coûter un profil.
+        $this->geocodeProfile($profile);
         $this->notifyMatchingOffers($profile);
 
-        return $profile->load(['experiences', 'educations', 'skills', 'languages', 'software']);
+        return $this->loadForOwner($profile);
     }
 
     public function updateForUser(User $user, array $data): CandidateProfile
     {
         $profile = $this->requireProfile($user);
+
+        $locationChanged = (array_key_exists('city', $data) && $data['city'] !== $profile->city)
+            || (array_key_exists('postal_code', $data) && $data['postal_code'] !== $profile->postal_code);
+
         $profile->update($data);
+
+        if ($locationChanged) {
+            $this->geocodeProfile($profile);
+        }
 
         $this->notifyMatchingOffers($profile);
 
-        return $profile->load(['experiences', 'educations', 'skills', 'languages', 'software']);
+        return $this->loadForOwner($profile);
+    }
+
+    /**
+     * Preferences de recherche (MOBILE.md §3.1) : ce que le candidat
+     * cherche, jusqu'ou il se deplace, ce qu'il montre.
+     *
+     * Toutes ces colonnes sont fillable et validees par
+     * UpdateCandidatePreferencesRequest : un simple update suffit.
+     */
+    public function updatePreferences(User $user, array $data): CandidateProfile
+    {
+        $profile = $this->requireProfile($user);
+        $profile->update($data);
+
+        return $this->loadForOwner($profile);
+    }
+
+    /**
+     * Position GPS du telephone (MOBILE.md §6).
+     *
+     * Deux regles structurelles :
+     *  - l'arrondi a deux decimales (~1 km) est refait ICI, cote serveur :
+     *    l'app l'annonce dans son ecran de consentement, mais une promesse
+     *    tenue par le client seul n'est pas tenue ;
+     *  - elle est stockee a part des coordonnees PROFILE (colonnes device_*)
+     *    parce qu'elle ne sert QU'A la pile du candidat. Le deck employeur
+     *    ne lit que latitude/longitude — c'est structurel, pas une
+     *    convention.
+     */
+    public function setDeviceLocation(User $user, float $latitude, float $longitude): CandidateProfile
+    {
+        $profile = $this->requireProfile($user);
+
+        $profile->device_latitude = round($latitude, GeocodingService::CANDIDATE_PRECISION);
+        $profile->device_longitude = round($longitude, GeocodingService::CANDIDATE_PRECISION);
+        $profile->device_located_at = now();
+        $profile->save();
+
+        return $this->loadForOwner($profile);
+    }
+
+    public function clearDeviceLocation(User $user): CandidateProfile
+    {
+        $profile = $this->requireProfile($user);
+
+        $profile->device_latitude = null;
+        $profile->device_longitude = null;
+        $profile->device_located_at = null;
+        $profile->save();
+
+        return $this->loadForOwner($profile);
+    }
+
+    private function geocodeProfile(CandidateProfile $profile): void
+    {
+        $this->geocodingService->apply($profile, $profile->postal_code, $profile->city);
     }
 
     /**

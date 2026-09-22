@@ -307,6 +307,55 @@ class MailService
         );
     }
 
+    /**
+     * Annonce d'un match aux DEUX parties (MOBILE.md §5).
+     *
+     * Volontairement sobre : pas de confettis, pas de point d'exclamation en
+     * cascade. Ce qui arrive est serieux des deux cotes — un jeune peut y
+     * jouer son alternance — et une mise en scene ferait douter du reste.
+     *
+     * $counterpartLabel est le nom de l'organisation cote candidat, et
+     * « Prenom I. » cote employeur : jamais le nom complet, qui n'apparait
+     * qu'avec le dossier. Un email se fait suivre plus facilement qu'un
+     * ecran.
+     */
+    public function sendNewMatchEmail(
+        string $to,
+        string $counterpartLabel,
+        string $offerTitle,
+        bool $applicationSent,
+        string $url,
+    ): void {
+        $apiKey = config('services.resend.key');
+
+        if (! $apiKey) {
+            Log::warning("RESEND_API_KEY absent : annonce de match non envoyee a {$to}");
+
+            return;
+        }
+
+        $safeCounterpart = e($counterpartLabel);
+        $safeOffer = e($offerTitle);
+
+        $suite = $applicationSent
+            ? '<p>Le dossier de candidature a déjà été envoyé : la suite se passe entre vous.</p>'
+            : '<p>Prochaine étape : l\'envoi du dossier de candidature.</p>';
+
+        $body = <<<HTML
+            <p>Bonjour,</p>
+            <p><strong>{$safeCounterpart}</strong> et toi êtes intéressés par l'offre « {$safeOffer} ».</p>
+            {$suite}
+            {$this->ctaButton('Voir le match', $url)}
+            HTML;
+
+        $this->send(
+            $apiKey,
+            $to,
+            "Vous vous êtes trouvés : {$offerTitle}",
+            $this->wrapEmailHtml('Un match sur Jeuncy', $body),
+        );
+    }
+
     // Message du formulaire de contact public, transmis a l'equipe Jeuncy.
     //
     // reply_to porte l'adresse du VISITEUR : repondre depuis sa boite mail doit

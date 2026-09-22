@@ -6,14 +6,20 @@ use App\Enums\UserRole;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 
-#[Fillable(['email', 'password_hash', 'google_id', 'role', 'is_suspended', 'last_login_at', 'deleted_account_at'])]
+// age_confirmed_at : date d'acceptation de la case « J'ai 15 ans ou plus »
+// a l'inscription (posee par AuthService, null pour Google et les comptes
+// anterieurs).
+#[Fillable(['email', 'password_hash', 'google_id', 'role', 'is_suspended', 'last_login_at', 'deleted_account_at', 'age_confirmed_at'])]
 #[Hidden(['password_hash'])]
 class User extends Authenticatable
 {
+    use HasFactory;
+
     protected $table = 'users';
 
     // Le defaut DB (0) ne se reflete pas sur un modele fraichement cree en
@@ -33,6 +39,7 @@ class User extends Authenticatable
             'is_suspended' => 'boolean',
             'last_login_at' => 'datetime',
             'deleted_account_at' => 'datetime',
+            'age_confirmed_at' => 'datetime',
         ];
     }
 
@@ -99,6 +106,18 @@ class User extends Authenticatable
     public function participatedVideoRooms(): HasMany
     {
         return $this->hasMany(VideoRoom::class, 'participant_id');
+    }
+
+    // Blocages emis par ce compte / recus par ce compte (MOBILE.md §7).
+    // BlockService::blockedUserIdsFor les combine dans les deux sens.
+    public function blocks(): HasMany
+    {
+        return $this->hasMany(UserBlock::class, 'blocker_user_id');
+    }
+
+    public function blockedBy(): HasMany
+    {
+        return $this->hasMany(UserBlock::class, 'blocked_user_id');
     }
 
     public function getAuthPassword(): ?string

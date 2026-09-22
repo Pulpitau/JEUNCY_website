@@ -21,6 +21,9 @@ Route::get('job-offers/external/{externalJobOffer}', [PublicExternalJobOfferCont
 Route::prefix('job-offers')->middleware(['auth:api', 'role:COMPANY,CFA'])->group(function () {
     Route::get('/', [JobOfferController::class, 'index']);
     Route::post('/', [JobOfferController::class, 'store']);
+    // Declaree AVANT les routes a parametre : "express" ne doit jamais etre
+    // lu comme un identifiant d'offre.
+    Route::post('express', [JobOfferController::class, 'storeExpress']);
     Route::patch('{jobOffer}', [JobOfferController::class, 'update']);
     Route::post('{jobOffer}/archive', [JobOfferController::class, 'archive']);
     // Suppression definitive, contrairement a archive() qui n'est qu'un

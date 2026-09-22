@@ -74,11 +74,18 @@ garantie », et commence par le côté entreprise, là où le volume existe.
 1. **Ce que je cherche** : contrats (puces, valeurs de `ContractType` :
    ALTERNANCE, SAISONNIER, BENEVOLAT, JOB_ETUDIANT, STAGE — `ContractType.php`
    l.7-11), 1 à 3 secteurs d'une liste fermée.
-2. **Où** : commune + code postal, **obligatoires pour activer Découvrir**.
-   Aujourd'hui `city` et `postal_code` sont nullables
-   (`StoreCandidateProfileRequest.php` l.35-36 ; migration
-   `2026_07_17_000001` l.21-22). Ils ne deviennent pas obligatoires pour le
-   site : seul Découvrir les exige.
+2. **Où** : commune + code postal, géocodés côté serveur. Ils restent
+   nullables en base et facultatifs sur le site (`StoreCandidateProfileRequest`
+   l.35-36 ; migration `2026_07_17_000001` l.21-22), et le lot 1 ne les a pas
+   rendus obligatoires — une porte fermée sur un champ vide aurait exclu les 5
+   profils de production qui n'en ont pas, sans rien leur proposer. **Sans
+   coordonnées** : la pile du candidat tombe sur le département de son code
+   postal, puis sur toute la France (`meta.scope`), donc il voit quand même
+   des offres ; en revanche **il n'apparaît dans le deck d'aucun employeur**
+   (une distance qu'on ne sait pas calculer ne peut pas être comparée aux deux
+   rayons), et l'écran l'invite à compléter « Où ? ». Le GPS (`DEVICE`,
+   `PUT candidate-profile/location`) prime sur la position géocodée quand il
+   est présent, et seulement pour sa propre pile.
 3. **Mobilité** : rayon 5-100 km (défaut 30), permis par catégorie, véhicule,
    disponible dès. Le champ texte `driving_license` existant (migration
    `2026_07_21_151050` l.13) est conservé une version pour le gabarit CV.
@@ -95,9 +102,13 @@ garantie », et commence par le côté entreprise, là où le volume existe.
 
 ### 3.2 Découvrir
 
-Une **Sélection du jour** : lot fini de 20 cartes, renouvelé après l'import LBA
-de la nuit — pas de curseur infini. Offres Jeuncy d'abord, offres partenaires
-ensuite. Boutons ronds « Passer » / « Ça m'intéresse » redondants aux gestes ;
+Une **Sélection du jour** : au plus 20 offres Jeuncy, renouvelée après
+l'import LBA de la nuit — pas de curseur infini de ce côté-là. Les offres
+partenaires, elles, sont **paginées par 20** (`?page=`, arbitrage du lot 1) :
+il y en a 7 779 en production contre une seule offre Jeuncy, et s'arrêter à 20
+pour tout le monde viderait la pile en une minute. Offres Jeuncy d'abord,
+offres partenaires ensuite. Boutons ronds « Passer » / « Ça m'intéresse »
+redondants aux gestes ;
 tap = fiche dépliée sans quitter la pile ; « Annuler » sur le dernier geste.
 
 **Carte offre Jeuncy, dans l'ordre d'affichage :**
@@ -186,10 +197,21 @@ prévoir, et aucun paiement.
 SIRET obligatoire (14 chiffres + Luhn), existence vérifiée via
 `recherche-entreprises.api.gouv.fr` — déjà appelée pour le code NAF par
 `TrainingOrganizationDetector::nafFor` (l.174-184, `Http::timeout(4)`).
-Statut `PENDING_REVIEW` → `VERIFIED` (automatique si SIRET trouvé, NAF
-autorisé, établissement actif ; sinon un clic admin). Tant que non vérifié :
-aucun deck, aucun intérêt, aucune notification vers un candidat, CVthèque
-fermée.
+Statut `PENDING` → `VERIFIED` (automatique si SIRET trouvé et apparié, NAF
+autorisé, établissement actif) ou `REJECTED` (Luhn faux, NAF d'enseignement,
+établissement fermé), avec `verification_note` lisible. Registre muet =
+`PENDING`, **jamais** VERIFIED par défaut. Tant que non vérifié : aucun deck,
+aucun intérêt, aucune notification vers un candidat, CVthèque fermée, et
+`job-offers/{id}/applications` fermé aussi (`COMPANY_NOT_VERIFIED`, 403).
+
+Deux limites assumées au lot 1, à traiter avant d'ouvrir au-delà d'IDA : il
+n'y a **pas de clic admin de vérification** (`admin/verifications`), donc une
+entreprise passée `PENDING` parce que le registre était en panne le reste
+jusqu'à sa prochaine modification de fiche ; et **un SIRET public actif suffit
+à devenir VERIFIED**, sans preuve que le compte appartienne bien à cette
+entreprise — c'est le risque résiduel le plus sérieux du lot, puisque ce
+statut ouvre des cartes de mineurs. Email de domaine ou validation humaine à
+prévoir.
 
 État actuel à corriger : `siret` nullable (`StoreCompanyRequest.php` l.20 ;
 `companies.siret` nullable unique, migration `2026_07_17_000007` l.16 ;
@@ -208,9 +230,12 @@ long.
 
 1. Ce qu'il cherche (contrat, secteur)
 2. Prénom + initiale du nom
-3. Tranche d'âge (16-17 / 18-20 / 21-25 / 26+), jamais l'âge exact — calculée
-   sur `birth_date` via l'accesseur `getAgeAttribute` existant
-   (`CandidateProfile.php` l.27)
+3. Tranche d'âge (`<18` / 18-20 / 21-25 / 26+), jamais l'âge exact — accesseur
+   `getAgeBandAttribute` à côté de `getAgeAttribute` (`CandidateProfile.php`).
+   `<18` et non « 16-17 » : l'app impose 16 ans, mais le site en accepte 15
+   depuis toujours et les profils existants ne disparaissent pas ; une borne
+   basse affichée aurait été fausse pour eux. Le deck employeur, lui, exige
+   `max(16, minimum_age de l'offre)`.
 4. Titre (`headline`, migration `2026_07_21_094319`)
 5. « Sa zone de mobilité couvre ton offre » — jamais une ville de résidence,
    jamais une distance
@@ -307,13 +332,40 @@ sur `archiveForUser` (`JobOfferService.php` l.95), `deleteForUser` (l.128),
 `ExpireJobOffers`, `withdrawForUser`, `deleteAccount` (`AccountService.php`
 l.78).
 
-**Annulation** : le dernier geste, gratuitement, pendant 5 minutes — y compris
-si un match vient de naître, pendant 60 secondes, avant que l'autre partie ne
-soit notifiée. Contrainte à trancher au lot 1 : sans worker ni queue (§12),
-un email ne peut pas être « différé de 60 s » — soit il part au passage
-suivant du cron (jusqu'à une heure plus tard, la notification in-app portant
-un `visible_at`), soit il part immédiatement et le match n'est plus annulable
-une fois né.
+**Annulation** : le dernier geste, gratuitement, pendant 5 minutes
+(`DELETE interests/last`, `UNDO_WINDOW_EXPIRED` au-delà). L'annulation libère
+le quota et efface la décision ; une ligne devenue vide est supprimée.
+
+**Tranché au lot 1 (2026-09-22) : un match n'est pas annulable.** Sans worker
+ni queue (§12), l'alternative était entre différer l'email au passage suivant
+du cron — donc jusqu'à une heure de silence après un match, sur le seul écran
+que les deux parties attendent — et l'envoyer tout de suite. C'est l'envoi
+immédiat qui a été retenu : la notification in-app **et** l'email partent dans
+l'appel qui crée le match, et `candidate_notified_at` / `employer_notified_at`
+sont posés dans la foulée. Comme `undoLast` refuse une ligne matchée dont
+l'autre partie est déjà notifiée (`MATCH_ALREADY_NOTIFIED`, 409), un match est
+donc, **en pratique, toujours définitif dès l'appel qui le crée**. Le reste du
+dernier geste (un LIKE sans réponse, un PASS) reste annulable normalement.
+
+La fenêtre de 60 secondes reste **écrite dans le code** d'`InterestService`
+(`matched_at` de moins d'une minute ET autre partie non notifiée) : le jour
+où une queue existera, il suffira de retarder l'envoi pour que l'annulation
+d'un match devienne réelle, sans retoucher la règle. Une ligne portant un
+`application_id` ne s'annule jamais ici (`APPLICATION_ATTACHED`, 409) : le
+LIKE posé par un dossier se retire en retirant le dossier, sinon une
+candidature resterait sans l'intérêt qui la justifie.
+
+**Fermeture d'un match** (`MatchClosingService`) : `archiveForUser`,
+`deleteForUser`, `ExpireJobOffers`, `withdrawForUser` et `deleteAccount`
+ferment les lignes ouvertes concernées (`closed_reason` OFFER_ARCHIVED /
+OFFER_DELETED / OFFER_EXPIRED / APPLICATION_WITHDRAWN / ACCOUNT_DELETED) et
+notifient l'autre partie (`MATCH_CLOSED`, in-app seulement) **quand la ligne
+était matchée** — un intérêt à sens unique n'avait été annoncé à personne, le
+signaler après coup révélerait un geste que le produit n'avait pas montré. Le
+destinataire dépend du point d'entrée, jamais de la raison : `closeForOffer`
+prévient le candidat, `closeForCandidateProfile` et `closeForApplication`
+préviennent l'employeur. Toujours **avant** la suppression physique, que les
+cascades emporteraient sinon sans un mot. Idempotent.
 
 ## 6. Géolocalisation et mobilité
 
@@ -395,24 +447,43 @@ MySQL et s'étendent par `->change()`.
 
 - `candidate_profiles` (existant : migration `2026_07_17_000001` l.16-24 +
   `headline`, `hobbies`, `driving_license`, liens, `is_visible_in_cvtheque`,
-  `cv_file_url`) : `latitude`/`longitude` arrondis, `location_source`,
-  `search_radius_km`, `mobility_radius_km`, `wanted_contract_types` (json),
-  `wanted_sectors` (json), `driving_license_categories` (json), `has_vehicle`,
+  `cv_file_url`) : **deux paires de coordonnées** — `latitude`/`longitude`
+  (position PROFILE, géocodée depuis commune + code postal, arrondie à 2
+  décimales) et `device_latitude`/`device_longitude`/`device_located_at`
+  (position DEVICE, le GPS du téléphone, même arrondi). Deux paires plutôt
+  qu'une seule accompagnée d'un `location_source` (nom retenu au cadrage,
+  abandonné au lot 1) : « le GPS ne sert qu'à la pile du candidat » devient
+  alors structurel et non conventionnel — le deck employeur lit
+  `latitude`/`longitude` et ne peut pas lire `device_*` par distraction, et un
+  test le prouve. `location_source` subsiste comme champ **calculé** dans les
+  réponses (`meta.location_source`, `PUT candidate-profile/location`), jamais
+  comme colonne. Les cinq colonnes sont dans `$hidden` et ne reviennent au
+  propriétaire que par `makeVisible(CandidateProfile::OWNER_VISIBLE)`.
+  Également : `search_radius_km`, `mobility_radius_km`,
+  `wanted_contract_types` (json), `wanted_sectors` (json),
+  `has_driving_license`, `driving_license_categories` (json), `has_vehicle`,
   `available_from`, `pitch` (160), `show_photo_to_employers` (défaut false).
+  La colonne texte `driving_license` est **conservée** (reprise par
+  `candidates:migrate-driving-license`, §6).
 - `job_offers` (existant : `2026_07_17_000009` + compensation, personnalisation,
   `work_mode`, `applications_unlocked_at`, `payment_status` FREE
   `2026_09_15_100000` l.17) : `postal_code`, `latitude`/`longitude`,
   `recruitment_radius_km`, `sector`, `schedule`, `start_date`, `minimum_age`,
-  `requires_driving_license`, `cover_photo_id`.
+  `requires_driving_license`, `missions` (json), `cover_photo_id`.
 - `companies` et `cfa_organizations` : `latitude`/`longitude`,
-  `verification_status`, `verified_at`, `verified_by`, `response_days_avg`,
-  `responded_count`.
+  `verification_status`, `verified_at`, `verified_by` (nullOnDelete),
+  `verification_note`, `response_days_avg`, `responded_count`. Les CFA
+  existants (IDA) passent VERIFIED dans la migration elle-même ; les nouvelles
+  lignes restent PENDING.
 - `applications` : `interest_id`, `source` (SITE / APP / MATCH),
   `responded_at`.
 - `users` : `age_confirmed_at` — la case des 15/16 ans n'est enregistrée nulle
   part aujourd'hui (`RegisterRequest.php` l.33 valide sans stocker).
-- `notifications.type` : `NEW_MATCH`, `INTEREST_RECEIVED`, `MATCH_REMINDER`,
-  `APPLICATION_CLOSED_BY_STAFF`, `PHOTO_REVIEWED`, par `->change()`.
+- `notifications.type`, par `->change()` : `NEW_MATCH`, `INTEREST_RECEIVED`,
+  `MATCH_CLOSED` (livrés au lot 1) ; `MATCH_REMINDER`,
+  `APPLICATION_CLOSED_BY_STAFF` (lot 4) et `PHOTO_REVIEWED` (photos d'équipe)
+  viendront avec les fonctionnalités qui les émettent — une valeur d'enum sans
+  émetteur n'apporte rien, et la migration est bon marché.
 
 ### Routes API nouvelles
 
@@ -447,10 +518,24 @@ aujourd'hui accès qu'à la CVthèque (`routes/api/cvtheque.php` l.17).
 `account/export`, `DELETE account` (`account.php` l.9-10) ; auth mobile.
 
 Services modifiés : `CvthequeService` (exposition), `JobOfferMatchService`
-(ses règles sont `private`, l.206-335 → extraire un `MatchScorer` public testé
-seul), `ApplicationService::applyForUser` (rattache `interest_id`),
-`DeployController::version()` et selftest, `bootstrap/app.php` (nouvelles
-commandes planifiées).
+(ses règles étaient `private` : extraites dans un `App\Services\MatchScorer`
+public, testé seul, que le service injecte — une seule règle change, la
+préférence structurée `wanted_contract_types` l'emporte sur l'heuristique
+textuelle quand elle est renseignée), `ApplicationService::applyForUser`
+(rattache `interest_id`, pose `source` et un LIKE candidat),
+`DeployController::version()` et selftest, `bootstrap/app.php` (alias
+`match.age`, commandes planifiées).
+
+**Classes nouvelles du lot 1, noms définitifs** : `App\Support\Haversine`
+(distance en SQL, boîte englobante), `App\Support\PostalCodes` (département
+d'un code postal), `App\Support\MatchPerimeter` (départements ouverts —
+**vide = fermé**), `App\Presenters\CandidateCardPresenter` (la règle
+d'exposition unique, §4.3), `App\Services\GeocodingService`,
+`CompanyVerificationService`, `MatchClosingService`, `BlockService`,
+`MatchScorer`, `DiscoverService`, `InterestService`, `MatchService`,
+`ExternalInterestService`, `ReportService`, middleware
+`App\Http\Middleware\EnsureMatchAge` (alias `match.age`), commandes
+`geocode:backfill` et `candidates:migrate-driving-license`.
 
 ## 9. Règles non négociables du mobile
 
