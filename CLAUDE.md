@@ -1486,3 +1486,70 @@ volontairement pour voir les pages remplies. Production non touchée.
   toujours donner a Pierre le **nom exact** du fichier attendu dans
   `index.html`, c'est ce qui a permis de voir qu'il avait envoye un autre
   build que le mien.
+
+**Modèle match — lot 3, deck candidat complet, rayon et GPS (2026-09-23) :
+terminé, pas encore déployé**
+
+- La pile « Découvrir » du candidat quitte le prototype : elle lit
+  `discover/offers`, les gestes partent au serveur, et un « Ça m'intéresse »
+  peut créer un match. `src/store/swipe-store.ts` (AsyncStorage) et la feuille
+  « Où ? » par numéro de département sont **supprimés** — le serveur sait où
+  habite le candidat, le département n'est plus une saisie mais une
+  conséquence.
+- **Deux piles, deux régimes de pagination.** Les offres Jeuncy sont une
+  « Sélection du jour » finie qui arrive **en entier dès la première page** ;
+  les partenaires se paginent par vingt. Règle écrite en tête du hook : ne
+  lire `jeuncy` que sur la première page, sinon les mêmes vingt offres
+  reviennent à chaque page suivante.
+- **Trois gestes, trois traitements.** « Ça m'intéresse » part seul (il peut
+  déclencher notification et email chez l'employeur) ; « Passer » sur une
+  offre Jeuncy s'accumule et part par lots ; les gestes sur une offre
+  partenaire partent un par un, faute de route de lot. L'annulation vise la
+  bonne pile — le serveur garde **un cran par pile** — et vide le tampon
+  d'abord, sinon « le dernier geste » désignerait une autre carte.
+- **Rayon et GPS** : feuille de réglages (paliers 5-100 km, « Autour de
+  moi »). L'élargissement est toujours annoncé, en tête de pile et dans la
+  feuille. Position demandée en précision basse, arrondie à ~1 km **côté app
+  et côté serveur**, effaçable depuis « Confidentialité ». Elle ne sert qu'à
+  la pile du candidat : le deck employeur lit d'autres colonnes, ce qui rend
+  le texte de consentement vérifiable plutôt que promis.
+- **Offres gardées** : la section de l'onglet Candidatures lit
+  `GET external-interests`. L'écran dit que ce n'est pas une candidature et
+  que « J'ai postulé » est une note que le candidat se laisse à lui-même —
+  Jeuncy ne peut pas vérifier ce qui se passe sur le site de l'employeur.
+- Nouvelle dépendance : **`expo-location` ~57.0.19** (fonctionne dans Expo
+  Go), chaînes de permission dans `app.json`. Installée avec `npx expo
+install` ; Pierre n'a pas besoin de lancer pnpm, `node_modules` est déjà à
+  jour sur son poste.
+
+**Drapeau d'ouverture (`JEUNCY_MATCH_ACTIF`) — deux fichiers backend**
+
+- `services.jeuncy.match_actif`, **défaut vrai**. C'est un **frein
+  d'urgence, pas un interrupteur de lancement** : le plan (§10) prévoyait
+  d'ouvrir la pile candidat à dix offres Jeuncy dans les 30 km, mais la
+  production n'en a qu'une, et fermer sur ce critère masquerait aussi les
+  7 779 offres partenaires — qui sont précisément le remplissage prévu en
+  attendant.
+- Le refus (`MATCH_NOT_OPEN_YET`, 403) est posé **avant** la garde de profil :
+  une pile fermée ne doit pas reprocher au candidat un profil incomplet pour
+  un écran qui ne s'ouvrirait pas de toute façon.
+- Deux fichiers modifiés, **tous deux déjà surveillés** par
+  `DeployController::version()` :
+  `app/Services/DiscoverService.php` (`90eaa24bd521d634`, 26 238 o) et
+  `config/services.php` (`693037a439ecb8b0`, 9 887 o).
+
+**Connu et à traiter plus tard (lot 3)**
+
+- Rien n'est déployé. Le prochain envoi porte **l'API et le site** (les deux
+  fichiers ci-dessus, plus `apps/web/dist`) : la leçon du 2026-09-22 vaut
+  toujours, ils partent ensemble.
+- **Non vérifié sur iPhone** : rien du lot 3 n'a été exercé sur un vrai
+  téléphone, et la partie GPS ne peut pas l'être autrement (pas de
+  localisation dans un bundle exporté). À faire en premier au prochain essai
+  Expo Go.
+- La base de dev n'a **aucune offre partenaire** (`partenaires: 0`), donc la
+  pile partenaire, sa pagination et « Je garde » n'ont pas pu être exercées
+  localement. En production il y en a 7 709.
+- Le retrait d'une offre gardée n'existe pas : le serveur ne connaît que
+  l'annulation du **dernier** geste, et l'offrir sur n'importe quelle ligne
+  annulerait en réalité autre chose. Il faut une route dédiée.
