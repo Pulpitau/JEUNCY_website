@@ -7,10 +7,10 @@ import { useStagedProfileSections } from './use-staged-profile-sections';
 // ce qu'il y a de plus long a retaper : elles doivent survivre au demontage de
 // la page au meme titre que le formulaire d'identite.
 describe('useStagedProfileSections — persistance locale', () => {
-  beforeEach(() => window.sessionStorage.clear());
+  beforeEach(() => window.localStorage.clear());
   afterEach(() => {
     cleanup();
-    window.sessionStorage.clear();
+    window.localStorage.clear();
   });
 
   it('retrouve une experience saisie avant enregistrement', async () => {
@@ -54,10 +54,10 @@ describe('useStagedProfileSections — persistance locale', () => {
     await act(async () => {
       await vue.result.current.setSoftware(['Excel']);
     });
-    expect(window.sessionStorage.getItem('jeuncy.profil-brouillon.7')).not.toBeNull();
+    expect(window.localStorage.getItem('jeuncy.profil-brouillon.7')).not.toBeNull();
 
     act(() => vue.result.current.clear());
 
-    expect(window.sessionStorage.getItem('jeuncy.profil-brouillon.7')).toBeNull();
+    expect(window.localStorage.getItem('jeuncy.profil-brouillon.7')).toBeNull();
   });
 });

@@ -50,7 +50,7 @@ function valeur(label: string): string {
 
 describe('Profile — brouillon local', () => {
   beforeEach(() => {
-    window.sessionStorage.clear();
+    window.localStorage.clear();
     useAuthStore.setState({
       user: { id: '7', email: 'lea@example.com', role: UserRole.CANDIDATE },
       accessToken: 'jeton',
@@ -66,7 +66,7 @@ describe('Profile — brouillon local', () => {
   afterEach(() => {
     cleanup();
     vi.clearAllMocks();
-    window.sessionStorage.clear();
+    window.localStorage.clear();
   });
 
   it('retrouve la saisie apres un aller-retour vers une autre page', async () => {
@@ -82,6 +82,44 @@ describe('Profile — brouillon local', () => {
 
     expect(valeur('Prénom')).toBe('Léa');
     expect(valeur('Nom')).toBe('Girard');
+  });
+
+  // Le geste reellement decrit par Pierre : il ouvre une autre page, la FERME,
+  // et revient. Un brouillon qui ne vivrait que dans l'onglet (sessionStorage,
+  // premier essai) serait deja parti a ce moment-la.
+  it('survit a la fermeture de l’onglet', async () => {
+    const { unmount } = renderProfile();
+    await saisirIdentite('Léa', 'Girard');
+
+    unmount();
+    cleanup();
+    // Fermer l'onglet, c'est exactement ca : le stockage de session disparait,
+    // celui du navigateur reste.
+    window.sessionStorage.clear();
+
+    renderProfile();
+    await screen.findByLabelText('Prénom');
+
+    expect(valeur('Prénom')).toBe('Léa');
+    expect(valeur('Nom')).toBe('Girard');
+  });
+
+  it('jette un brouillon vieux de plus de sept jours', async () => {
+    const { unmount } = renderProfile();
+    await saisirIdentite('Léa', 'Girard');
+    unmount();
+    cleanup();
+
+    const cle = 'jeuncy.profil-brouillon.7';
+    const vieux = JSON.parse(window.localStorage.getItem(cle) as string);
+    vieux.savedAt = Date.now() - 8 * 24 * 60 * 60 * 1000;
+    window.localStorage.setItem(cle, JSON.stringify(vieux));
+
+    renderProfile();
+    await screen.findByLabelText('Prénom');
+
+    expect(valeur('Prénom')).toBe('');
+    expect(window.localStorage.getItem(cle)).toBeNull();
   });
 
   it('previent que la saisie a ete restauree et sait la jeter', async () => {
@@ -118,7 +156,7 @@ describe('Profile — brouillon local', () => {
     await vi.waitFor(() => expect(vi.mocked(createProfile)).toHaveBeenCalled());
 
     await vi.waitFor(() =>
-      expect(window.sessionStorage.getItem('jeuncy.profil-brouillon.7')).toBeNull(),
+      expect(window.localStorage.getItem('jeuncy.profil-brouillon.7')).toBeNull(),
     );
   });
 

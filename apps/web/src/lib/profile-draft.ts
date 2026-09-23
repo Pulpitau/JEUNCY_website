@@ -11,24 +11,32 @@ import type {
 // Le probleme corrige (signale par Pierre le 2026-09-23) : la page se remplit
 // en plusieurs fois — 14 champs d'identite, plus experiences, formations,
 // langues, competences et logiciels — et tant que rien n'est enregistre, tout
-// vit dans l'etat React. Ouvrir une offre ou revenir a l'accueil demonte la
-// page ; au retour, le candidat retrouvait un formulaire vide et devait tout
-// retaper. Le brouillon survit desormais a cette navigation.
+// vit dans l'etat React. Quitter la page, ou la fermer, effacait tout.
 //
-// sessionStorage plutot que localStorage, et c'est un choix, pas un defaut :
-// ce brouillon contient un nom, une date de naissance, un telephone et une
-// adresse. Le public de Jeuncy navigue souvent depuis un poste partage (CFA,
-// lycee, mission locale) ; un brouillon qui survivrait a la fermeture du
-// navigateur exposerait ces donnees au visiteur suivant. sessionStorage meurt
-// avec l'onglet, ce qui couvre exactement le cas signale sans laisser de
-// trainee. (RGPD, CLAUDE.md section 10 : minimiser ce qu'on conserve.)
+// localStorage, apres un premier essai rate en sessionStorage : celui-ci meurt
+// avec l'onglet, donc il couvrait la navigation mais pas le geste que fait
+// vraiment le candidat — ouvrir une autre page, la FERMER, revenir (retour de
+// Pierre le 2026-09-23, « ca marche toujours pas »). Un brouillon qui ne
+// survit pas a la fermeture d'un onglet ne sert a rien.
 //
-// La cle porte l'identifiant du compte : deux comptes qui se succedent dans le
-// meme onglet ne peuvent pas heriter du brouillon l'un de l'autre. Et la
-// deconnexion efface tout (voir clearAllProfileDrafts, appelee par
-// clearSession dans store/auth-store.ts).
+// Ce brouillon contient un nom, une date de naissance, un telephone et une
+// adresse, et le public de Jeuncy navigue souvent depuis un poste partage
+// (CFA, lycee, mission locale). Trois garde-fous, plutot que de renoncer :
+//   - la cle porte l'identifiant du compte, donc aucun candidat ne peut voir
+//     le brouillon d'un autre ;
+//   - la deconnexion efface tout (clearAllProfileDrafts, appelee par
+//     clearSession dans store/auth-store.ts) ;
+//   - un brouillon de plus de sept jours est jete a la lecture, sans quoi des
+//     donnees personnelles dormiraient indefiniment sur la machine (RGPD,
+//     CLAUDE.md section 10 : ne rien garder plus longtemps qu'utile).
+// A noter : sur un poste partage, le cookie de session vit deja sept jours —
+// le brouillon n'ouvre donc pas une porte que le site laissait fermee.
 
 const PREFIX = 'jeuncy.profil-brouillon.';
+
+// Sept jours : assez pour reprendre son profil le week-end suivant, assez
+// court pour qu'un brouillon oublie ne traine pas.
+const MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 
 export interface ProfileDraft {
   // Les champs du formulaire d'identite, tels que react-hook-form les tient :
@@ -39,19 +47,22 @@ export interface ProfileDraft {
   languages?: Language[];
   skills?: Skill[];
   software?: Software[];
+  // Date de derniere ecriture (millisecondes). Absente sur un brouillon ecrit
+  // par la version precedente : on le considere alors comme perime.
+  savedAt?: number;
 }
 
 function keyFor(userId: string): string {
   return `${PREFIX}${userId}`;
 }
 
-// Tout passe par ici : l'acces a sessionStorage peut lever (Safari en
-// navigation privee, quota depasse, stockage desactive par une politique
+// Tout passe par ici : l'acces au stockage peut lever (Safari en navigation
+// privee, quota depasse, stockage desactive par une politique
 // d'etablissement). Un brouillon indisponible ne doit jamais casser la page —
 // on retombe simplement sur le comportement d'avant.
 function storage(): Storage | null {
   try {
-    return window.sessionStorage;
+    return window.localStorage;
   } catch {
     return null;
   }
@@ -70,8 +81,21 @@ export function readProfileDraft(userId: string): ProfileDraft | null {
     }
 
     const parsed: unknown = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object') {
+      return null;
+    }
 
-    return parsed && typeof parsed === 'object' ? (parsed as ProfileDraft) : null;
+    const draft = parsed as ProfileDraft;
+
+    // Perime : on l'efface au passage plutot que de le laisser dormir sur la
+    // machine. Un brouillon sans date vient d'une version anterieure.
+    if (typeof draft.savedAt !== 'number' || Date.now() - draft.savedAt > MAX_AGE_MS) {
+      store.removeItem(keyFor(userId));
+
+      return null;
+    }
+
+    return draft;
   } catch {
     // JSON corrompu (ecriture interrompue, bricolage manuel) : on repart d'une
     // page vierge plutot que de propager une exception au rendu.
@@ -88,7 +112,7 @@ export function patchProfileDraft(userId: string, patch: Partial<ProfileDraft>):
     return;
   }
 
-  const next = { ...(readProfileDraft(userId) ?? {}), ...patch };
+  const next = { ...(readProfileDraft(userId) ?? {}), ...patch, savedAt: Date.now() };
 
   try {
     // Un brouillon qui ne contient plus rien est retire plutot que reecrit
