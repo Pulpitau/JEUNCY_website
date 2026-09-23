@@ -197,6 +197,16 @@ export function addExperience(input: ExperienceInput) {
   });
 }
 
+// PATCH et pas PUT : le serveur accepte une mise a jour partielle
+// (UpdateExperienceRequest), mais le formulaire renvoie de toute facon tous
+// ses champs — corriger une faute de frappe ne doit pas effacer le reste.
+export function updateExperience(id: number, input: ExperienceInput) {
+  return apiRequest<Experience>(`/candidate-profile/experiences/${id}`, {
+    method: 'PATCH',
+    body: input,
+  });
+}
+
 export function deleteExperience(id: number) {
   return apiRequest<{ deleted: boolean }>(`/candidate-profile/experiences/${id}`, {
     method: 'DELETE',
@@ -206,6 +216,13 @@ export function deleteExperience(id: number) {
 export function addEducation(input: EducationInput) {
   return apiRequest<Education>('/candidate-profile/educations', {
     method: 'POST',
+    body: input,
+  });
+}
+
+export function updateEducation(id: number, input: EducationInput) {
+  return apiRequest<Education>(`/candidate-profile/educations/${id}`, {
+    method: 'PATCH',
     body: input,
   });
 }

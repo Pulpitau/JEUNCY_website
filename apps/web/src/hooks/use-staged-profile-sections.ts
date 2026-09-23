@@ -44,8 +44,10 @@ export interface StagedProfileSections {
   skills: Skill[];
   software: Software[];
   addExperience: (values: ExperienceInput) => Promise<void>;
+  updateExperience: (id: number, values: ExperienceInput) => Promise<void>;
   removeExperience: (id: number) => Promise<void>;
   addEducation: (values: EducationInput) => Promise<void>;
+  updateEducation: (id: number, values: EducationInput) => Promise<void>;
   removeEducation: (id: number) => Promise<void>;
   addLanguage: (values: LanguageInput) => Promise<void>;
   removeLanguage: (id: number) => Promise<void>;
@@ -160,9 +162,23 @@ export function useStagedProfileSections(userId: string | null): StagedProfileSe
     skills,
     software,
     addExperience: addStagedExperience,
+    // Modifier avant meme que le profil existe : la ligne provisoire est
+    // remplacee sur place, elle partira au serveur avec sa version corrigee.
+    updateExperience: async (id, values) =>
+      setExperiences((current) =>
+        current.map((item) =>
+          item.id === id ? ({ ...item, ...values } as Experience) : item,
+        ),
+      ),
     removeExperience: async (id) =>
       setExperiences((current) => current.filter((item) => item.id !== id)),
     addEducation: addStagedEducation,
+    updateEducation: async (id, values) =>
+      setEducations((current) =>
+        current.map((item) =>
+          item.id === id ? ({ ...item, ...values } as Education) : item,
+        ),
+      ),
     removeEducation: async (id) =>
       setEducations((current) => current.filter((item) => item.id !== id)),
     addLanguage: addStagedLanguage,

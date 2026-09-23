@@ -26,8 +26,10 @@ import {
   createProfile,
   updateProfile,
   addExperience,
+  updateExperience,
   deleteExperience,
   addEducation,
+  updateEducation,
   deleteEducation,
   addLanguage,
   deleteLanguage,
@@ -140,12 +142,34 @@ export function Profile() {
     mutationFn: addExperience,
     onSuccess: invalidateProfile,
   });
+  // Modification d une experience deja enregistree (demande d un etudiant,
+  // 2026-09-23). mutationFn ne prend qu un argument : on passe la paire.
+  const updateExperienceMutation = useMutation({
+    mutationFn: ({
+      id,
+      values,
+    }: {
+      id: number;
+      values: Parameters<typeof updateExperience>[1];
+    }) => updateExperience(id, values),
+    onSuccess: invalidateProfile,
+  });
   const deleteExperienceMutation = useMutation({
     mutationFn: deleteExperience,
     onSuccess: invalidateProfile,
   });
   const addEducationMutation = useMutation({
     mutationFn: addEducation,
+    onSuccess: invalidateProfile,
+  });
+  const updateEducationMutation = useMutation({
+    mutationFn: ({
+      id,
+      values,
+    }: {
+      id: number;
+      values: Parameters<typeof updateEducation>[1];
+    }) => updateEducation(id, values),
     onSuccess: invalidateProfile,
   });
   const deleteEducationMutation = useMutation({
@@ -351,11 +375,18 @@ export function Profile() {
         <CardContent>
           <ExperienceSection
             experiences={profile ? profile.experiences : staged.experiences}
-            isSubmitting={addExperienceMutation.isPending}
+            isSubmitting={
+              addExperienceMutation.isPending || updateExperienceMutation.isPending
+            }
             onAdd={(values) =>
               profile
                 ? addExperienceMutation.mutateAsync(values)
                 : staged.addExperience(values)
+            }
+            onUpdate={(id, values) =>
+              profile
+                ? updateExperienceMutation.mutateAsync({ id, values })
+                : staged.updateExperience(id, values)
             }
             onDelete={(id) =>
               profile
@@ -373,11 +404,18 @@ export function Profile() {
         <CardContent>
           <EducationSection
             educations={profile ? profile.educations : staged.educations}
-            isSubmitting={addEducationMutation.isPending}
+            isSubmitting={
+              addEducationMutation.isPending || updateEducationMutation.isPending
+            }
             onAdd={(values) =>
               profile
                 ? addEducationMutation.mutateAsync(values)
                 : staged.addEducation(values)
+            }
+            onUpdate={(id, values) =>
+              profile
+                ? updateEducationMutation.mutateAsync({ id, values })
+                : staged.updateEducation(id, values)
             }
             onDelete={(id) =>
               profile

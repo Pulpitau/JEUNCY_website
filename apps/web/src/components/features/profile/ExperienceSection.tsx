@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { messageFromError } from '@/lib/tag-input';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -9,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import type { Experience, ExperienceInput } from '@/lib/api/candidate-profile';
 import { formatMonthYear } from '@/lib/format-date';
+import { messageFromError } from '@/lib/tag-input';
 
 const experienceSchema = z.object({
   title: z.string().min(1, 'Le titre est requis.'),
@@ -21,9 +21,34 @@ const experienceSchema = z.object({
 
 type ExperienceFormValues = z.infer<typeof experienceSchema>;
 
+const EMPTY: ExperienceFormValues = {
+  title: '',
+  company: '',
+  location: '',
+  start_date: '',
+  end_date: '',
+  description: '',
+};
+
+// Le serveur renvoie des dates ISO completes ; un <input type="date"> veut
+// AAAA-MM-JJ et laisse le champ vide sinon.
+function formValuesFrom(experience: Experience): ExperienceFormValues {
+  return {
+    title: experience.title,
+    company: experience.company,
+    location: experience.location ?? '',
+    start_date: experience.start_date?.slice(0, 10) ?? '',
+    end_date: experience.end_date?.slice(0, 10) ?? '',
+    description: experience.description ?? '',
+  };
+}
+
 interface ExperienceSectionProps {
   experiences: Experience[];
   onAdd: (values: ExperienceInput) => Promise<unknown>;
+  // Demande d'un etudiant (2026-09-23) : pouvoir corriger une experience
+  // deja saisie, pas seulement la supprimer et tout retaper.
+  onUpdate: (id: number, values: ExperienceInput) => Promise<unknown>;
   onDelete: (id: number) => Promise<unknown>;
   isSubmitting: boolean;
 }
@@ -31,10 +56,13 @@ interface ExperienceSectionProps {
 export function ExperienceSection({
   experiences,
   onAdd,
+  onUpdate,
   onDelete,
   isSubmitting,
 }: ExperienceSectionProps) {
   const [showForm, setShowForm] = useState(false);
+  // id de l'experience en cours de modification ; null = ajout.
+  const [editingId, setEditingId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const {
     register,
@@ -43,23 +71,48 @@ export function ExperienceSection({
     formState: { errors },
   } = useForm<ExperienceFormValues>({ resolver: zodResolver(experienceSchema) });
 
+  function openForAdd() {
+    reset(EMPTY);
+    setEditingId(null);
+    setError(null);
+    setShowForm(true);
+  }
+
+  function openForEdit(experience: Experience) {
+    reset(formValuesFrom(experience));
+    setEditingId(experience.id);
+    setError(null);
+    setShowForm(true);
+  }
+
+  function closeForm() {
+    reset(EMPTY);
+    setEditingId(null);
+    setError(null);
+    setShowForm(false);
+  }
+
   async function handleFormSubmit(values: ExperienceFormValues) {
+    const payload: ExperienceInput = {
+      title: values.title,
+      company: values.company,
+      location: values.location || null,
+      start_date: values.start_date,
+      end_date: values.end_date || null,
+      description: values.description || null,
+    };
+
     // Sans ce try/catch, un refus du serveur ne se voyait nulle part : le
     // formulaire restait ouvert, rien ne s'ajoutait, aucun message. Un
     // etudiant en a conclu qu'il ne pouvait pas depasser cinq experiences
     // (retour du 2026-09-23) alors que rien ne limite leur nombre.
     try {
-      await onAdd({
-        title: values.title,
-        company: values.company,
-        location: values.location || null,
-        start_date: values.start_date,
-        end_date: values.end_date || null,
-        description: values.description || null,
-      });
-      reset();
-      setShowForm(false);
-      setError(null);
+      if (editingId !== null) {
+        await onUpdate(editingId, payload);
+      } else {
+        await onAdd(payload);
+      }
+      closeForm();
     } catch (submitError) {
       setError(messageFromError(submitError));
     }
@@ -92,14 +145,24 @@ export function ExperienceSection({
               <p className="mt-2 font-inter text-sm">{experience.description}</p>
             )}
           </div>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={() => onDelete(experience.id)}
-          >
-            Supprimer
-          </Button>
+          <div className="flex shrink-0 gap-1">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => openForEdit(experience)}
+            >
+              Modifier
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => onDelete(experience.id)}
+            >
+              Supprimer
+            </Button>
+          </div>
         </div>
       ))}
 
@@ -167,14 +230,13 @@ export function ExperienceSection({
           </div>
           <div className="flex gap-2">
             <Button type="submit" variant="gradient" size="sm" disabled={isSubmitting}>
-              {isSubmitting ? 'Ajout…' : 'Ajouter'}
+              {isSubmitting
+                ? 'Enregistrement…'
+                : editingId !== null
+                  ? 'Enregistrer'
+                  : 'Ajouter'}
             </Button>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => setShowForm(false)}
-            >
+            <Button type="button" variant="outline" size="sm" onClick={closeForm}>
               Annuler
             </Button>
           </div>
@@ -185,7 +247,7 @@ export function ExperienceSection({
           variant="outline"
           size="sm"
           className="self-start"
-          onClick={() => setShowForm(true)}
+          onClick={openForAdd}
         >
           + Ajouter une expérience
         </Button>
