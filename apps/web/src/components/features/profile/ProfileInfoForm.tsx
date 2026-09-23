@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -40,11 +41,59 @@ const profileSchema = z.object({
 
 type ProfileFormValues = z.infer<typeof profileSchema>;
 
+function valuesFromProfile(profile: CandidateProfile | null): ProfileFormValues {
+  return {
+    first_name: profile?.first_name ?? '',
+    last_name: profile?.last_name ?? '',
+    headline: profile?.headline ?? '',
+    phone: profile?.phone ?? '',
+    birth_date: profile?.birth_date?.slice(0, 10) ?? '',
+    address: profile?.address ?? '',
+    city: profile?.city ?? '',
+    postal_code: profile?.postal_code ?? '',
+    bio: profile?.bio ?? '',
+    hobbies: profile?.hobbies ?? '',
+    driving_license: profile?.driving_license ?? '',
+    video_url: profile?.video_url ?? '',
+    portfolio_url: profile?.portfolio_url ?? '',
+    linkedin_url: profile?.linkedin_url ?? '',
+  };
+}
+
+// Le brouillon est recopie champ par champ, et seulement sur les cles que le
+// formulaire connait aujourd'hui : un brouillon ecrit par une version
+// precedente du site ne doit pas injecter de champ fantome ni faire echouer la
+// validation sur une valeur qui n'existe plus.
+function mergeDraft(
+  profile: CandidateProfile | null,
+  draft: Record<string, string> | null | undefined,
+): ProfileFormValues {
+  const values = valuesFromProfile(profile);
+  if (!draft) {
+    return values;
+  }
+
+  for (const key of Object.keys(values) as (keyof ProfileFormValues)[]) {
+    const saved = draft[key];
+    if (typeof saved === 'string') {
+      values[key] = saved;
+    }
+  }
+
+  return values;
+}
+
 interface ProfileInfoFormProps {
   profile: CandidateProfile | null;
   onSubmit: (values: CandidateProfileInput) => Promise<unknown>;
   onCancel?: () => void;
   isSubmitting: boolean;
+  // Saisie non enregistree retrouvee au retour sur la page (voir
+  // lib/profile-draft.ts). Absente = comportement d'avant, le formulaire part
+  // du profil enregistre.
+  draft?: Record<string, string> | null;
+  onDraftChange?: (values: Record<string, string>) => void;
+  onDiscardDraft?: () => void;
 }
 
 export function ProfileInfoForm({
@@ -52,30 +101,60 @@ export function ProfileInfoForm({
   onSubmit,
   onCancel,
   isSubmitting,
+  draft,
+  onDraftChange,
+  onDiscardDraft,
 }: ProfileInfoFormProps) {
   const {
     register,
     handleSubmit,
+    watch,
+    reset,
     formState: { errors },
   } = useForm<ProfileFormValues>({
     resolver: zodResolver(profileSchema),
-    defaultValues: {
-      first_name: profile?.first_name ?? '',
-      last_name: profile?.last_name ?? '',
-      headline: profile?.headline ?? '',
-      phone: profile?.phone ?? '',
-      birth_date: profile?.birth_date?.slice(0, 10) ?? '',
-      address: profile?.address ?? '',
-      city: profile?.city ?? '',
-      postal_code: profile?.postal_code ?? '',
-      bio: profile?.bio ?? '',
-      hobbies: profile?.hobbies ?? '',
-      driving_license: profile?.driving_license ?? '',
-      video_url: profile?.video_url ?? '',
-      portfolio_url: profile?.portfolio_url ?? '',
-      linkedin_url: profile?.linkedin_url ?? '',
-    },
+    defaultValues: mergeDraft(profile, draft),
   });
+
+  // Fige l'etat d'ouverture : le bandeau annonce ce qui vient d'etre restaure,
+  // il ne doit pas disparaitre des la premiere frappe ni reapparaitre ensuite.
+  const [showRestored, setShowRestored] = useState(() =>
+    Object.values(draft ?? {}).some(
+      (value) => typeof value === 'string' && value.trim() !== '',
+    ),
+  );
+
+  // Chaque frappe est ecrite tout de suite, sans temporisation : le geste qui
+  // fait perdre la saisie (cliquer sur un lien, revenir en arriere) peut
+  // arriver juste apres la derniere lettre, et un debounce la perdrait —
+  // c'est exactement le bug qu'on corrige. L'ecriture est synchrone et porte
+  // sur quelques kilo-octets.
+  useEffect(() => {
+    if (!onDraftChange) {
+      return;
+    }
+
+    const subscription = watch((values) => {
+      const info: Record<string, string> = {};
+      for (const [key, value] of Object.entries(values)) {
+        if (typeof value === 'string') {
+          info[key] = value;
+        }
+      }
+
+      onDraftChange(info);
+    });
+
+    return () => subscription.unsubscribe();
+  }, [watch, onDraftChange]);
+
+  function handleDiscardDraft() {
+    // reset() notifie les abonnes de watch, donc reecrit un brouillon : on
+    // efface APRES, sinon l'effacement serait aussitot annule.
+    reset(valuesFromProfile(profile));
+    onDiscardDraft?.();
+    setShowRestored(false);
+  }
 
   async function handleFormSubmit(values: ProfileFormValues) {
     await onSubmit({
@@ -102,6 +181,20 @@ export function ProfileInfoForm({
       noValidate
       className="flex flex-col gap-4"
     >
+      {showRestored && (
+        <div
+          role="status"
+          className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border bg-muted px-3 py-2"
+        >
+          <p className="font-inter text-sm text-muted-foreground">
+            On a retrouvé ce que tu avais commencé à saisir sans l'enregistrer.
+          </p>
+          <Button type="button" variant="ghost" size="sm" onClick={handleDiscardDraft}>
+            {profile ? 'Revenir aux infos enregistrées' : 'Vider le formulaire'}
+          </Button>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="flex flex-col gap-2">
           <Label htmlFor="first_name">Prénom</Label>

@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { patchProfileDraft, readProfileDraft } from '@/lib/profile-draft';
 import {
   addEducation,
   addExperience,
@@ -55,12 +56,33 @@ export interface StagedProfileSections {
   clear: () => void;
 }
 
-export function useStagedProfileSections(): StagedProfileSections {
-  const [experiences, setExperiences] = useState<Experience[]>([]);
-  const [educations, setEducations] = useState<Education[]>([]);
-  const [languages, setLanguages] = useState<Language[]>([]);
-  const [skills, setSkills] = useState<Skill[]>([]);
-  const [software, setSoftware] = useState<Software[]>([]);
+// userId : ces sections sont aussi conservees dans le brouillon local de la
+// page (lib/profile-draft.ts), pour qu'une experience saisie avant
+// l'enregistrement survive a un aller-retour vers une autre page. Sans
+// identifiant (cas theorique, la page est sous RequireAuth), le hook
+// fonctionne exactement comme avant, en memoire seulement.
+export function useStagedProfileSections(userId: string | null): StagedProfileSections {
+  const restored = userId ? readProfileDraft(userId) : null;
+  const [experiences, setExperiences] = useState<Experience[]>(
+    () => restored?.experiences ?? [],
+  );
+  const [educations, setEducations] = useState<Education[]>(
+    () => restored?.educations ?? [],
+  );
+  const [languages, setLanguages] = useState<Language[]>(() => restored?.languages ?? []);
+  const [skills, setSkills] = useState<Skill[]>(() => restored?.skills ?? []);
+  const [software, setSoftware] = useState<Software[]>(() => restored?.software ?? []);
+
+  // Une seule ecriture par changement de liste, apres le rendu : les sections
+  // s'ajoutent une par une (jamais lettre par lettre comme le formulaire), il
+  // n'y a donc rien a temporiser.
+  useEffect(() => {
+    if (!userId) {
+      return;
+    }
+
+    patchProfileDraft(userId, { experiences, educations, languages, skills, software });
+  }, [userId, experiences, educations, languages, skills, software]);
 
   // Les sections attendent des handlers asynchrones (elles affichent un etat
   // "en cours" et attendent la resolution) : on respecte leur contrat meme

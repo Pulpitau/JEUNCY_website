@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Card,
@@ -43,14 +43,44 @@ import {
 } from '@/lib/api/candidate-profile';
 import { ApiError } from '@/lib/api/client';
 import { useStagedProfileSections } from '@/hooks/use-staged-profile-sections';
+import {
+  clearProfileDraft,
+  draftHasInfo,
+  patchProfileDraft,
+  readProfileDraft,
+} from '@/lib/profile-draft';
+import { useAuthStore } from '@/store/auth-store';
 
 const PROFILE_QUERY_KEY = ['candidate-profile'];
 const CVS_QUERY_KEY = ['candidate-profile', 'cv'];
 
 export function Profile() {
   const queryClient = useQueryClient();
-  const [isEditingInfo, setIsEditingInfo] = useState(false);
-  const staged = useStagedProfileSections();
+  // La page est sous RequireAuth : l'utilisateur est connu des le premier
+  // rendu, l'identifiant ne changera pas sous nos pieds.
+  const userId = useAuthStore((state) => state.user?.id ?? null);
+
+  // Lu une seule fois, au montage : c'est l'etat « ce que le candidat avait
+  // commence avant de quitter la page ». Le relire a chaque rendu le ferait
+  // reapparaitre apres qu'il a choisi de l'effacer.
+  const [restoredDraft] = useState(() => (userId ? readProfileDraft(userId) : null));
+  const [isEditingInfo, setIsEditingInfo] = useState(() => draftHasInfo(restoredDraft));
+  const staged = useStagedProfileSections(userId);
+
+  const handleDraftChange = useCallback(
+    (info: Record<string, string>) => {
+      if (userId) {
+        patchProfileDraft(userId, { info });
+      }
+    },
+    [userId],
+  );
+
+  const forgetDraft = useCallback(() => {
+    if (userId) {
+      clearProfileDraft(userId);
+    }
+  }, [userId]);
 
   const profileQuery = useQuery({
     queryKey: PROFILE_QUERY_KEY,
@@ -91,7 +121,9 @@ export function Profile() {
       staged.clear();
       return created;
     },
+    // Le brouillon a fait son travail : ce qu'il contenait est en base.
     onSuccess: () => {
+      forgetDraft();
       invalidateProfile();
       setIsEditingInfo(false);
     },
@@ -99,6 +131,7 @@ export function Profile() {
   const updateMutation = useMutation({
     mutationFn: updateProfile,
     onSuccess: () => {
+      forgetDraft();
       invalidateProfile();
       setIsEditingInfo(false);
     },
@@ -211,6 +244,10 @@ export function Profile() {
       await addLanguage(language);
     }
 
+    // L'import a ecrit en base ce que le brouillon gardait de cote : le
+    // conserver ferait revenir de vieilles valeurs par-dessus le CV importe.
+    forgetDraft();
+
     await invalidateProfile();
   }
 
@@ -264,6 +301,9 @@ export function Profile() {
             <ProfileInfoForm
               profile={profile}
               isSubmitting={createMutation.isPending || updateMutation.isPending}
+              draft={restoredDraft?.info ?? null}
+              onDraftChange={handleDraftChange}
+              onDiscardDraft={forgetDraft}
               onCancel={profile ? () => setIsEditingInfo(false) : undefined}
               onSubmit={(values) =>
                 profile
