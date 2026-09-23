@@ -26,3 +26,6 @@ export const OFFER_SECTOR_LABELS: Record<OfferSector, string> = {
 export function offerSectorLabel(value: string): string {
   return OFFER_SECTOR_LABELS[value as OfferSector] ?? value;
 }
+
+/** Paliers de rayon de recrutement, bornes du serveur : 5 a 100 km. */
+export const RECRUITMENT_RADIUS_OPTIONS = [5, 10, 20, 30, 50, 100] as const;

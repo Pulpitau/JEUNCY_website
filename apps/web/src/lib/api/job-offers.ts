@@ -2,6 +2,7 @@ import type { CompensationPeriod } from '@/lib/format-compensation';
 import type {
   ContractType,
   JobOfferStatus,
+  OfferSector,
   PaymentStatus,
   WorkMode,
 } from '@jeuncy/shared';
@@ -30,6 +31,19 @@ export interface JobOffer {
   benefits: string | null;
   diploma_level: string | null;
   training_rhythm: string | null;
+  // Colonnes du modele match (lot 1). `postal_code` commande l'entree dans
+  // Decouvrir des deux cotes : sans lui l'offre n'est geocodee nulle part,
+  // donc invisible de toute pile — c'est le sens de JOB_OFFER_NOT_LOCATED.
+  postal_code: string | null;
+  sector: OfferSector | null;
+  /** Rayon de recrutement en km (defaut 30 en base, jamais null). */
+  recruitment_radius_km: number;
+  schedule: string | null;
+  start_date: string | null;
+  /** 16 a 18 ; le deck employeur exige max(16, minimum_age). */
+  minimum_age: number | null;
+  requires_driving_license: boolean;
+  missions: string[] | null;
   skills: Skill[];
   published_at: string | null;
   expires_at: string | null;
@@ -78,6 +92,14 @@ export interface JobOfferInput {
   benefits?: string | null;
   diploma_level?: string | null;
   training_rhythm?: string | null;
+  postal_code?: string | null;
+  sector?: OfferSector | null;
+  recruitment_radius_km?: number;
+  schedule?: string | null;
+  start_date?: string | null;
+  minimum_age?: number | null;
+  requires_driving_license?: boolean;
+  missions?: string[];
   skills?: string[];
 }
 
