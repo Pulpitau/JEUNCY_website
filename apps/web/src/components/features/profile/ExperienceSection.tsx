@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { messageFromError } from '@/lib/tag-input';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -34,6 +35,7 @@ export function ExperienceSection({
   isSubmitting,
 }: ExperienceSectionProps) {
   const [showForm, setShowForm] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const {
     register,
     handleSubmit,
@@ -187,6 +189,12 @@ export function ExperienceSection({
         >
           + Ajouter une expérience
         </Button>
+      )}
+
+      {error && (
+        <p role="alert" className="font-inter text-sm text-destructive">
+          {error}
+        </p>
       )}
     </div>
   );

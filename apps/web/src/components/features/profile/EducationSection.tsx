@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { messageFromError } from '@/lib/tag-input';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -32,6 +33,7 @@ export function EducationSection({
   isSubmitting,
 }: EducationSectionProps) {
   const [showForm, setShowForm] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const {
     register,
     handleSubmit,
@@ -174,6 +176,12 @@ export function EducationSection({
         >
           + Ajouter une formation
         </Button>
+      )}
+
+      {error && (
+        <p role="alert" className="font-inter text-sm text-destructive">
+          {error}
+        </p>
       )}
     </div>
   );

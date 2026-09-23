@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { messageFromError } from '@/lib/tag-input';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -28,6 +29,7 @@ export function LanguagesSection({
   isSubmitting,
 }: LanguagesSectionProps) {
   const [showForm, setShowForm] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const {
     register,
     handleSubmit,
@@ -36,9 +38,15 @@ export function LanguagesSection({
   } = useForm<LanguageFormValues>({ resolver: zodResolver(languageSchema) });
 
   async function handleFormSubmit(values: LanguageFormValues) {
-    await onAdd({ name: values.name, level: values.level });
-    reset();
-    setShowForm(false);
+    // Voir ExperienceSection : un echec d'enregistrement doit se voir.
+    try {
+      await onAdd({ name: values.name, level: values.level });
+      reset();
+      setShowForm(false);
+      setError(null);
+    } catch (submitError) {
+      setError(messageFromError(submitError));
+    }
   }
 
   return (
@@ -133,6 +141,12 @@ export function LanguagesSection({
         >
           + Ajouter une langue
         </Button>
+      )}
+
+      {error && (
+        <p role="alert" className="font-inter text-sm text-destructive">
+          {error}
+        </p>
       )}
     </div>
   );
