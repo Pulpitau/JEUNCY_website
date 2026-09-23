@@ -1,3 +1,4 @@
+import type { ContractType, DrivingLicenseCategory, OfferSector } from '@jeuncy/shared';
 import { File } from 'expo-file-system';
 
 import { apiRequest } from './client';
@@ -67,6 +68,26 @@ export interface CandidateProfile {
   photo_url: string | null;
   /** Droit d'opposition a la CVtheque (RGPD art. 21). */
   is_visible_in_cvtheque: boolean;
+  // « Ce que je cherche » et « Mobilite » (lot 1). Toutes ces colonnes
+  // acceptent l'absence de reponse : un profil muet reste eligible a tout,
+  // ce qui est le cas des 115 profils anterieurs a cet ecran.
+  wanted_contract_types: ContractType[] | null;
+  wanted_sectors: OfferSector[] | null;
+  /** Rayon de recherche du candidat, en km (5 a 100). */
+  search_radius_km: number;
+  /** Rayon jusqu'ou il accepte d'aller travailler : c'est CELUI que l'employeur voit. */
+  mobility_radius_km: number;
+  has_driving_license: boolean;
+  driving_license_categories: DrivingLicenseCategory[] | null;
+  has_vehicle: boolean;
+  available_from: string | null;
+  /** 160 caracteres, sans coordonnees (le serveur les refuse). */
+  pitch: string | null;
+  /**
+   * Defaut : faux. Un portrait est la donnee la plus identifiante d'un
+   * mineur ; il ne part chez un employeur que sur un oui explicite.
+   */
+  show_photo_to_employers: boolean;
   cv_file_url: string | null;
   cv_original_filename: string | null;
   cv_uploaded_at: string | null;
@@ -314,5 +335,64 @@ export function importCv(file: NativeFile) {
   return apiRequest<ImportedCvData>('/candidate-profile/cv/import', {
     method: 'POST',
     body: formData,
+  });
+}
+
+// ---------------------------------------------------------------------------
+// « Ce que je cherche » et « Où » (lot 1, MOBILE.md §3.1 et §6)
+// ---------------------------------------------------------------------------
+
+/**
+ * Tout est facultatif : l'ecran se remplit par morceaux, et un PUT partiel
+ * ne doit pas effacer ce qu'il ne mentionne pas (le serveur valide en
+ * `sometimes`). Un champ absent veut dire « ne touche pas », un champ a null
+ * veut dire « efface ».
+ */
+export interface CandidatePreferencesInput {
+  wanted_contract_types?: ContractType[];
+  /** Trois au maximum : au-dela, « ce que je cherche » ne cherche plus rien. */
+  wanted_sectors?: OfferSector[];
+  search_radius_km?: number;
+  mobility_radius_km?: number;
+  has_driving_license?: boolean;
+  driving_license_categories?: DrivingLicenseCategory[];
+  has_vehicle?: boolean;
+  available_from?: string | null;
+  pitch?: string | null;
+  show_photo_to_employers?: boolean;
+}
+
+export function updatePreferences(input: CandidatePreferencesInput) {
+  return apiRequest<CandidateProfile>('/candidate-profile/preferences', {
+    method: 'PUT',
+    body: input,
+  });
+}
+
+/** D'ou vient la position utilisee par la pile du candidat. */
+export interface CandidateLocation {
+  location_source: 'PROFILE' | 'DEVICE' | null;
+  device_located_at?: string | null;
+}
+
+/**
+ * Position GPS du telephone, pour la pile du CANDIDAT seulement.
+ *
+ * Le serveur arrondit a deux decimales avant de stocker (~1 km), et ne
+ * renvoie jamais les coordonnees. Le deck employeur ne lit structurellement
+ * jamais ces colonnes : la decision « aucune distance cote employeur » est
+ * garantie par le schema, pas par une regle qu'on peut oublier.
+ */
+export function updateLocation(latitude: number, longitude: number) {
+  return apiRequest<CandidateLocation>('/candidate-profile/location', {
+    method: 'PUT',
+    body: { latitude, longitude },
+  });
+}
+
+/** Revient a la commune declaree du profil. */
+export function clearLocation() {
+  return apiRequest<CandidateLocation>('/candidate-profile/location', {
+    method: 'DELETE',
   });
 }

@@ -173,6 +173,12 @@ function ProfileSummary({ profile }: { profile: CandidateProfile }) {
           ) : null}
         </View>
       </View>
+      {/* En tete des actions : c'est cet ecran qui decide ce qu'on te propose
+          dans Découvrir, et ce que les recruteurs voient de toi. */}
+      <Button
+        label="Ce que je cherche"
+        onPress={() => router.push('/profil/preferences')}
+      />
       <Button
         label="Modifier mes informations"
         variant="secondary"

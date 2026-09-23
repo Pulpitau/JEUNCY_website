@@ -36,6 +36,7 @@ export default function AppLayout() {
           modification) : chaque ecran pose le sien via <Stack.Screen>. */}
       <Stack.Screen name="profil/experience" options={{ title: 'Expérience' }} />
       <Stack.Screen name="profil/formation" options={{ title: 'Formation' }} />
+      <Stack.Screen name="profil/preferences" options={{ title: 'Ce que je cherche' }} />
       <Stack.Screen name="profil/competences" options={{ title: 'Compétences' }} />
       <Stack.Screen name="profil/logiciels" options={{ title: 'Logiciels' }} />
       <Stack.Screen name="profil/langue" options={{ title: 'Nouvelle langue' }} />
