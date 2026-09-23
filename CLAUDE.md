@@ -1553,3 +1553,62 @@ install` ; Pierre n'a pas besoin de lancer pnpm, `node_modules` est déjà à
 - Le retrait d'une offre gardée n'existe pas : le serveur ne connaît que
   l'annulation du **dernier** geste, et l'offrir sur n'importe quelle ligne
   annulerait en réalité autre chose. Il faut une route dédiée.
+
+**Modèle match — lot 4, relances, modération et badge de réponse
+(2026-09-23) : terminé, pas encore déployé**
+
+- **Relances (`matches:remind`)** — c'est la promesse du produit rendue
+  concrète. Quatre cascades : intérêt employeur sans réponse (J+3, expiré
+  J+14), intérêt candidat sans réponse (J+7, expiré J+14), match sans dossier
+  (J+2, J+7, expiré J+30), dossier sans réponse (J+3, J+7, J+14, clôture
+  J+30). Planifiée une fois par jour via `unePasseParPeriode`.
+- **Idempotence par colonne, pas par calcul** : chaque ligne porte
+  `reminder_stage`. Le cron d'OVH est horaire et saute des passages — une
+  passe manquée repart au suivant, une passe rejouée ne renvoie rien. Une
+  ligne oubliée trois semaines saute directement à l'étage dû plutôt que de
+  recevoir un rappel de J+3 trois semaines trop tard.
+- **Deux choses que la cascade ne fait jamais**, toutes deux testées : révéler
+  à un employeur qu'un candidat s'est intéressé à lui sans réponse de sa part
+  (il ne l'a jamais su) ; poser un statut de candidature au nom de
+  l'entreprise à J+30 — le statut reste `SENT`, Jeuncy ferme la mise en
+  relation et le dit au candidat.
+- **Trois files de modération admin** : signalements (les plus anciens en
+  tête), vérifications en attente, employeurs silencieux (lus directement sur
+  `applications.reminder_stage`, jamais recalculés en parallèle de la
+  cascade).
+- **La vérification manuelle comble le trou assumé du lot 1** : une
+  organisation laissée `PENDING` par un registre muet y restait jusqu'à sa
+  prochaine modification de fiche. La note est obligatoire même pour
+  accorder — ce statut ouvre l'accès à des cartes de mineurs, et six mois
+  plus tard une vérification sans raison écrite est indistinguable d'une
+  erreur. `PENDING` est refusé en entrée : ce n'est pas une décision.
+- **Signalement et blocage côté app** : feuille atteignable depuis une carte
+  candidat, une offre et un match. Deux gestes distincts — bloquer
+  automatiquement ce qu'on signale ferait disparaître la preuve sous les yeux
+  de celui qui signale.
+- **Badge « Répond en N jours »** : médiane et non moyenne, rien en dessous de
+  cinq candidatures traitées (« Nouvelle entreprise »), et les candidatures
+  jamais répondues ne comptent pas — sinon un employeur améliorerait son badge
+  en ignorant les dossiers difficiles.
+
+**Défaut trouvé en exécutant (lot 4)**
+
+- La suite PHPUnit tombait en **« Premature end of PHP process »** sur le
+  rendu dompdf de `CvthequeDownloadTest`. Le test passe seul : c'est la
+  mémoire, pas une régression — 128 Mo (le défaut du CLI) ne suffisent plus
+  au-delà de 800 tests. `<ini name="memory_limit" value="1G"/>` dans
+  `phpunit.xml`, là où on le trouvera, plutôt qu'un réglage à se rappeler sur
+  la ligne de commande.
+
+**Connu et à traiter plus tard (lot 4)**
+
+- **Photos d'équipe : pas faites.** Table, upload, redimensionnement côté app
+  (`expo-image-manipulator`) et modération des deux côtés — c'est un lot en
+  soi, et de peu d'usage pour un pilote à un seul employeur.
+- **Page CSAE et recours parental : pas écrits.** Ce sont des engagements
+  juridiques dont le texte appartient à Pierre. Apple les exigera au lot 6 ;
+  la structure de page existe (`/mentions-legales`, `/confidentialite`), il
+  manque les mots.
+- Rien du lot 4 n'a été exercé sur un vrai téléphone ni contre la production.
+  La cascade de relances n'a tourné que contre SQLite, dans les tests : la
+  première passe réelle est à regarder (`/deploy/{token}/scheduler`).
