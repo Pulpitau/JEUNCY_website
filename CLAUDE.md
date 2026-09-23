@@ -1380,3 +1380,74 @@ terminé, sonde à déployer**
   (elle reste hors du deck, `offres_publiees_sans_coordonnees: 1`) ; 2 profils
   sur 115 ont un code postal que le géocodeur ne résout pas et restent sans
   coordonnées (passe idempotente, relançable).
+
+**Modèle match — lot 2, deck entreprise, intérêts, match et dossier
+(2026-09-23) : terminé, pas encore déployé**
+
+- **Aucun fichier backend touché** : tout le lot 2 consomme le socle du lot 1
+  tel quel. Seuls `apps/mobile` et `apps/web` changent, donc seul le site est
+  à renvoyer (les `assets/` d'abord, `index.html` en dernier) ; l'application
+  se recharge toute seule dans Expo Go.
+- **Mobile, côté entreprise et CFA** : onglet « Découvrir » avec sélecteur
+  d'offre et pile de cartes candidats (`SwipeDeck` réutilisé tel quel du
+  prototype du 22), feuille « C'est un match ! », onglet « Matchs » des deux
+  côtés, détail d'un match, « Candidatures reçues » offre par offre avec
+  changement de statut, offre express, porte de vérification. Barre d'onglets
+  ramenée à cinq entrées de chaque côté (Découvrir et Matchs communs).
+- **Mobile, côté candidat** : écran « Ce que je cherche » (contrats, secteurs,
+  les deux rayons, permis, disponibilité, phrase, autorisation de la photo).
+  Tout y est facultatif, et c'est structurel : `DiscoverService::filtreContrat`
+  traite une liste vide comme « éligible à tout », ce qui est l'état des 115
+  profils existants. L'exiger aurait vidé le deck employeur le jour de son
+  ouverture.
+- **Site** : pages `/interesses` (candidat seulement — l'intérêt à sens unique
+  n'est jamais exposé à l'employeur, il n'y a donc pas de page miroir) et
+  `/mes-matchs` (les deux rôles, une seule route, le serveur choisit la forme
+  de la réponse) ; offre express et éditeur de missions sur « Mes offres » ;
+  champs de mise en relation dans le formulaire d'offre.
+
+**Trois défauts que seule l'exécution a montrés (lot 2)**
+
+- **Le bouton « Modifier » manquait sur toute offre en ligne.** Il n'était
+  rendu que pour les brouillons, alors que le serveur accepte depuis le lot 1
+  la modification d'une offre publiée gratuitement
+  (`JobOfferService::requireOwnedEditableOffer`) et re-géocode quand le code
+  postal change. **C'est la vraie raison pour laquelle le code postal d'IDA
+  restait inaccessible** : ajouter le champ au formulaire ne suffisait pas,
+  le formulaire lui-même était hors d'atteinte. Leçon : quand une garde
+  serveur et une condition d'affichage disent la même chose, écrire la
+  seconde comme le miroir explicite de la première, avec le nom de la méthode
+  en commentaire.
+- Une entreprise non vérifiée attendait **neuf secondes** devant
+  « Chargement des matchs… » : TanStack Query rejouait trois fois un 403
+  définitif. `retry: false` sur ces routes, et le 403 s'affiche comme la
+  CVthèque le fait — un encadré avec une action, pas une ligne d'erreur.
+- Le oui qui crée un match met une dizaine de secondes (le serveur envoie
+  deux notifications et deux emails **dans** la requête, faute de file
+  d'attente — décision assumée du lot 1). Les boutons portent donc un libellé
+  d'attente, pas seulement un état grisé.
+
+**Vérifié au navigateur** contre l'API locale et la base de dev (compte
+`rh@nexatech.example.com` et `lea.girard@example.com`, mot de passe de démo) :
+intérêt employeur posé à la main → page « Ils s'intéressent à toi » remplie →
+« Ça m'intéresse » → 201 → bannière de match → le match apparaît dans « Mes
+matchs » avec le bon statut et la bonne action ; offre express créée, publiée
+et **géocodée** (66000 → 42.70, 2.90), puis modifiée alors qu'elle était en
+ligne avec deux missions enregistrées. Données d'essai retirées de la base de
+dev ensuite, sauf un match de démo Léa Girard ↔ Café des Lices laissé
+volontairement pour voir les pages remplies. Production non touchée.
+
+**Connu et à traiter plus tard (lot 2)**
+
+- Rien n'est déployé : le site est à reconstruire et à envoyer quand Pierre le
+  décidera.
+- **Aucune entreprise VERIFIED en production**, donc aucune pile de candidats
+  ne peut encore se charger. Le chemin est connu et ne demande pas de code :
+  se connecter avec le compte CFA d'IDA, saisir son vrai SIRET sur
+  `/organization`, la vérification part toute seule contre le registre public.
+  Le refus « NAF enseignement » ne s'applique **qu'aux entreprises**, jamais à
+  un CFA (`CompanyVerificationService`, `$refuseTrainingNaf`) — IDA peut donc
+  passer. Le même SIRET manque dans `LBA_SIRET_WHITELIST` du `.env` de prod.
+- Le deck candidat reste le prototype local du lot 0 (gestes dans
+  AsyncStorage) : son branchement sur `discover/offers` est le lot 3.
+- L'app mobile n'a pas d'écran de CVthèque (onglet masqué) ; prévu au lot 5.
