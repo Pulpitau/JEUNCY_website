@@ -1451,3 +1451,38 @@ volontairement pour voir les pages remplies. Production non touchée.
 - Le deck candidat reste le prototype local du lot 0 (gestes dans
   AsyncStorage) : son branchement sur `discover/offers` est le lot 3.
 - L'app mobile n'a pas d'écran de CVthèque (onglet masqué) ; prévu au lot 5.
+
+**Profil candidat : la saisie ne se perd plus (2026-09-23) : corrige et en ligne**
+
+- Signale par Pierre : un candidat remplit son profil, ouvre une autre page,
+  la ferme, revient — tout etait vide. La page se remplit en plusieurs fois
+  (14 champs d'identite, plus experiences, formations, langues, competences,
+  logiciels) et tout vivait dans l'etat React, perdu au demontage.
+- `apps/web/src/lib/profile-draft.ts` : brouillon local, ecrit a chaque frappe
+  sans temporisation (le clic qui fait perdre la saisie arrive souvent juste
+  apres la derniere lettre). Couvre aussi les sections saisies avant la
+  creation du profil (`useStagedProfileSections`, qui prend desormais
+  l'identifiant du compte). Bandeau de restauration avec un bouton pour
+  repartir des donnees enregistrees.
+- **Premier correctif insuffisant, a retenir** : `sessionStorage` meurt avec
+  l'onglet. Il couvrait la navigation — et mes quatre tests avec — mais pas le
+  geste reellement decrit (« ouvrir une autre page **puis la fermer** »).
+  Retour de Pierre : « ca marche toujours pas, donc t'as rien change ». Un
+  aller-retour FTP perdu. Passage a `localStorage`, avec contre-epreuve : le
+  nouveau test echoue bien avec l'implementation precedente.
+- Garde-fous, parce que le brouillon contient nom, date de naissance,
+  telephone et adresse et que le public navigue depuis des postes partages :
+  cle portant l'identifiant du compte, effacement a l'enregistrement, a
+  l'import de CV et a la deconnexion (dans `clearSession`, un seul point pour
+  cinq appelants), peremption a sept jours verifiee a la lecture. Le cookie de
+  session vit deja sept jours : le brouillon n'ouvre pas une porte fermee.
+- 9 tests dedies (29 au total cote web) : la page est reellement demontee puis
+  remontee, l'onglet ferme simule en vidant `sessionStorage`, le brouillon
+  perime jete, et deux comptes qui se succedent ne se voient jamais.
+- **Piege de deploiement rencontre** : une seconde session Claude travaillait
+  sur `apps/web` au meme moment (lot 2 web). Un build fait depuis le depot
+  embarque forcement son travail en cours, commite ou non. Construire alors
+  depuis un worktree git isolé sur son propre commit, ou attendre — et
+  toujours donner a Pierre le **nom exact** du fichier attendu dans
+  `index.html`, c'est ce qui a permis de voir qu'il avait envoye un autre
+  build que le mien.
