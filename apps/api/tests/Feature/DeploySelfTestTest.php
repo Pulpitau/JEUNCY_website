@@ -187,7 +187,7 @@ class DeploySelfTestTest extends TestCase
     {
         $reponse = $this->get('/deploy/'.self::TOKEN.'/version')->assertOk();
 
-        $this->assertSame('deploy-tools-29', $reponse->json('version_outils_deploiement'));
+        $this->assertSame('deploy-tools-30', $reponse->json('version_outils_deploiement'));
 
         $fichiers = $reponse->json('fichiers');
 

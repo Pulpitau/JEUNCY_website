@@ -40,3 +40,12 @@ Route::get('/deploy/{token}/match/{jobOffer}', [DeployController::class, 'matchD
 // Rattrapage du geocodage (lot 1 du match). Compte seulement par defaut :
 // ?executer=1 lance la passe. Idempotente, relancable autant que necessaire.
 Route::get('/deploy/{token}/geocode-backfill', [DeployController::class, 'geocodeBackfill']);
+
+// Journal d'erreurs de production (deploy-tools-30). Lecture seule, emails et
+// jetons masques : sans lui, chaque bug signale par un etudiant se diagnostique
+// par conjectures, au prix d'un aller-retour FTP par hypothese.
+Route::get('/deploy/{token}/logs', [DeployController::class, 'logs']);
+
+// Code postal d'une offre : une offre sans code postal n'a pas de coordonnees
+// et reste hors du deck. Affiche l'offre sans ?cp=, l'ecrit et la geocode avec.
+Route::get('/deploy/{token}/offre/{jobOffer}/code-postal', [DeployController::class, 'offerPostalCode'])->whereNumber('jobOffer');

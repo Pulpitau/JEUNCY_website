@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\CandidateProfile;
 use App\Models\GeneratedCv;
 use App\Models\User;
+use App\Support\SquarePhoto;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Storage;
@@ -354,6 +355,18 @@ class CvService
             return null;
         }
 
+        // Recadrage carre AVANT dompdf, et pas en CSS : le gabarit affiche la
+        // photo dans un disque de 170x170 (.avatar-img), mais dompdf ignore
+        // object-fit et ETIRE l'image pour remplir la boite. Une photo de
+        // portrait — c'est-a-dire toutes celles que prennent les candidats —
+        // ressortait ecrasee (signale par des etudiants, 2026-09-23).
+        $square = SquarePhoto::jpegBytes($path, self::PHOTO_SIZE);
+        if ($square !== null) {
+            return 'data:image/jpeg;base64,'.base64_encode($square);
+        }
+
+        // GD absent ou image illisible : on retombe sur l'image d'origine.
+        // Mal cadree vaut mieux que pas de photo du tout.
         $mimeType = mime_content_type($path) ?: 'image/jpeg';
         $contents = file_get_contents($path);
         if ($contents === false) {
@@ -362,6 +375,11 @@ class CvService
 
         return 'data:'.$mimeType.';base64,'.base64_encode($contents);
     }
+
+    // Cote du carre produit : deux fois les 170px du gabarit, pour rester
+    // net a l'impression sans alourdir le PDF (une photo de profil pese alors
+    // ~40 Ko au lieu des 2 Mo que sort un telephone).
+    private const PHOTO_SIZE = 340;
 
     // Copie dans apps/api/resources (plutot que reference vers apps/web/public) :
     // le projet Laravel doit rester un package Composer autonome, sans dependre

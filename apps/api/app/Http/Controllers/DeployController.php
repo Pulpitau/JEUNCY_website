@@ -65,7 +65,7 @@ class DeployController extends Controller
     // ne peut pas savoir si le controleur lui-meme a bien ete redeploye : c est
     // arrive le 2026-09-02, ou clear-cache continuait d echouer avec une version
     // corrigee censement en place. A incrementer a chaque changement ici.
-    public const DEPLOY_TOOLS_VERSION = 'deploy-tools-29';
+    public const DEPLOY_TOOLS_VERSION = 'deploy-tools-30';
 
     // Perimetre de lancement du match mobile (decision du 2026-09-22) : les
     // Pyrenees-Orientales, mesurees autour de Perpignan (centre-ville).
@@ -582,6 +582,7 @@ class DeployController extends Controller
             'app/Http/Controllers/DeployController.php',
             'routes/web.php',
             'app/Services/CvService.php',
+            'app/Support/SquarePhoto.php',
             'app/Services/CvthequeService.php',
             // Age du candidat dans la CVtheque : l'accesseur, la selection
             // de la date et les regles de validation doivent arriver ensemble.
@@ -1969,6 +1970,153 @@ class DeployController extends Controller
                 'cfa' => $restant('cfa_organizations'),
                 'communes_en_cache' => DB::table('geocode_cache')->count(),
             ],
+        ], 200, [], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    }
+
+    // ------------------------------------------------------------------
+    // Journal d'erreurs (deploy-tools-30, 2026-09-23)
+    //
+    // Des etudiants utilisent Jeuncy et remontent des bugs a Pierre. Sans
+    // acces SSH ni phpMyAdmin utile ici, je n'avais aucun moyen de savoir si
+    // une action echouait cote serveur ou cote navigateur : chaque hypothese
+    // coutait un aller-retour FTP. Cette sonde lit la fin du journal Laravel
+    // et ne renvoie que les entrees d'erreur.
+    //
+    // Donnees personnelles : les adresses email et les jetons sont masques
+    // avant l'envoi, et la trace est coupee aux premieres lignes — c'est la
+    // ligne d'erreur qui situe la panne, pas les quarante appels de Laravel.
+    // ------------------------------------------------------------------
+    public function logs(string $token): Response
+    {
+        $this->assertAuthorized($token);
+
+        $dossier = storage_path('logs');
+        $fichiers = glob($dossier.'/*.log') ?: [];
+        if ($fichiers === []) {
+            return response()->json([
+                'journal' => 'aucun fichier dans storage/logs',
+                'indice' => 'Un journal vide peut aussi vouloir dire que storage/logs n\'est pas inscriptible : verifier les droits du dossier.',
+            ], 200, [], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        }
+
+        usort($fichiers, fn ($a, $b) => filemtime($b) <=> filemtime($a));
+        $fichier = $fichiers[0];
+
+        $maxEntrees = max(1, min(100, (int) (request()->query('entrees') ?: 20)));
+        $contient = trim((string) request()->query('contient'));
+
+        // Lecture de la fin du fichier seulement : un journal de production
+        // peut peser des dizaines de Mo, et file() les chargerait en memoire.
+        $octets = min(filesize($fichier) ?: 0, 600_000);
+        $handle = fopen($fichier, 'rb');
+        if ($handle === false) {
+            return response()->json(['journal' => 'illisible : '.basename($fichier)], 200);
+        }
+        fseek($handle, -$octets, SEEK_END);
+        $queue = (string) fread($handle, $octets);
+        fclose($handle);
+
+        // Une entree commence par un horodatage entre crochets ; les lignes
+        // suivantes (trace) lui appartiennent.
+        $morceaux = preg_split('/\n(?=\[\d{4}-\d{2}-\d{2})/', $queue) ?: [];
+        $entrees = [];
+        foreach (array_reverse($morceaux) as $entree) {
+            if (! preg_match('/\.(ERROR|CRITICAL|ALERT|EMERGENCY):/', $entree)) {
+                continue;
+            }
+            if ($contient !== '' && stripos($entree, $contient) === false) {
+                continue;
+            }
+
+            $lignes = array_slice(preg_split('/\r?\n/', trim($entree)) ?: [], 0, 4);
+            $entrees[] = $this->masquerDonneesPersonnelles(implode("\n", $lignes));
+
+            if (count($entrees) >= $maxEntrees) {
+                break;
+            }
+        }
+
+        return response()->json([
+            'fichier' => basename($fichier),
+            'taille_octets' => filesize($fichier),
+            'derniere_ecriture' => date('Y-m-d H:i:s', filemtime($fichier) ?: 0),
+            'erreurs_trouvees' => count($entrees),
+            'erreurs' => $entrees,
+            'aide' => 'Options : ?entrees=50 (defaut 20, max 100), &contient=skills (filtre texte).',
+        ], 200, [], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    }
+
+    // Emails, jetons Bearer et mots de passe eventuels : une trace d'exception
+    // en contient plus souvent qu'on ne le croit (parametres de requete
+    // inclus dans certains messages).
+    private function masquerDonneesPersonnelles(string $texte): string
+    {
+        $texte = preg_replace('/[\w.+-]+@[\w-]+\.[\w.-]+/', '***@***', $texte) ?? $texte;
+        $texte = preg_replace('/(Bearer|token|password|secret)[=:\s"\']+[\w.\-]{6,}/i', '$1=***', $texte) ?? $texte;
+
+        return $texte;
+    }
+
+    // ------------------------------------------------------------------
+    // Code postal d'une offre (deploy-tools-30)
+    //
+    // Une offre sans code postal n'a pas de coordonnees, donc n'entre pas
+    // dans le deck du candidat (JOB_OFFER_NOT_LOCATED). C'est le cas de
+    // l'offre d'IDA depuis le lot 1 : le champ n'existait pas quand elle a
+    // ete publiee, et son proprietaire est un compte CFA auquel je n'ai pas
+    // acces. Ecrit le code postal, puis geocode l'offre dans la foulee.
+    // ------------------------------------------------------------------
+    public function offerPostalCode(string $token, int $jobOffer): Response
+    {
+        $this->assertAuthorized($token);
+
+        $offre = JobOffer::find($jobOffer);
+        if (! $offre) {
+            return response()->json(['erreur' => "Aucune offre #{$jobOffer}."], 404);
+        }
+
+        $avant = [
+            'titre' => $offre->title,
+            'ville' => $offre->city,
+            'code_postal' => $offre->postal_code,
+            'latitude' => $offre->latitude,
+            'longitude' => $offre->longitude,
+        ];
+
+        $cp = trim((string) request()->query('cp'));
+        if ($cp === '') {
+            return response()->json([
+                'offre' => $avant,
+                'aide' => 'Ajouter ?cp=66000 pour ecrire le code postal et geocoder l\'offre.',
+            ], 200, [], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        }
+
+        if (! preg_match('/^\d{5}$/', $cp)) {
+            return response()->json(['erreur' => 'Code postal attendu : cinq chiffres.'], 400);
+        }
+
+        $offre->postal_code = $cp;
+        // Les coordonnees actuelles (nulles ou calculees sur un autre code
+        // postal) ne valent plus rien : on les efface pour que le geocodage
+        // reprenne l'offre.
+        $offre->latitude = null;
+        $offre->longitude = null;
+        $offre->save();
+
+        Artisan::call('geocode:backfill', ['--only' => 'offers']);
+        $offre->refresh();
+
+        return response()->json([
+            'execution' => 'ok',
+            'avant' => $avant,
+            'apres' => [
+                'titre' => $offre->title,
+                'ville' => $offre->city,
+                'code_postal' => $offre->postal_code,
+                'latitude' => $offre->latitude,
+                'longitude' => $offre->longitude,
+            ],
+            'geocodage' => trim(Artisan::output()),
         ], 200, [], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
     }
 }
