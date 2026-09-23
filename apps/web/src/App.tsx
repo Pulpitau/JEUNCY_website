@@ -22,6 +22,8 @@ import { CvthequeCandidate } from '@/pages/CvthequeCandidate';
 import { JobOffers } from '@/pages/JobOffers';
 import { JobOfferDetail } from '@/pages/JobOfferDetail';
 import { ExternalJobOfferDetail } from '@/pages/ExternalJobOfferDetail';
+import { InterestedInMe } from '@/pages/InterestedInMe';
+import { Matches } from '@/pages/Matches';
 import { MyApplications } from '@/pages/MyApplications';
 import { MyVideoRooms } from '@/pages/MyVideoRooms';
 import { DemoRoom } from '@/pages/DemoRoom';
@@ -118,6 +120,29 @@ export default function App() {
                   role={[UserRole.COMPANY, UserRole.CFA, UserRole.ADMIN, UserRole.STAFF]}
                 >
                   <CvthequeCandidate />
+                </RequireAuth>
+              }
+            />
+            {/* Le match, des deux cotes. Le serveur choisit la forme de la
+              reponse selon le role (MatchService::presenterMatch), donc une
+              seule page suffit — et les deux roles ont le meme chemin, ce qui
+              evite d'expliquer a Pierre deux URL differentes. */}
+            <Route
+              path="/mes-matchs"
+              element={
+                <RequireAuth role={[UserRole.CANDIDATE, UserRole.COMPANY, UserRole.CFA]}>
+                  <Matches />
+                </RequireAuth>
+              }
+            />
+            {/* Cote candidat seulement : l'interet a sens unique n'est jamais
+              expose a l'employeur (MOBILE.md §5), il n'y a donc pas de page
+              miroir a lui donner. */}
+            <Route
+              path="/interesses"
+              element={
+                <RequireAuth role={UserRole.CANDIDATE}>
+                  <InterestedInMe />
                 </RequireAuth>
               }
             />

@@ -20,6 +20,10 @@ import {
 } from '@/lib/api/cvtheque';
 import { ApiError } from '@/lib/api/client';
 import { ageBandLabel } from '@/lib/age-band-labels';
+import {
+  candidateDisplayName,
+  candidateInitials as initials,
+} from '@/lib/candidate-card';
 import { contractTypeLabel } from '@/lib/contract-type-labels';
 import { offerSectorLabel } from '@/lib/offer-sector-labels';
 
@@ -43,15 +47,6 @@ function filtersFromParams(params: URLSearchParams): CvthequeSearchFilters {
 
 // Prenom + initiale : c'est tout ce que porte la carte. L'initiale vient du
 // serveur (last_name_initial), le nom complet n'est jamais transmis.
-function candidateDisplayName(candidate: CandidateCardData): string {
-  return candidate.last_name_initial
-    ? `${candidate.first_name} ${candidate.last_name_initial}.`
-    : candidate.first_name;
-}
-
-function initials(candidate: CandidateCardData): string {
-  return `${candidate.first_name.charAt(0)}${candidate.last_name_initial}`.toUpperCase();
-}
 
 // Ecran affiche si le serveur repond 402. Depuis que Jeuncy est gratuit
 // pour les entreprises (2026-09-15) ce cas ne se produit plus — hasPaidAccess

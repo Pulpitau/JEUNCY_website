@@ -2,10 +2,12 @@ import {
   Building2,
   FileText,
   GraduationCap,
+  Heart,
   LayoutDashboard,
   Search,
   Send,
   Shield,
+  Sparkles,
   User,
   Video,
   type LucideIcon,
@@ -31,6 +33,10 @@ export function accountLinksFor(role: string): AccountLink[] {
   if (role === UserRole.CANDIDATE) {
     return [
       { to: '/profile', label: 'Mon profil', icon: User },
+      // Avant « Mes candidatures » : un recruteur qui attend une reponse
+      // passe avant une candidature deja envoyee.
+      { to: '/interesses', label: 'Ils s’intéressent à toi', icon: Sparkles },
+      { to: '/mes-matchs', label: 'Mes matchs', icon: Heart },
       { to: '/mes-candidatures', label: 'Mes candidatures', icon: Send },
       ...common,
     ];
@@ -44,6 +50,7 @@ export function accountLinksFor(role: string): AccountLink[] {
         icon: role === UserRole.COMPANY ? Building2 : GraduationCap,
       },
       { to: '/mes-offres', label: 'Mes offres', icon: FileText },
+      { to: '/mes-matchs', label: 'Mes matchs', icon: Heart },
       { to: '/candidats', label: 'Candidats', icon: Search },
       { to: '/mes-visios', label: 'Visio démo', icon: Video },
       // « Paiements » retire du menu le 2026-09-15 : Jeuncy est gratuit pour

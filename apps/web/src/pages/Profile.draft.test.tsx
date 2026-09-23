@@ -59,7 +59,7 @@ describe('Profile — brouillon local', () => {
     // Un candidat qui n'a pas encore de profil : c'est le cas ou la perte de
     // saisie fait le plus mal (tout le formulaire est a remplir).
     vi.mocked(getMyProfile).mockRejectedValue(
-      new ApiError('PROFILE_NOT_FOUND', 'Profil introuvable.', 404),
+      new ApiError({ code: 'PROFILE_NOT_FOUND', message: 'Profil introuvable.' }, 404),
     );
   });
 
