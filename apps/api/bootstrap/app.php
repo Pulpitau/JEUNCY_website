@@ -79,7 +79,12 @@ return Application::configure(basePath: dirname(__DIR__))
         // cascade se compte en jours, et la commande est idempotente (chaque
         // ligne porte l'etage atteint), donc un passage en trop ne renvoie
         // rien et un passage manque repart au suivant.
-        $unePasseParPeriode('matches:remind', 'jour');
+        // Relances : planifiees, mais inertes tant que
+        // JEUNCY_RELANCES_ACTIVES n'est pas a true. La tache apparait donc
+        // dans /deploy/{token}/scheduler des le deploiement — on voit qu'elle
+        // existe — sans qu'un seul email parte avant qu'on l'ait decide.
+        $unePasseParPeriode('matches:remind', 'jour')
+            ->when(fn () => (bool) config('services.jeuncy.relances_actives'));
         // Applique reellement la duree de conservation de 3 ans annoncee aux
         // candidats dans la politique de confidentialite (section 4 ter).
         // Hebdomadaire et non quotidien : le delai se compte en annees, une

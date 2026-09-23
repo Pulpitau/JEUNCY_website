@@ -168,6 +168,19 @@ return [
         // propre garde (match_departements ci-dessus), et un match deja noue
         // reste lisible des deux cotes quoi qu'il arrive.
         'match_actif' => filter_var(env('JEUNCY_MATCH_ACTIF', true), FILTER_VALIDATE_BOOLEAN),
+        // Relances automatiques (matches:remind). FERME PAR DEFAUT, a
+        // l'inverse de match_actif juste au-dessus.
+        //
+        // POURQUOI CETTE ASYMETRIE. La premiere passe reelle tombe sur tout
+        // l'historique d'un coup — des candidatures et des interets vieux de
+        // plusieurs mois, appartenant a de vraies personnes. Si la tache
+        // etait planifiee des le deploiement, elle partirait au premier
+        // passage du cron, dans l'heure, avant que quiconque ait pu regarder
+        // ce qu'elle allait envoyer.
+        //
+        // La marche a suivre est donc : deployer, mesurer a blanc
+        // (/deploy/{token}/matches-remind), puis mettre ce drapeau a true.
+        'relances_actives' => filter_var(env('JEUNCY_RELANCES_ACTIVES', false), FILTER_VALIDATE_BOOLEAN),
     ],
 
     'ses' => [
