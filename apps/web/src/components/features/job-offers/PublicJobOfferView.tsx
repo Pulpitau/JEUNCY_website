@@ -10,6 +10,7 @@ import {
   CardDescription,
 } from '@/components/ui/card';
 import type { PublicJobOffer } from '@/lib/api/job-offers';
+import { OFFER_SECTOR_LABELS } from '@/lib/offer-sector-labels';
 import { WORK_MODE_LABELS } from '@/lib/work-mode-labels';
 import { formatCompensation } from '@/lib/format-compensation';
 
@@ -107,7 +108,59 @@ export function PublicJobOfferView({ offer, footer }: PublicJobOfferViewProps) {
               <dd className="inline">{offer.training_rhythm}</dd>
             </div>
           )}
+          {/* Champs du modèle match. Ils décident de qui voit l'offre dans
+              « Découvrir » — les montrer ici évite qu'un candidat arrivé par
+              la recherche classique ait moins d'informations que celui à qui
+              la carte a été proposée. */}
+          {offer.sector && (
+            <div>
+              <dt className="inline text-muted-foreground">Secteur : </dt>
+              <dd className="inline">{OFFER_SECTOR_LABELS[offer.sector]}</dd>
+            </div>
+          )}
+          {offer.schedule && (
+            <div>
+              <dt className="inline text-muted-foreground">Rythme / horaires : </dt>
+              <dd className="inline">{offer.schedule}</dd>
+            </div>
+          )}
+          {offer.start_date && (
+            <div>
+              <dt className="inline text-muted-foreground">Début : </dt>
+              <dd className="inline">
+                {new Date(offer.start_date).toLocaleDateString('fr-FR')}
+              </dd>
+            </div>
+          )}
+          {offer.requires_driving_license && (
+            <div>
+              <dt className="inline text-muted-foreground">Permis : </dt>
+              <dd className="inline">indispensable pour ce poste</dd>
+            </div>
+          )}
+          {/* Seulement au-dessus du plancher légal : afficher « 16 ans
+              minimum » sur toutes les offres n'apprendrait rien et donnerait
+              l'impression d'une restriction propre à celle-ci. */}
+          {offer.minimum_age !== null && offer.minimum_age > 16 && (
+            <div>
+              <dt className="inline text-muted-foreground">Âge minimum : </dt>
+              <dd className="inline">{offer.minimum_age} ans</dd>
+            </div>
+          )}
         </dl>
+
+        {offer.missions && offer.missions.length > 0 && (
+          <div className="mb-4">
+            <p className="mb-1 font-poppins text-sm font-medium text-foreground">
+              {isCfaOffer ? 'Au programme' : 'Missions'}
+            </p>
+            <ul className="list-disc pl-5 font-inter text-sm text-muted-foreground">
+              {offer.missions.map((mission) => (
+                <li key={mission}>{mission}</li>
+              ))}
+            </ul>
+          </div>
+        )}
 
         <p className="whitespace-pre-line font-inter text-sm leading-relaxed text-foreground">
           {offer.description}

@@ -34,6 +34,12 @@ const EXPERIENCE_LEVEL_OPTIONS = [
   '5 ans et plus',
 ];
 
+// Bornes de `missions` cote serveur (StoreJobOfferRequest l.58-59). Huit
+// lignes, c'est deja une journee decrite : au-dela, la carte du deck n'en
+// montrerait de toute facon pas plus.
+const MISSIONS_MAX = 8;
+const MISSION_MAX_LENGTH = 200;
+
 const DIPLOMA_LEVEL_OPTIONS = [
   'CAP / BEP',
   'Bac',
@@ -136,6 +142,12 @@ export function JobOfferForm({
     offer?.skills.map((skill) => skill.name) ?? [],
   );
   const [skillDraft, setSkillDraft] = useState('');
+  // Les missions vivent hors du schema zod, comme les competences : ce sont
+  // des listes editees au clic, pas des champs de saisie que react-hook-form
+  // suivrait. Les bornes du serveur (8 lignes, 200 caracteres) sont tenues
+  // ici a l'ajout plutot que rendues en message d'erreur apres coup.
+  const [missions, setMissions] = useState<string[]>(offer?.missions ?? []);
+  const [missionDraft, setMissionDraft] = useState('');
 
   const {
     register,
@@ -188,6 +200,20 @@ export function JobOfferForm({
     setSkills(skills.filter((skill) => skill !== name));
   }
 
+  function addMission() {
+    const texte = missionDraft.trim().slice(0, MISSION_MAX_LENGTH);
+    if (!texte || missions.length >= MISSIONS_MAX || missions.includes(texte)) {
+      setMissionDraft('');
+      return;
+    }
+    setMissions([...missions, texte]);
+    setMissionDraft('');
+  }
+
+  function removeMission(index: number) {
+    setMissions(missions.filter((_, position) => position !== index));
+  }
+
   async function handleFormSubmit(values: JobOfferFormValues) {
     await onSubmit({
       title: values.title,
@@ -217,6 +243,7 @@ export function JobOfferForm({
       start_date: values.start_date || null,
       minimum_age: Number(values.minimum_age) || null,
       requires_driving_license: values.requires_driving_license ?? false,
+      missions,
       skills,
     });
   }
@@ -551,6 +578,71 @@ export function JobOfferForm({
           </div>
         </div>
       </fieldset>
+
+      {/* Les missions, en lignes courtes.
+          Elles ne doublonnent pas la description : celle-ci se lit sur la page
+          de l'offre, les missions se lisent sur la CARTE du deck, où il n'y a
+          de place que pour quelques lignes. Une description de dix lignes y
+          serait tronquée au milieu d'une phrase ; trois missions y tiennent
+          entières. */}
+      <div className="flex flex-col gap-2">
+        <div className="flex items-center justify-between gap-2">
+          <Label htmlFor="mission-draft">
+            {variant === 'CFA' ? 'Au programme' : 'Missions'} (facultatif)
+          </Label>
+          <span className="font-inter text-xs text-muted-foreground">
+            {missions.length}/{MISSIONS_MAX}
+          </span>
+        </div>
+        <p className="font-inter text-xs text-muted-foreground">
+          Une ligne par mission. C&apos;est ce qui s&apos;affiche sur la carte du
+          candidat, avant même qu&apos;il ouvre l&apos;offre.
+        </p>
+        {missions.length > 0 && (
+          <ul className="flex flex-col gap-1">
+            {missions.map((mission, index) => (
+              <li
+                key={mission}
+                className="flex items-start justify-between gap-2 rounded-md border border-border px-3 py-2 font-inter text-sm"
+              >
+                <span>{mission}</span>
+                <button
+                  type="button"
+                  onClick={() => removeMission(index)}
+                  aria-label={`Retirer la mission « ${mission} »`}
+                  className="shrink-0 text-muted-foreground hover:text-destructive"
+                >
+                  ×
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+        <div className="flex gap-2">
+          <Input
+            id="mission-draft"
+            placeholder="Ex : Accueillir et conseiller les clients"
+            maxLength={MISSION_MAX_LENGTH}
+            disabled={missions.length >= MISSIONS_MAX}
+            value={missionDraft}
+            onChange={(event) => setMissionDraft(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') {
+                event.preventDefault();
+                addMission();
+              }
+            }}
+          />
+          <Button
+            type="button"
+            variant="outline"
+            disabled={missions.length >= MISSIONS_MAX}
+            onClick={addMission}
+          >
+            Ajouter
+          </Button>
+        </div>
+      </div>
 
       <div className="flex flex-col gap-2">
         <Label htmlFor="offer-description">Description</Label>

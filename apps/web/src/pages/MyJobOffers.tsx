@@ -5,11 +5,13 @@ import { UserRole } from '@jeuncy/shared';
 import { Sparkles } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { ExpressJobOfferForm } from '@/components/features/job-offers/ExpressJobOfferForm';
 import { JobOfferForm } from '@/components/features/job-offers/JobOfferForm';
 import { JobOfferListItem } from '@/components/features/job-offers/JobOfferListItem';
 import {
   listMyOffers,
   createOffer,
+  createExpressOffer,
   updateOffer,
   archiveOffer,
   deleteOffer,
@@ -27,7 +29,9 @@ const OFFERS_QUERY_KEY = ['job-offers', 'mine'];
 // un bouton payant qu'on aurait « juste cache » finirait par reapparaitre.
 export function MyJobOffers() {
   const queryClient = useQueryClient();
-  const [showCreateForm, setShowCreateForm] = useState(false);
+  // Un seul formulaire ouvert a la fois : deux cartes de creation cote a
+  // cote, c'est une question de plus a se poser avant d'ecrire une ligne.
+  const [creating, setCreating] = useState<'NONE' | 'EXPRESS' | 'FULL'>('NONE');
   const [publishError, setPublishError] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [createError, setCreateError] = useState<string | null>(null);
@@ -43,6 +47,10 @@ export function MyJobOffers() {
 
   const createMutation = useMutation({
     mutationFn: createOffer,
+    onSuccess: invalidateOffers,
+  });
+  const expressMutation = useMutation({
+    mutationFn: createExpressOffer,
     onSuccess: invalidateOffers,
   });
   const updateMutation = useMutation({
@@ -93,10 +101,18 @@ export function MyJobOffers() {
             Crée, modifie et publie tes offres d'alternance, saisonnières ou bénévoles.
           </p>
         </div>
-        {!showCreateForm && (
-          <Button variant="gradient" onClick={() => setShowCreateForm(true)}>
-            + Nouvelle offre
-          </Button>
+        {creating === 'NONE' && (
+          <div className="flex shrink-0 flex-wrap justify-end gap-2">
+            {/* L'express en premier et en degrade : c'est le chemin qu'on
+                veut voir pris. Une entreprise qui decouvre Jeuncy doit pouvoir
+                etre en ligne avant d'avoir decide si elle y croit. */}
+            <Button variant="gradient" onClick={() => setCreating('EXPRESS')}>
+              + Offre express
+            </Button>
+            <Button variant="outline" onClick={() => setCreating('FULL')}>
+              Offre détaillée
+            </Button>
+          </div>
         )}
       </div>
 
@@ -127,7 +143,49 @@ export function MyJobOffers() {
         </p>
       </div>
 
-      {showCreateForm && (
+      {creating === 'EXPRESS' && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Une offre en une minute</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ExpressJobOfferForm
+              variant={isCfa ? 'CFA' : 'COMPANY'}
+              isSubmitting={expressMutation.isPending}
+              submitError={createError}
+              onCancel={() => setCreating('NONE')}
+              onSubmit={async (values) => {
+                setCreateError(null);
+                setCreateErrorCode(null);
+                try {
+                  await expressMutation.mutateAsync(values);
+                  setCreating('NONE');
+                } catch (error) {
+                  setCreateError(
+                    error instanceof ApiError
+                      ? error.message
+                      : "Impossible de créer l'offre pour le moment.",
+                  );
+                  setCreateErrorCode(error instanceof ApiError ? error.code : null);
+                }
+              }}
+            />
+          </CardContent>
+          {(createErrorCode === 'COMPANY_NOT_FOUND' ||
+            createErrorCode === 'CFA_ORGANIZATION_NOT_FOUND') && (
+            <CardContent className="pt-0">
+              <p className="font-inter text-sm text-muted-foreground">
+                <Link to="/organization" className="text-primary hover:underline">
+                  Complète d'abord ton profil entreprise
+                </Link>{' '}
+                avant de pouvoir créer une offre.
+              </p>
+            </CardContent>
+          )}
+        </Card>
+      )}
+
+      {creating === 'FULL' && (
         <Card>
           <CardHeader>
             <CardTitle>Nouvelle offre</CardTitle>
@@ -137,13 +195,13 @@ export function MyJobOffers() {
               variant={isCfa ? 'CFA' : 'COMPANY'}
               isSubmitting={createMutation.isPending}
               submitError={createError}
-              onCancel={() => setShowCreateForm(false)}
+              onCancel={() => setCreating('NONE')}
               onSubmit={async (values) => {
                 setCreateError(null);
                 setCreateErrorCode(null);
                 try {
                   await createMutation.mutateAsync(values);
-                  setShowCreateForm(false);
+                  setCreating('NONE');
                 } catch (error) {
                   setCreateError(
                     error instanceof ApiError

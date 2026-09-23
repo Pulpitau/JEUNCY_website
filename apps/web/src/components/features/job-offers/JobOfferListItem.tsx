@@ -53,6 +53,15 @@ export function JobOfferListItem({
   const [showApplications, setShowApplications] = useState(false);
   const [updateError, setUpdateError] = useState<string | null>(null);
 
+  // Miroir exact de JobOfferService::requireOwnedEditableOffer. Une offre
+  // payee, en essai ou par abonnement reste fermee a la modification ; depuis
+  // que Jeuncy est gratuit, toute nouvelle offre publiee est FREE, donc
+  // modifiable.
+  const isEditable =
+    offer.status === JobOfferStatus.DRAFT ||
+    (offer.status === JobOfferStatus.PUBLISHED &&
+      offer.payment_status === PaymentStatus.FREE);
+
   if (isEditing) {
     return (
       <JobOfferForm
@@ -138,25 +147,33 @@ export function JobOfferListItem({
 
       <div className="flex flex-wrap gap-2">
         {offer.status === JobOfferStatus.DRAFT && (
-          <>
-            <Button
-              type="button"
-              variant="gradient"
-              size="sm"
-              onClick={() => void onPublish(offer.id)}
-              disabled={isPublishing}
-            >
-              {isPublishing ? 'Publication…' : 'Publier — gratuit'}
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => setIsEditing(true)}
-            >
-              Modifier
-            </Button>
-          </>
+          <Button
+            type="button"
+            variant="gradient"
+            size="sm"
+            onClick={() => void onPublish(offer.id)}
+            disabled={isPublishing}
+          >
+            {isPublishing ? 'Publication…' : 'Publier — gratuit'}
+          </Button>
+        )}
+        {/* « Modifier » suit la regle du serveur (requireOwnedEditableOffer) :
+            un brouillon, OU une offre publiee gratuitement. Le bouton n'etait
+            montre que sur les brouillons, ce qui rendait toute offre en ligne
+            definitivement figee — impossible d'y ajouter le code postal, donc
+            impossible de la faire entrer dans « Decouvrir », et impossible de
+            completer une offre express, qui est publiee des sa creation.
+            L'API acceptait ces modifications depuis le lot 1 ; seul le bouton
+            manquait. */}
+        {isEditable && (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setIsEditing(true)}
+          >
+            Modifier
+          </Button>
         )}
         {/* Retour en ligne : une offre retiree a la fin d'un ancien essai
             (archivee, TRIAL) ou arrivee au bout d'une ancienne periode payee

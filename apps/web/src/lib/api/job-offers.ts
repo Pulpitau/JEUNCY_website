@@ -142,6 +142,28 @@ export function createOffer(input: JobOfferInput) {
   return apiRequest<JobOffer>('/job-offers', { method: 'POST', body: input });
 }
 
+/**
+ * L'offre en une minute (MOBILE.md §4.1) : le minimum pour qu'une offre
+ * existe, soit publiee et entre dans « Decouvrir ». La description est
+ * generee par le serveur et se complete ensuite depuis « Mes offres ».
+ *
+ * Le code postal est requis des ici, et pas seulement a la publication :
+ * l'offre est publiee dans la foulee, et sans lui elle n'apparaitrait dans
+ * aucune pile.
+ */
+export interface ExpressJobOfferInput {
+  title: string;
+  contract_type: ContractType;
+  postal_code: string;
+  city: string;
+  sector: OfferSector;
+  recruitment_radius_km?: number;
+}
+
+export function createExpressOffer(input: ExpressJobOfferInput) {
+  return apiRequest<JobOffer>('/job-offers/express', { method: 'POST', body: input });
+}
+
 export function updateOffer(id: number, input: Partial<JobOfferInput>) {
   return apiRequest<JobOffer>(`/job-offers/${id}`, { method: 'PATCH', body: input });
 }
