@@ -41,7 +41,16 @@
       "expo-image",
       "expo-web-browser",
       "@react-native-community/datetimepicker",
-      "expo-sharing"
+      "expo-sharing",
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Jeuncy utilise ta position pour te proposer les offres les plus proches de toi. Les recruteurs ne la voient jamais.",
+          "locationWhenInUsePermission": "Jeuncy utilise ta position pour te proposer les offres les plus proches de toi. Les recruteurs ne la voient jamais.",
+          "isIosBackgroundLocationEnabled": false,
+          "isAndroidBackgroundLocationEnabled": false
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

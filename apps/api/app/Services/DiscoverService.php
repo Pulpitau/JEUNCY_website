@@ -85,6 +85,18 @@ class DiscoverService
      */
     public function offersForCandidate(User $user, int $page = 1): array
     {
+        // Frein d'urgence de la pile candidat (config services.jeuncy.match_actif,
+        // defaut vrai). Pose AVANT requireProfile : quand la pile est fermee,
+        // le candidat n'a pas a s'entendre reprocher un profil incomplet pour
+        // un ecran qui ne s'ouvrirait de toute facon pas.
+        if (! config('services.jeuncy.match_actif')) {
+            throw new ApiException(
+                'MATCH_NOT_OPEN_YET',
+                'Découvrir ouvre très bientôt. En attendant, la recherche d’offres reste disponible.',
+                403,
+            );
+        }
+
         $profile = $this->candidateProfileService->requireProfile($user);
 
         [$lat, $lng, $source] = $this->positionDe($profile);

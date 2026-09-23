@@ -382,4 +382,33 @@ class DiscoverOffersTest extends TestCase
 
         $this->assertSame([], $this->pile($candidat)['jeuncy']);
     }
+
+    /**
+     * Le frein d'urgence ferme la pile du candidat, et RIEN d'autre.
+     *
+     * Deux choses a tenir ensemble : le refus doit arriver avant la garde de
+     * profil (un candidat sans profil doit lire « ca ouvre bientot », pas
+     * « complete ton profil » pour un ecran ferme), et il ne doit toucher ni
+     * le deck employeur ni les matchs deja noues.
+     */
+    public function test_the_candidate_pile_closes_when_the_flag_is_off(): void
+    {
+        config()->set('services.jeuncy.match_actif', false);
+
+        $candidat = $this->candidat();
+        $this->offrePubliee($this->employeur());
+
+        $this->withToken($this->jeton($candidat))
+            ->getJson('/api/discover/offers')
+            ->assertForbidden()
+            ->assertJsonPath('error.code', 'MATCH_NOT_OPEN_YET');
+    }
+
+    public function test_the_flag_is_on_by_default(): void
+    {
+        // Le defaut est VRAI a dessein : fermer par defaut masquerait aussi
+        // les offres partenaires, qui sont le remplissage prevu tant que les
+        // offres Jeuncy manquent.
+        $this->assertTrue(config('services.jeuncy.match_actif'));
+    }
 }

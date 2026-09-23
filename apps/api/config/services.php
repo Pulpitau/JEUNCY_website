@@ -154,6 +154,20 @@ return [
                 ? ['*']
                 : array_values(array_filter(array_map('trim', explode(',', $brut))));
         })(),
+        // Drapeau d'ouverture de « Decouvrir » cote CANDIDAT (MOBILE.md §10).
+        //
+        // Frein d'urgence, pas un interrupteur de lancement : le defaut est
+        // VRAI. Le plan prevoyait d'ouvrir la pile candidat quand dix offres
+        // Jeuncy existeraient a moins de 30 km ; la production n'en a qu'une,
+        // et fermer sur ce critere reviendrait a masquer aussi les 7 779
+        // offres partenaires, qui sont precisement le remplissage prevu en
+        // attendant. Ce drapeau sert donc a refermer vite si la pile devait
+        // montrer n'importe quoi, pas a attendre un seuil.
+        //
+        // Il ne touche QUE la pile du candidat : le deck employeur a sa
+        // propre garde (match_departements ci-dessus), et un match deja noue
+        // reste lisible des deux cotes quoi qu'il arrive.
+        'match_actif' => filter_var(env('JEUNCY_MATCH_ACTIF', true), FILTER_VALIDATE_BOOLEAN),
     ],
 
     'ses' => [

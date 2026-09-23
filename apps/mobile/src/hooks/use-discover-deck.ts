@@ -1,71 +1,128 @@
-import { useInfiniteQuery } from '@tanstack/react-query';
-import { useEffect, useMemo } from 'react';
+import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { searchExternalOffers, type ExternalJobOffer } from '@/lib/api/external-offers';
-import { searchPublicOffers, type PublicJobOffer } from '@/lib/api/job-offers';
-import { swipeKeyFor, useSwipeStore, type SwipeKey } from '@/store/swipe-store';
+import { MATCHES_KEY } from '@/hooks/use-matches';
+import {
+  discoverOffers,
+  type DeckJeuncyOffer,
+  type DeckMeta,
+  type DeckPartnerOffer,
+} from '@/lib/api/discover';
+import {
+  decideExternalOffer,
+  undoLastExternal,
+  type ExternalDecision,
+} from '@/lib/api/external-interests';
+import {
+  likeOffer,
+  passOffers,
+  undoLastInterest,
+  PASS_BATCH_MAX,
+} from '@/lib/api/interests';
 
-// Construit la pile de « Decouvrir » : les offres Jeuncy publiees d'abord
-// (toutes, ou presque — voir MAX_JEUNCY_PAGES), puis les offres partenaires
-// du departement choisi, page par page. Les cartes deja jugees (PASS,
-// INTEREST, KEEP) sont retirees ; la page suivante part quand il reste moins
-// de RELOAD_BELOW cartes, pour que le candidat ne voie jamais le fond.
+// La pile « Decouvrir » du candidat, branchee sur `discover/offers`.
 //
-// Prototype : aucune route `discover/offers` n'existe encore, on reutilise
-// les deux recherches publiques. Le tri par distance et la selection du jour
-// (lot fini de 20) viendront avec le serveur.
+// Elle remplace le prototype du 2026-09-22, dont les gestes ne quittaient
+// pas le telephone (swipe-store.ts). Deux differences de fond : le serveur
+// decide de la selection, et un « Ca m'interesse » peut desormais creer un
+// match.
+//
+// DEUX PILES, DEUX REGIMES DE PAGINATION. Les offres Jeuncy sont une
+// « Selection du jour » finie — au plus vingt, renouvelee apres l'import de
+// la nuit — et arrivent EN ENTIER des la premiere page. Les offres
+// partenaires, elles, se paginent par vingt : il y en a 7 779 en production
+// contre une seule offre Jeuncy, et s'arreter a vingt pour tout le monde
+// viderait la pile en une minute. D'ou la regle a ne pas perdre de vue : on
+// ne lit `jeuncy` QUE sur la premiere page, sinon les vingt memes offres
+// reviendraient a chaque page suivante.
+//
+// TROIS GESTES, TROIS TRAITEMENTS.
+//
+// « Ca m'interesse » sur une offre Jeuncy part seul et tout de suite : il
+// peut creer un match, donc une notification et un email chez l'employeur.
+//
+// « Passer » sur une offre Jeuncy s'accumule et part par lots : le doigt
+// enchaine plus vite que le reseau. Une application tuee avant le vidage
+// perd les PASS en attente et ces cartes reviendront — c'est le bon sens de
+// l'erreur.
+//
+// Les gestes sur une offre partenaire partent un par un : il n'existe pas de
+// route de lot, et « Je garde » cree une ligne que l'ecran Candidatures doit
+// pouvoir afficher dans la seconde.
+
+/** Delai d'inactivite avant d'envoyer les « Passer » Jeuncy accumules. */
+const PASS_FLUSH_MS = 1200;
+/** En dessous de ce nombre de cartes restantes, on charge la page partenaire suivante. */
+const RELOAD_BELOW = 5;
+
+export const DISCOVER_KEY = ['discover', 'offers'] as const;
+
+/** `jeuncy:ID` pour une offre Jeuncy, `lba:ID` pour une offre partenaire. */
+export type DeckKey = `jeuncy:${number}` | `lba:${number}`;
 
 export type DeckCard =
-  | { kind: 'jeuncy'; key: SwipeKey; offer: PublicJobOffer }
-  | { kind: 'lba'; key: SwipeKey; offer: ExternalJobOffer };
+  | { kind: 'jeuncy'; key: DeckKey; offer: DeckJeuncyOffer }
+  | { kind: 'lba'; key: DeckKey; offer: DeckPartnerOffer };
 
 export type DeckStatus = 'loading' | 'error' | 'empty' | 'ready';
 
-/** En dessous de ce nombre de cartes restantes, on charge la page suivante. */
-const RELOAD_BELOW = 5;
-/**
- * Plafond de pages Jeuncy (12 offres par page). Aujourd'hui il y a moins
- * d'une page ; le plafond evite seulement de vider toute la base le jour ou
- * il y en aura des centaines.
- */
-const MAX_JEUNCY_PAGES = 5;
+export function deckKeyFor(kind: 'jeuncy' | 'lba', id: number): DeckKey {
+  return kind === 'jeuncy' ? `jeuncy:${id}` : `lba:${id}`;
+}
 
-export const DISCOVER_KEY = ['discover'] as const;
+interface LastGesture {
+  key: DeckKey;
+  kind: 'jeuncy' | 'lba';
+}
 
-export function useDiscoverDeck(department: string) {
-  const gestures = useSwipeStore((state) => state.gestures);
-  const hydrated = useSwipeStore((state) => state.hydrated);
+export function useDiscoverDeck() {
+  const queryClient = useQueryClient();
 
-  const jeuncy = useInfiniteQuery({
-    queryKey: [...DISCOVER_KEY, 'jeuncy'],
-    queryFn: ({ pageParam }) => searchPublicOffers({ page: pageParam }),
+  const query = useInfiniteQuery({
+    queryKey: DISCOVER_KEY,
+    queryFn: ({ pageParam }) => discoverOffers(pageParam),
     initialPageParam: 1,
     getNextPageParam: (last) =>
-      last.current_page < Math.min(last.last_page, MAX_JEUNCY_PAGES)
-        ? last.current_page + 1
+      last.partner.current_page < last.partner.last_page
+        ? last.partner.current_page + 1
         : undefined,
   });
 
-  const lba = useInfiniteQuery({
-    queryKey: [...DISCOVER_KEY, 'lba', department],
-    queryFn: ({ pageParam }) => searchExternalOffers({ department, page: pageParam }),
-    initialPageParam: 1,
-    getNextPageParam: (last) =>
-      last.current_page < last.last_page ? last.current_page + 1 : undefined,
-    // Les partenaires attendent la reponse Jeuncy (succes ou echec) : sinon
-    // leurs cartes s'afficheraient d'abord, puis les offres Jeuncy viendraient
-    // s'inserer en tete sous le doigt du candidat. Et ils attendent le store :
-    // avant hydratation, `department` vaut le defaut, pas celui du candidat,
-    // et la requete partirait pour rien.
-    enabled: hydrated && !jeuncy.isPending,
-  });
+  // Cartes retirees en attendant la confirmation du serveur. Le serveur
+  // exclut deja ce qui a ete juge, mais entre le geste et le rechargement
+  // c'est ce jeu qui tient la pile a jour.
+  const [decided, setDecided] = useState<ReadonlySet<string>>(new Set());
+  const [lastGesture, setLastGesture] = useState<LastGesture | null>(null);
 
-  const jeuncyPages = jeuncy.data?.pages;
-  const lbaPages = lba.data?.pages;
+  const pending = useRef<number[]>([]);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Toutes les cartes chargees, dans l'ordre de la pile. Une meme offre peut
-  // revenir sur deux pages si l'API en a publie une nouvelle entre temps :
-  // dedoublonnee par cle, sinon React se plaindrait de deux cles identiques.
+  const flushPasses = useCallback(async () => {
+    if (timer.current) {
+      clearTimeout(timer.current);
+      timer.current = null;
+    }
+
+    const lot = pending.current;
+    if (lot.length === 0) return;
+
+    // Vide AVANT l'appel : un envoi rate coute quelques cartes revues, une
+    // file qui se rejoue sans fin sur un reseau coupe coute bien plus.
+    pending.current = [];
+
+    try {
+      await passOffers(lot);
+    } catch {
+      // Silencieux : « Passer » n'a rien promis a personne, et une alerte au
+      // milieu d'un parcours de pile serait pire que la carte revue.
+    }
+  }, []);
+
+  useEffect(() => () => void flushPasses(), [flushPasses]);
+
+  const pages = query.data?.pages;
+  const meta: DeckMeta | null = pages?.[0]?.meta ?? null;
+
   const cards = useMemo(() => {
     const seen = new Set<string>();
     const result: DeckCard[] = [];
@@ -75,91 +132,158 @@ export function useDiscoverDeck(department: string) {
       result.push(card);
     };
 
-    for (const page of jeuncyPages ?? []) {
-      for (const offer of page.data) {
-        add({ kind: 'jeuncy', key: swipeKeyFor('jeuncy', offer.id), offer });
-      }
+    // Selection du jour : premiere page uniquement (voir l'en-tete).
+    for (const offer of pages?.[0]?.jeuncy ?? []) {
+      add({ kind: 'jeuncy', key: deckKeyFor('jeuncy', offer.id), offer });
     }
-    for (const page of lbaPages ?? []) {
-      for (const offer of page.data) {
-        add({ kind: 'lba', key: swipeKeyFor('lba', offer.id), offer });
+    for (const page of pages ?? []) {
+      for (const offer of page.partner.data) {
+        add({ kind: 'lba', key: deckKeyFor('lba', offer.id), offer });
       }
     }
 
     return result;
-  }, [jeuncyPages, lbaPages]);
+  }, [pages]);
 
   const deck = useMemo(
-    () => (hydrated ? cards.filter((card) => !(card.key in gestures)) : []),
-    [cards, gestures, hydrated],
+    () => cards.filter((card) => !decided.has(card.key)),
+    [cards, decided],
   );
 
-  // Rechargement anticipe : Jeuncy d'abord (l'ordre de la pile en depend),
-  // les partenaires ensuite. Pas de setState ici, seulement des requetes.
-  // `cancelRefetch: false` : si l'effet repasse pendant qu'une page arrive,
-  // on ne relance pas la requete en cours, on la laisse finir.
-  //
-  // Dependances : les champs utilises, jamais l'objet de requete entier, qui
-  // change d'identite a chaque rendu. Et JAMAIS de relance apres un echec :
-  // `hasNextPage` reste vrai quand la page suivante a echoue (il decoule de
-  // la derniere page recue), donc sans cette garde l'effet relancerait la
-  // requete a chaque echec, sans fin, des que le Wi-Fi tombe avec moins de
-  // cinq cartes en pile. Le candidat relance lui-meme via « Reessayer ».
-  const {
-    hasNextPage: jeuncyHasNext,
-    isFetchingNextPage: jeuncyFetchingNext,
-    isError: jeuncyFailed,
-    fetchNextPage: fetchNextJeuncy,
-  } = jeuncy;
-  const {
-    hasNextPage: lbaHasNext,
-    isFetchingNextPage: lbaFetchingNext,
-    isError: lbaFailed,
-    fetchNextPage: fetchNextLba,
-  } = lba;
+  const retirer = (key: DeckKey, kind: 'jeuncy' | 'lba') => {
+    setDecided((courant) => new Set(courant).add(key));
+    setLastGesture({ key, kind });
+  };
 
-  useEffect(() => {
-    if (!hydrated || deck.length >= RELOAD_BELOW) return;
+  const remettre = (key: DeckKey) => {
+    setDecided((courant) => {
+      const suivant = new Set(courant);
+      suivant.delete(key);
 
-    if (jeuncyHasNext) {
-      if (!jeuncyFetchingNext && !jeuncyFailed) {
-        void fetchNextJeuncy({ cancelRefetch: false });
-      }
+      return suivant;
+    });
+    setLastGesture(null);
+  };
+
+  /**
+   * « Ca m'interesse » sur une offre Jeuncy.
+   *
+   * Renvoie `matched` pour que l'ecran annonce le match avec la carte encore
+   * sous les yeux : c'est le seul moment ou il peut le faire.
+   */
+  const like = async (offer: DeckJeuncyOffer) => {
+    const key = deckKeyFor('jeuncy', offer.id);
+    retirer(key, 'jeuncy');
+
+    try {
+      const { matched } = await likeOffer(offer.id);
+      if (matched) void queryClient.invalidateQueries({ queryKey: MATCHES_KEY });
+
+      return { matched };
+    } catch (error) {
+      // Quota atteint, offre depubliee, age insuffisant : la carte revient,
+      // sinon le candidat croirait son geste enregistre.
+      remettre(key);
+      throw error;
+    }
+  };
+
+  const pass = (offer: DeckJeuncyOffer) => {
+    retirer(deckKeyFor('jeuncy', offer.id), 'jeuncy');
+    pending.current.push(offer.id);
+
+    if (pending.current.length >= PASS_BATCH_MAX) {
+      void flushPasses();
 
       return;
     }
-    if (lbaHasNext && !lbaFetchingNext && !lbaFailed) {
-      void fetchNextLba({ cancelRefetch: false });
-    }
-  }, [
-    hydrated,
-    deck.length,
-    jeuncyHasNext,
-    jeuncyFetchingNext,
-    jeuncyFailed,
-    fetchNextJeuncy,
-    lbaHasNext,
-    lbaFetchingNext,
-    lbaFailed,
-    fetchNextLba,
-  ]);
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = setTimeout(() => void flushPasses(), PASS_FLUSH_MS);
+  };
 
-  const hasMore = jeuncy.hasNextPage || lba.hasNextPage;
-  const isFetching = jeuncy.isFetching || lba.isFetching;
-  const error = jeuncy.error ?? lba.error;
+  /** « Je garde » ou « Passer » sur une offre partenaire. */
+  const decideExternal = async (offer: DeckPartnerOffer, decision: ExternalDecision) => {
+    const key = deckKeyFor('lba', offer.id);
+    retirer(key, 'lba');
+
+    try {
+      return await decideExternalOffer(offer.id, decision);
+    } catch (error) {
+      remettre(key);
+      throw error;
+    }
+  };
+
+  /**
+   * Annule le dernier geste, du bon cote.
+   *
+   * Les deux piles ont chacune leur route d'annulation, et le serveur ne
+   * garde qu'un cran par pile : il faut donc savoir laquelle viser. Le
+   * tampon des « Passer » Jeuncy part d'abord, sinon « le dernier geste »
+   * designerait une autre carte cote serveur.
+   */
+  const undo = async () => {
+    if (lastGesture === null) return;
+
+    await flushPasses();
+
+    if (lastGesture.kind === 'jeuncy') {
+      await undoLastInterest();
+    } else {
+      await undoLastExternal();
+    }
+
+    remettre(lastGesture.key);
+  };
+
+  // Rechargement anticipe de la pile partenaire. Jamais apres un echec :
+  // `hasNextPage` reste vrai quand la page suivante a echoue, et l'effet
+  // relancerait la requete sans fin des que le reseau tombe.
+  const { hasNextPage, isFetchingNextPage, isError, fetchNextPage } = query;
+
+  useEffect(() => {
+    if (deck.length >= RELOAD_BELOW) return;
+    if (!hasNextPage || isFetchingNextPage || isError) return;
+
+    void fetchNextPage({ cancelRefetch: false });
+  }, [deck.length, hasNextPage, isFetchingNextPage, isError, fetchNextPage]);
 
   let status: DeckStatus;
   if (deck.length > 0) {
     status = 'ready';
-  } else if (!hydrated || jeuncy.isPending || lba.isPending || (hasMore && isFetching)) {
+  } else if (query.isPending || (hasNextPage && query.isFetching)) {
     status = 'loading';
-  } else if (error) {
+  } else if (query.error) {
     status = 'error';
   } else {
     status = 'empty';
   }
 
-  const refresh = () => Promise.all([jeuncy.refetch(), lba.refetch()]);
+  const canUndo =
+    lastGesture !== null && cards.some((card) => card.key === lastGesture.key);
 
-  return { deck, cards, status, error, hasMore, isFetching, refresh };
+  const refresh = async () => {
+    // Le tampon part avant le rechargement : sinon les cartes ecartees
+    // reviendraient dans la reponse, et le geste serait perdu.
+    await flushPasses();
+    setDecided(new Set());
+    setLastGesture(null);
+
+    return query.refetch();
+  };
+
+  return {
+    deck,
+    cards,
+    meta,
+    status,
+    error: query.error,
+    canUndo,
+    like,
+    pass,
+    decideExternal,
+    undo,
+    refresh,
+    isRefreshing: query.isRefetching,
+  };
 }

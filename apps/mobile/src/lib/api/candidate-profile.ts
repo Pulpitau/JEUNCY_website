@@ -88,6 +88,15 @@ export interface CandidateProfile {
    * mineur ; il ne part chez un employeur que sur un oui explicite.
    */
   show_photo_to_employers: boolean;
+  // Position, visible du seul propriétaire (`CandidateProfile::OWNER_VISIBLE`).
+  // Deux paires distinctes, et c'est structurel : `latitude/longitude` est la
+  // commune déclarée, la seule que le deck employeur lise ; `device_*` est le
+  // GPS du téléphone, qui ne sert qu'à la pile du candidat.
+  latitude: number | null;
+  longitude: number | null;
+  device_latitude: number | null;
+  device_longitude: number | null;
+  device_located_at: string | null;
   cv_file_url: string | null;
   cv_original_filename: string | null;
   cv_uploaded_at: string | null;
@@ -391,6 +400,22 @@ export function updateLocation(latitude: number, longitude: number) {
 }
 
 /** Revient a la commune declaree du profil. */
+/**
+ * D'où vient la position utilisée par la pile du candidat.
+ *
+ * Dérivée plutôt que renvoyée par le serveur : `GET candidate-profile` expose
+ * les colonnes, pas la conclusion. Le GPS l'emporte quand il existe, ce que
+ * `DiscoverService::positionDe` fait déjà de son côté — les deux doivent dire
+ * la même chose, sinon l'écran annonce une portée que la pile n'applique pas.
+ */
+export function locationSourceOf(
+  profile: Pick<CandidateProfile, 'device_latitude' | 'latitude'>,
+): 'DEVICE' | 'PROFILE' | null {
+  if (profile.device_latitude !== null) return 'DEVICE';
+
+  return profile.latitude !== null ? 'PROFILE' : null;
+}
+
 export function clearLocation() {
   return apiRequest<CandidateLocation>('/candidate-profile/location', {
     method: 'DELETE',

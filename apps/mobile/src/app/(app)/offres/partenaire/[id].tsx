@@ -18,7 +18,7 @@ import {
 } from '@/lib/api/external-offers';
 import { formatDateFr } from '@/lib/dates';
 import { WORK_MODE_LABELS } from '@/lib/labels';
-import { swipeKeyFor, useSwipeStore } from '@/store/swipe-store';
+import { useKeepOffer, useKeptOffers } from '@/hooks/use-kept-offers';
 import { useTheme } from '@/theme/theme-provider';
 import { spacing } from '@/theme/typography';
 
@@ -94,29 +94,17 @@ function OffrePartenaire({
   bottomInset: number;
 }) {
   const { colors } = useTheme();
-  const key = swipeKeyFor('lba', offer.id);
-  const kept = useSwipeStore((state) => state.gestures[key]?.decision === 'KEEP');
-  const record = useSwipeStore((state) => state.record);
-  const forget = useSwipeStore((state) => state.forget);
+  const { data: gardees } = useKeptOffers();
+  const garder = useKeepOffer();
 
-  const toggleKeep = () => {
-    if (kept) {
-      forget(key);
-
-      return;
-    }
-    record({
-      key,
-      decision: 'KEEP',
-      kept: {
-        id: offer.id,
-        title: offer.title,
-        employer: offer.company_name,
-        city: offer.city,
-        applyUrl: offer.apply_url,
-      },
-    });
-  };
+  // « Gardee » se lit dans la liste du serveur, qui fait foi. Le bouton ne
+  // retire pas : le serveur ne connait qu'une annulation, celle du DERNIER
+  // geste, et l'offrir ici sur n'importe quelle offre annulerait en realite
+  // autre chose. Le retrait se fera depuis l'onglet Candidatures quand une
+  // route dediee existera.
+  const kept = (gardees ?? []).some(
+    (interest) => interest.external_job_offer_id === offer.id,
+  );
 
   const location = formatExternalLocation(offer);
   const start = offer.contract_start ? formatDateFr(offer.contract_start) : null;
@@ -199,9 +187,11 @@ function OffrePartenaire({
             onPress={() => void WebBrowser.openBrowserAsync(offer.apply_url)}
           />
           <Button
-            label={kept ? 'Retirer de mes offres gardées' : 'Je garde'}
+            label={kept ? 'Déjà dans tes offres gardées' : 'Je garde'}
             variant="secondary"
-            onPress={toggleKeep}
+            disabled={kept}
+            loading={garder.isPending}
+            onPress={() => garder.mutate(offer.id)}
           />
         </View>
       </View>

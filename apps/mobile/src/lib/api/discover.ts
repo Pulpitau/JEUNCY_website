@@ -1,7 +1,8 @@
 import type { ContractType, DrivingLicenseCategory, OfferSector } from '@jeuncy/shared';
 
 import { apiRequest } from './client';
-import type { Paginated, Skill } from './job-offers';
+import type { ExternalJobOffer } from './external-offers';
+import type { Paginated, PublicJobOffer, Skill } from './job-offers';
 
 // La pile « Decouvrir » cote employeur : GET discover/candidates.
 //
@@ -87,4 +88,64 @@ export function discoverCandidates(jobOfferId: number, page = 1) {
   });
 
   return apiRequest<Paginated<DeckCandidateCard>>(`/discover/candidates?${params}`);
+}
+
+// ---------------------------------------------------------------------------
+// La pile « Decouvrir » cote candidat : GET discover/offers
+// ---------------------------------------------------------------------------
+
+/**
+ * Offre Jeuncy de la pile.
+ *
+ * `distance_km` n'existe QUE de ce cote : le candidat a le droit de savoir ou
+ * est le poste, l'employeur n'a pas le droit de savoir ou habite le candidat
+ * (decision du 2026-09-22, L1132-1).
+ */
+export interface DeckJeuncyOffer extends PublicJobOffer {
+  distance_km: number | null;
+  /** L'employeur a dit oui en premier : un oui du candidat fait match tout de suite. */
+  employer_interested: boolean;
+  /** Toujours faux dans la pile, qui exclut les offres deja postulees. */
+  already_applied: boolean;
+}
+
+export interface DeckPartnerOffer extends ExternalJobOffer {
+  distance_km: number | null;
+}
+
+/**
+ * Portee reellement utilisee par le serveur, apres cascade.
+ *
+ * Les deux piles cascadent SEPAREMENT (rayon, sinon departement, sinon toute
+ * la France) : en production il n'y a qu'une offre Jeuncy publiee pour 7 779
+ * partenaires, et les lier enverrait vingt offres de toute la France des que
+ * l'unique offre Jeuncy bascule.
+ */
+export type DeckScope = 'radius' | 'department' | 'france';
+
+export interface DeckMeta {
+  radius_km: number;
+  department: string | null;
+  has_coordinates: boolean;
+  /** D'ou vient la position : commune declaree, ou GPS du telephone. */
+  location_source: 'PROFILE' | 'DEVICE' | null;
+  scope: DeckScope;
+  partner_scope: DeckScope;
+  /**
+   * Le quota ne s'active que si la pile compte au moins autant d'offres que
+   * lui : plafonner a 20 quelqu'un qui n'en a que 3 a portee le bloquerait
+   * sans rien proteger.
+   */
+  quota: { limit: number; used: number; active: boolean };
+}
+
+export interface DiscoverOffersResponse {
+  /** Selection du jour : au plus 20, pas de curseur infini de ce cote. */
+  jeuncy: DeckJeuncyOffer[];
+  partner: Paginated<DeckPartnerOffer>;
+  meta: DeckMeta;
+}
+
+export function discoverOffers(page = 1) {
+  return apiRequest<DiscoverOffersResponse>(`/discover/offers?page=${page}`);
 }

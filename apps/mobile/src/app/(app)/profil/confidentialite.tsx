@@ -12,9 +12,14 @@ import { Field } from '@/components/ui/field';
 import { Screen } from '@/components/ui/screen';
 import { Text } from '@/components/ui/text';
 import { useCandidateProfile, useInvalidateProfile } from '@/hooks/use-candidate-profile';
+import { useDeviceLocation } from '@/hooks/use-device-location';
 import { deleteAccount, exportAccountData } from '@/lib/api/account';
 import { clearRefreshToken } from '@/lib/secure-store';
-import { updateProfile } from '@/lib/api/candidate-profile';
+import {
+  locationSourceOf,
+  updatePreferences,
+  updateProfile,
+} from '@/lib/api/candidate-profile';
 import { ApiError } from '@/lib/api/client';
 import { useAuthStore } from '@/store/auth-store';
 import { useTheme } from '@/theme/theme-provider';
@@ -45,6 +50,21 @@ export default function ConfidentialiteScreen() {
     onSuccess: () => void invalidateProfile(),
     onError: () => Alert.alert('Réglage non enregistré', 'Réessaie dans un instant.'),
   });
+
+  // Autorisation du portrait : même écran que la visibilité CVthèque, parce
+  // que c'est la même question posée deux fois — qui voit quoi de moi.
+  const photoVisible = useMutation({
+    mutationFn: (visible: boolean) =>
+      updatePreferences({ show_photo_to_employers: visible }),
+    onSuccess: () => void invalidateProfile(),
+    onError: () => Alert.alert('Réglage non enregistré', 'Réessaie dans un instant.'),
+  });
+
+  const { disable: disableLocation } = useDeviceLocation();
+  const positionActive =
+    profile.data !== null &&
+    profile.data !== undefined &&
+    locationSourceOf(profile.data) === 'DEVICE';
 
   // L'export est ecrit dans le cache puis propose par la feuille de partage
   // d'iOS : « Enregistrer dans Fichiers », AirDrop, mail... C'est le candidat
@@ -134,6 +154,50 @@ export default function ConfidentialiteScreen() {
                 accessibilityLabel="Visible dans la CVthèque"
               />
             </View>
+
+            <View style={styles.switchRow}>
+              <Text variant="bodyStrong" style={styles.switchLabel}>
+                Montrer ma photo aux recruteurs
+              </Text>
+              <Switch
+                value={profile.data.show_photo_to_employers}
+                onValueChange={(value) => photoVisible.mutate(value)}
+                disabled={photoVisible.isPending}
+                trackColor={{ true: colors.accent, false: colors.border }}
+                accessibilityLabel="Montrer ma photo aux recruteurs"
+              />
+            </View>
+            <Text variant="small" tone="muted">
+              Décoché par défaut. Ta photo reste sur ton CV dans tous les cas ; ceci ne
+              concerne que la carte que les recruteurs voient avant ta candidature.
+            </Text>
+          </Card>
+        ) : null}
+
+        {/* Position GPS : toujours effaçable, et le dire ici plutôt que
+            seulement dans les réglages de Découvrir. Une donnée qu'on ne sait
+            pas retirer est une donnée qu'on n'aurait pas dû donner. */}
+        {isCandidate && profile.data ? (
+          <Card>
+            <Text variant="sectionTitle">Ma position</Text>
+            <Text variant="small" tone="muted">
+              {positionActive
+                ? 'Jeuncy utilise la position de ton téléphone pour classer les offres par distance. Elle est arrondie à environ un kilomètre, et les recruteurs ne la voient jamais.'
+                : "Jeuncy utilise la commune de ton profil pour classer les offres par distance. Aucune position de téléphone n'est enregistrée."}
+            </Text>
+            {positionActive ? (
+              <Button
+                label="Effacer ma position"
+                variant="secondary"
+                loading={disableLocation.isPending}
+                onPress={() =>
+                  disableLocation.mutate(undefined, {
+                    onError: (error: Error) =>
+                      Alert.alert('Action impossible', error.message),
+                  })
+                }
+              />
+            ) : null}
           </Card>
         ) : null}
 
