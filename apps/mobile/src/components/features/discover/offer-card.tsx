@@ -40,7 +40,12 @@ const MAX_SKILLS = 3;
 // Offre Jeuncy
 // ---------------------------------------------------------------------------
 
-export function JeuncyOfferCard({ offer }: { offer: PublicJobOffer }) {
+export function JeuncyOfferCard({
+  offer,
+}: {
+  offer: PublicJobOffer & { employer_response_days?: number | null };
+}) {
+  const responseDays = offer.employer_response_days;
   const { colors } = useTheme();
   const publisher = publisherOf(offer);
   const cfa = isCfaOffer(offer);
@@ -97,6 +102,21 @@ export function JeuncyOfferCard({ offer }: { offer: PublicJobOffer }) {
         <View style={styles.chips}>
           <Badge label={CONTRACT_TYPE_LABELS[offer.contract_type]} tone="accent" />
           {offer.work_mode ? <Badge label={WORK_MODE_LABELS[offer.work_mode]} /> : null}
+          {/* Le seul badge qui parle du COMPORTEMENT du recruteur et non de
+              son offre. C'est l'argument du produit rendu verifiable avant
+              de postuler (MOBILE.md §5). */}
+          {responseDays !== undefined ? (
+            <Badge
+              label={
+                responseDays === null
+                  ? 'Nouvelle entreprise'
+                  : responseDays <= 1
+                    ? 'Répond en 24 h'
+                    : `Répond en ${responseDays} jours`
+              }
+              tone={responseDays !== null && responseDays <= 3 ? 'success' : 'neutral'}
+            />
+          ) : null}
         </View>
 
         <View style={styles.facts}>

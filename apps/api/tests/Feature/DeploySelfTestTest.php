@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Http\Controllers\DeployController;
 use App\Models\Company;
 use App\Models\GeocodeCache;
 use App\Models\JobOffer;
@@ -187,7 +188,12 @@ class DeploySelfTestTest extends TestCase
     {
         $reponse = $this->get('/deploy/'.self::TOKEN.'/version')->assertOk();
 
-        $this->assertSame('deploy-tools-30', $reponse->json('version_outils_deploiement'));
+        // Bougee a chaque changement de la liste surveillee : c'est ce que
+        // Pierre lit pour confirmer que le bon fichier est arrive.
+        $this->assertSame(
+            DeployController::DEPLOY_TOOLS_VERSION,
+            $reponse->json('version_outils_deploiement'),
+        );
 
         $fichiers = $reponse->json('fichiers');
 

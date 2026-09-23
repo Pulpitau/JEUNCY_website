@@ -356,6 +356,45 @@ class MailService
         );
     }
 
+    /**
+     * Relance du modele match (MOBILE.md §5, lot 4).
+     *
+     * UN SEUL GABARIT pour toute la cascade : ce qui change d'un etage a
+     * l'autre est le titre et la phrase, pas la forme. Ecrire huit gabarits
+     * revenait a maintenir huit fois la meme mise en page pour une ligne de
+     * texte de difference.
+     *
+     * Le sujet ne nomme jamais le candidat : un email est plus facile a faire
+     * suivre qu'un ecran, et rien ne garantit que la boite de l'entreprise
+     * soit personnelle.
+     */
+    public function sendMatchReminderEmail(
+        string $to,
+        string $subject,
+        string $heading,
+        string $message,
+        string $cta,
+        string $url,
+    ): void {
+        $apiKey = config('services.resend.key');
+
+        if (! $apiKey) {
+            Log::warning("RESEND_API_KEY absent : relance non envoyee a {$to}");
+
+            return;
+        }
+
+        $safeMessage = e($message);
+
+        $body = <<<HTML
+            <p>Bonjour,</p>
+            <p>{$safeMessage}</p>
+            {$this->ctaButton($cta, $url)}
+            HTML;
+
+        $this->send($apiKey, $to, $subject, $this->wrapEmailHtml($heading, $body));
+    }
+
     // Message du formulaire de contact public, transmis a l'equipe Jeuncy.
     //
     // reply_to porte l'adresse du VISITEUR : repondre depuis sa boite mail doit

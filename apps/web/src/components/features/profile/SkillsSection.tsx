@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import type { Skill } from '@/lib/api/candidate-profile';
+import { TAG_MAX_LENGTH, messageFromError, splitTags, tooLongTag } from '@/lib/tag-input';
 
 interface SkillsSectionProps {
   skills: Skill[];
@@ -13,24 +14,51 @@ interface SkillsSectionProps {
 
 export function SkillsSection({ skills, onSync, isSubmitting }: SkillsSectionProps) {
   const [draft, setDraft] = useState('');
+  const [error, setError] = useState<string | null>(null);
 
-  function handleAdd() {
-    const name = draft.trim();
-    if (
-      !name ||
-      skills.some((skill) => skill.name.toLowerCase() === name.toLowerCase())
-    ) {
+  async function handleAdd() {
+    // Le placeholder invite a separer par des virgules : on tient cette
+    // promesse au lieu d'enregistrer la phrase entiere comme une competence.
+    const entered = splitTags(draft);
+    const known = new Set(skills.map((skill) => skill.name.toLowerCase()));
+    const added = entered.filter((name) => !known.has(name.toLowerCase()));
+
+    if (added.length === 0) {
       setDraft('');
+      setError(null);
+
       return;
     }
-    void onSync([...skills.map((skill) => skill.name), name]);
-    setDraft('');
+
+    const tooLong = tooLongTag(added);
+    if (tooLong) {
+      setError(
+        `« ${tooLong.slice(0, 30)}… » est trop long (${TAG_MAX_LENGTH} caractères maximum). Sépare tes compétences par des virgules.`,
+      );
+
+      return;
+    }
+
+    try {
+      await onSync([...skills.map((skill) => skill.name), ...added]);
+      setDraft('');
+      setError(null);
+    } catch (submitError) {
+      // Sans ce message, un refus du serveur se traduisait par « il ne se
+      // passe rien » — c'est le bug signale par les etudiants.
+      setError(messageFromError(submitError));
+    }
   }
 
-  function handleRemove(name: string) {
-    void onSync(
-      skills.map((skill) => skill.name).filter((skillName) => skillName !== name),
-    );
+  async function handleRemove(name: string) {
+    try {
+      await onSync(
+        skills.map((skill) => skill.name).filter((skillName) => skillName !== name),
+      );
+      setError(null);
+    } catch (submitError) {
+      setError(messageFromError(submitError));
+    }
   }
 
   return (
@@ -67,7 +95,7 @@ export function SkillsSection({ skills, onSync, isSubmitting }: SkillsSectionPro
           onKeyDown={(event) => {
             if (event.key === 'Enter') {
               event.preventDefault();
-              handleAdd();
+              void handleAdd();
             }
           }}
           disabled={isSubmitting}
@@ -75,12 +103,17 @@ export function SkillsSection({ skills, onSync, isSubmitting }: SkillsSectionPro
         <Button
           type="button"
           variant="outline"
-          onClick={handleAdd}
+          onClick={() => void handleAdd()}
           disabled={isSubmitting}
         >
           Ajouter
         </Button>
       </div>
+      {error && (
+        <p role="alert" className="font-inter text-sm text-destructive">
+          {error}
+        </p>
+      )}
     </div>
   );
 }

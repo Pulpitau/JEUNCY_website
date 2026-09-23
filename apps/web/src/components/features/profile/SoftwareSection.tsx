@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import type { Software } from '@/lib/api/candidate-profile';
+import { TAG_MAX_LENGTH, messageFromError, splitTags, tooLongTag } from '@/lib/tag-input';
 
 interface SoftwareSectionProps {
   software: Software[];
@@ -17,24 +18,49 @@ export function SoftwareSection({
   isSubmitting,
 }: SoftwareSectionProps) {
   const [draft, setDraft] = useState('');
+  const [error, setError] = useState<string | null>(null);
 
-  function handleAdd() {
-    const name = draft.trim();
-    if (
-      !name ||
-      software.some((item) => item.name.toLowerCase() === name.toLowerCase())
-    ) {
+  // Meme correction que pour les competences : le placeholder promet une
+  // liste separee par des virgules, et un refus du serveur doit se voir.
+  async function handleAdd() {
+    const entered = splitTags(draft);
+    const known = new Set(software.map((item) => item.name.toLowerCase()));
+    const added = entered.filter((name) => !known.has(name.toLowerCase()));
+
+    if (added.length === 0) {
       setDraft('');
+      setError(null);
+
       return;
     }
-    void onSync([...software.map((item) => item.name), name]);
-    setDraft('');
+
+    const tooLong = tooLongTag(added);
+    if (tooLong) {
+      setError(
+        `« ${tooLong.slice(0, 30)}… » est trop long (${TAG_MAX_LENGTH} caractères maximum). Sépare tes logiciels par des virgules.`,
+      );
+
+      return;
+    }
+
+    try {
+      await onSync([...software.map((item) => item.name), ...added]);
+      setDraft('');
+      setError(null);
+    } catch (submitError) {
+      setError(messageFromError(submitError));
+    }
   }
 
-  function handleRemove(name: string) {
-    void onSync(
-      software.map((item) => item.name).filter((itemName) => itemName !== name),
-    );
+  async function handleRemove(name: string) {
+    try {
+      await onSync(
+        software.map((item) => item.name).filter((itemName) => itemName !== name),
+      );
+      setError(null);
+    } catch (submitError) {
+      setError(messageFromError(submitError));
+    }
   }
 
   return (
@@ -71,7 +97,7 @@ export function SoftwareSection({
           onKeyDown={(event) => {
             if (event.key === 'Enter') {
               event.preventDefault();
-              handleAdd();
+              void handleAdd();
             }
           }}
           disabled={isSubmitting}
@@ -79,12 +105,17 @@ export function SoftwareSection({
         <Button
           type="button"
           variant="outline"
-          onClick={handleAdd}
+          onClick={() => void handleAdd()}
           disabled={isSubmitting}
         >
           Ajouter
         </Button>
       </div>
+      {error && (
+        <p role="alert" className="font-inter text-sm text-destructive">
+          {error}
+        </p>
+      )}
     </div>
   );
 }

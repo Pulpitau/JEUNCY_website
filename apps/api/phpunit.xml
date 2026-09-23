@@ -18,6 +18,14 @@
         </include>
     </source>
     <php>
+        <!-- 128 Mo (le defaut du CLI) ne suffisent plus : la suite depasse
+             800 tests, et le rendu dompdf de CvthequeDownloadTest tombe en
+             « Premature end of PHP process » quand il arrive en fin de
+             parcours avec la memoire deja bien remplie. Le test passe seul,
+             ce qui rend la panne difficile a lire — d'ou cette ligne plutot
+             qu'un memory_limit a se rappeler sur la ligne de commande.
+             Mesure du 2026-09-23 : 844 tests passent a 1 Go. -->
+        <ini name="memory_limit" value="1G"/>
         <env name="APP_ENV" value="testing"/>
         <env name="APP_MAINTENANCE_DRIVER" value="file"/>
         <env name="BCRYPT_ROUNDS" value="4"/>

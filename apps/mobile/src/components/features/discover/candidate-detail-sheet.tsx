@@ -1,8 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
+import { useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { ReportSheet } from '@/components/features/moderation/report-sheet';
 import { Badge } from '@/components/ui/badge';
 import { Text } from '@/components/ui/text';
 import type { CandidateCard } from '@/lib/api/discover';
@@ -36,6 +38,7 @@ export function CandidateDetailSheet({
 }) {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
+  const [reporting, setReporting] = useState(false);
 
   const nom = [
     candidate.first_name,
@@ -220,8 +223,30 @@ export function CandidateDetailSheet({
                 : 'Son nom complet et ses coordonnées arrivent avec sa candidature.'}
             </Text>
           </View>
+
+          {/* Signaler, depuis la fiche elle-même : un employeur qui lit
+              quelque chose de déplacé ne doit pas avoir à chercher où le
+              dire (MOBILE.md §7). Discret mais toujours là. */}
+          <Pressable
+            onPress={() => setReporting(true)}
+            accessibilityRole="button"
+            accessibilityLabel="Signaler ce profil"
+            style={({ pressed }) => [styles.report, { opacity: pressed ? 0.6 : 1 }]}
+          >
+            <Ionicons name="flag-outline" size={16} color={colors.textMuted} />
+            <Text variant="small" tone="muted">
+              Signaler ce profil
+            </Text>
+          </Pressable>
         </ScrollView>
       </View>
+
+      <ReportSheet
+        target={reporting ? { candidate_profile_id: candidate.id } : null}
+        context="CARD"
+        label={nom || 'Candidat'}
+        onClose={() => setReporting(false)}
+      />
     </Modal>
   );
 }
@@ -309,4 +334,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   noteText: { flex: 1 },
+  report: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+    paddingVertical: spacing.md,
+  },
 });

@@ -107,6 +107,12 @@ export interface DeckJeuncyOffer extends PublicJobOffer {
   employer_interested: boolean;
   /** Toujours faux dans la pile, qui exclut les offres deja postulees. */
   already_applied: boolean;
+  /**
+   * Delai median de reponse de cet employeur, en jours. Null tant qu'il n'a
+   * pas traite cinq candidatures : un chiffre tire d'un seul cas serait faux
+   * dans les deux sens, et c'est precisement celui qu'un candidat croirait.
+   */
+  employer_response_days: number | null;
 }
 
 export interface DeckPartnerOffer extends ExternalJobOffer {

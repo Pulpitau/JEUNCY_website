@@ -76,6 +76,7 @@ class DiscoverService
         private readonly BlockService $blockService,
         private readonly MatchScorer $scorer,
         private readonly CandidateCardPresenter $presenter,
+        private readonly EmployerResponseStats $responseStats,
     ) {}
 
     /**
@@ -491,13 +492,25 @@ class DiscoverService
             ->pluck('job_offer_id')
             ->all();
 
-        $lignes = $offres->map(function (JobOffer $offre) use ($profile, $interesses) {
+        // Badge « Repond en N jours » : deux requetes pour toute la pile,
+        // pas une par offre (EmployerResponseStats).
+        $medianes = $this->responseStats->medianesPour(
+            $offres->pluck('company_id')->filter()->unique()->values()->all(),
+            $offres->pluck('cfa_organization_id')->filter()->unique()->values()->all(),
+        );
+
+        $lignes = $offres->map(function (JobOffer $offre) use ($profile, $interesses, $medianes) {
             $distance = $offre->getAttribute('distance_km');
 
             return [
                 'offre' => $offre,
                 'distance' => $distance === null ? null : round((float) $distance, 1),
                 'employeur_interesse' => in_array($offre->id, $interesses, true),
+                'delai_reponse' => $this->responseStats->pourOffre(
+                    $medianes,
+                    $offre->company_id,
+                    $offre->cfa_organization_id,
+                ),
                 'score' => $this->scorer->score($profile, $offre),
             ];
         })->sortBy(fn (array $ligne) => [
@@ -519,6 +532,10 @@ class DiscoverService
             return array_merge($donnees, [
                 'distance_km' => $ligne['distance'],
                 'employer_interested' => $ligne['employeur_interesse'],
+                // Null quand l'employeur n'a pas encore traite cinq
+                // candidatures : le client affiche alors « Nouvelle
+                // entreprise » plutot qu'un chiffre tire d'un seul cas.
+                'employer_response_days' => $ligne['delai_reponse'],
                 // Toujours faux ici : la pile exclut les offres deja
                 // postulees. La cle reste presente pour que le client n'ait
                 // pas deux formes de carte a gerer.

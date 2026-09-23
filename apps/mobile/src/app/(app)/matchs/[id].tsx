@@ -1,8 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Redirect, useLocalSearchParams } from 'expo-router';
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { useState } from 'react';
+import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 
 import { ReceivedApplicationCard } from '@/components/features/applications/received-application';
+import { ReportSheet } from '@/components/features/moderation/report-sheet';
 import { CandidateCardFace } from '@/components/features/discover/candidate-card';
 import { Card } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -40,6 +42,7 @@ export default function MatchDetailScreen() {
 
 function EmployerMatchDetail({ matchId }: { matchId: number }) {
   const { colors } = useTheme();
+  const [reporting, setReporting] = useState(false);
   const { data, isPending, error, refetch } = useMatch<EmployerMatch>(matchId);
 
   if (isPending) {
@@ -112,6 +115,29 @@ function EmployerMatchDetail({ matchId }: { matchId: number }) {
           Ce profil a été supprimé depuis le match.
         </Text>
       )}
+
+      <Pressable
+        onPress={() => setReporting(true)}
+        accessibilityRole="button"
+        accessibilityLabel="Signaler ce match"
+        style={({ pressed }) => [styles.report, { opacity: pressed ? 0.6 : 1 }]}
+      >
+        <Ionicons name="flag-outline" size={16} color={colors.textMuted} />
+        <Text variant="small" tone="muted">
+          Signaler ou bloquer
+        </Text>
+      </Pressable>
+
+      <ReportSheet
+        target={reporting ? { offer_interest_id: data.id } : null}
+        context="MATCH"
+        label={
+          candidat
+            ? `${candidat.first_name} ${candidat.last_name_initial ?? ''}`.trim()
+            : 'Ce match'
+        }
+        onClose={() => setReporting(false)}
+      />
     </Screen>
   );
 }
@@ -124,4 +150,11 @@ const styles = StyleSheet.create({
   // La face de carte est concue pour remplir une pile : dans une page qui
   // defile il lui faut une hauteur, sinon son `flex: 1` la reduit a rien.
   cardArea: { height: 520, marginTop: spacing.lg, borderRadius: radii.lg },
+  report: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+    paddingVertical: spacing.lg,
+  },
 });

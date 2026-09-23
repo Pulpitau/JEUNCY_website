@@ -25,4 +25,8 @@ enum NotificationType: string
     case NEW_MATCH = 'NEW_MATCH';
     case INTEREST_RECEIVED = 'INTEREST_RECEIVED';
     case MATCH_CLOSED = 'MATCH_CLOSED';
+
+    // Relances du modele match (lot 4) : un seul type pour toute la cascade,
+    // ce qui change d'un etage a l'autre est le message.
+    case MATCH_REMINDER = 'MATCH_REMINDER';
 }

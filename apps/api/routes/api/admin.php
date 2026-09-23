@@ -3,6 +3,7 @@
 use App\Http\Controllers\Admin\CandidateProfileController;
 use App\Http\Controllers\Admin\ExternalJobOfferController;
 use App\Http\Controllers\Admin\JobOfferController;
+use App\Http\Controllers\Admin\ModerationController;
 use App\Http\Controllers\Admin\PaymentController;
 use App\Http\Controllers\Admin\StatsController;
 use App\Http\Controllers\Admin\UserController;
@@ -45,6 +46,20 @@ Route::prefix('admin')->middleware(['auth:api', 'role:ADMIN'])->group(function (
     Route::post('external-job-offers/{externalJobOffer}/restore', [ExternalJobOfferController::class, 'restore']);
     Route::get('external-employer-blocks', [ExternalJobOfferController::class, 'blocks']);
     Route::delete('external-employer-blocks/{externalEmployerBlock}', [ExternalJobOfferController::class, 'removeBlock']);
+    // Moderation du modele match (MOBILE.md §10, lot 4). Trois files, une
+    // par situation ou quelqu'un de l'equipe doit agir vite sur un dossier
+    // impliquant un candidat, souvent mineur.
+    Route::get('reports', [ModerationController::class, 'reports']);
+    Route::post('reports/{report}/handle', [ModerationController::class, 'handleReport']);
+    // Le type est dans l'URL : entreprise n° 3 et CFA n° 3 sont deux
+    // organisations differentes, et le deviner finirait par verifier la
+    // mauvaise.
+    Route::get('verifications', [ModerationController::class, 'verifications']);
+    Route::post('verifications/{type}/{id}', [ModerationController::class, 'decideVerification'])
+        ->whereIn('type', ['COMPANY', 'CFA'])
+        ->whereNumber('id');
+    Route::get('silent-employers', [ModerationController::class, 'silentEmployers']);
+
     Route::get('video-rooms', [VideoRoomController::class, 'index']);
     Route::post('video-rooms/{videoRoom}/end', [VideoRoomController::class, 'end']);
 });

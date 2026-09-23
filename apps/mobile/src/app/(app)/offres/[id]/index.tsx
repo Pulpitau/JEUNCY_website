@@ -1,9 +1,12 @@
+import { Ionicons } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
+import { useState } from 'react';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { ApplyBar } from '@/components/features/applications/apply-bar';
 import { PublisherAvatar } from '@/components/features/job-offers/publisher-avatar';
+import { ReportSheet } from '@/components/features/moderation/report-sheet';
 import { Badge } from '@/components/ui/badge';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Text } from '@/components/ui/text';
@@ -35,6 +38,7 @@ export default function OffreDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { colors } = useTheme();
+  const [reporting, setReporting] = useState(false);
   const offerId = Number(id);
 
   const query = useQuery({
@@ -142,7 +146,29 @@ export default function OffreDetailScreen() {
               </Text>
             </View>
           ) : null}
+
+          {/* Signaler une offre : fausse annonce, demande d'argent, propos
+              déplacés. Accessible depuis la fiche elle-même, pas enterré
+              dans un menu de réglages (MOBILE.md §7). */}
+          <Pressable
+            onPress={() => setReporting(true)}
+            accessibilityRole="button"
+            accessibilityLabel="Signaler cette offre"
+            style={({ pressed }) => [styles.report, { opacity: pressed ? 0.6 : 1 }]}
+          >
+            <Ionicons name="flag-outline" size={16} color={colors.textMuted} />
+            <Text variant="small" tone="muted">
+              Signaler cette offre
+            </Text>
+          </Pressable>
         </ScrollView>
+
+        <ReportSheet
+          target={reporting ? { job_offer_id: offer.id } : null}
+          context="OFFER"
+          label={offer.title}
+          onClose={() => setReporting(false)}
+        />
         <ApplyBar offerId={offer.id} />
       </View>
     </>
@@ -160,6 +186,13 @@ const styles = StyleSheet.create({
   publisherName: { flex: 1 },
   facts: { gap: spacing.xs, marginTop: spacing.sm },
   description: { marginTop: spacing.sm },
+  report: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+    paddingVertical: spacing.lg,
+  },
   section: { gap: spacing.sm, marginTop: spacing.md },
   skills: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs },
 });

@@ -42,16 +42,25 @@ export function ExperienceSection({
   } = useForm<ExperienceFormValues>({ resolver: zodResolver(experienceSchema) });
 
   async function handleFormSubmit(values: ExperienceFormValues) {
-    await onAdd({
-      title: values.title,
-      company: values.company,
-      location: values.location || null,
-      start_date: values.start_date,
-      end_date: values.end_date || null,
-      description: values.description || null,
-    });
-    reset();
-    setShowForm(false);
+    // Sans ce try/catch, un refus du serveur ne se voyait nulle part : le
+    // formulaire restait ouvert, rien ne s'ajoutait, aucun message. Un
+    // etudiant en a conclu qu'il ne pouvait pas depasser cinq experiences
+    // (retour du 2026-09-23) alors que rien ne limite leur nombre.
+    try {
+      await onAdd({
+        title: values.title,
+        company: values.company,
+        location: values.location || null,
+        start_date: values.start_date,
+        end_date: values.end_date || null,
+        description: values.description || null,
+      });
+      reset();
+      setShowForm(false);
+      setError(null);
+    } catch (submitError) {
+      setError(messageFromError(submitError));
+    }
   }
 
   return (

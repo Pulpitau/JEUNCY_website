@@ -65,7 +65,7 @@ class DeployController extends Controller
     // ne peut pas savoir si le controleur lui-meme a bien ete redeploye : c est
     // arrive le 2026-09-02, ou clear-cache continuait d echouer avec une version
     // corrigee censement en place. A incrementer a chaque changement ici.
-    public const DEPLOY_TOOLS_VERSION = 'deploy-tools-30';
+    public const DEPLOY_TOOLS_VERSION = 'deploy-tools-31';
 
     // Perimetre de lancement du match mobile (decision du 2026-09-22) : les
     // Pyrenees-Orientales, mesurees autour de Perpignan (centre-ville).
@@ -713,6 +713,9 @@ class DeployController extends Controller
             'database/migrations/2026_09_22_100009_create_reports_table.php',
             'database/migrations/2026_09_22_100010_add_match_types_to_notifications_type_enum.php',
             'database/migrations/2026_09_22_100011_add_coordinates_index_to_external_job_offers_table.php',
+            // Lot 4 : relances et moderation (MOBILE.md §5 et §7).
+            'database/migrations/2026_09_23_100000_add_match_reminder_to_notifications_type_enum.php',
+            'database/migrations/2026_09_23_100001_add_reminder_tracking_to_match_tables.php',
 
             // Enums. Une valeur absente fait echouer l'insertion en silence.
             'app/Enums/OfferSector.php',
@@ -720,6 +723,7 @@ class DeployController extends Controller
             'app/Enums/InterestDecision.php',
             'app/Enums/ExternalInterestDecision.php',
             'app/Enums/MatchClosedReason.php',
+            'app/Enums/MatchReminderStage.php',
             'app/Enums/ApplicationSource.php',
             'app/Enums/DrivingLicenseCategory.php',
             'app/Enums/ReportContext.php',
@@ -773,6 +777,13 @@ class DeployController extends Controller
             // erreur — le cron passe et rien ne se fait.
             'app/Console/Commands/GeocodeBackfill.php',
             'app/Console/Commands/MigrateDrivingLicense.php',
+            // Lot 4 : la cascade de relances et les trois files de moderation.
+            'app/Console/Commands/RemindMatches.php',
+            'app/Services/MatchReminderService.php',
+            'app/Services/AdminModerationService.php',
+            'app/Services/EmployerResponseStats.php',
+            'app/Http/Controllers/Admin/ModerationController.php',
+            'app/Http/Requests/Admin/DecideVerificationRequest.php',
 
             // Middleware des 16 ans. Son absence ne casse pas le site : elle
             // ouvre Decouvrir aux mineurs de moins de 16 ans, sans un mot.

@@ -11,6 +11,7 @@ export const NotificationType = {
   NEW_MATCH: 'NEW_MATCH',
   INTEREST_RECEIVED: 'INTEREST_RECEIVED',
   MATCH_CLOSED: 'MATCH_CLOSED',
+  MATCH_REMINDER: 'MATCH_REMINDER',
 } as const;
 
 export type NotificationType = (typeof NotificationType)[keyof typeof NotificationType];

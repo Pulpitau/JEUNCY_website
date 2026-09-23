@@ -75,6 +75,11 @@ return Application::configure(basePath: dirname(__DIR__))
         // reprend que les lignes avec code postal et sans coordonnees) et ne
         // rappelle le geocodeur que pour celles-la.
         $unePasseParPeriode('geocode:backfill', 'jour');
+        // Relances du modele match (MOBILE.md §5). Une passe par jour : la
+        // cascade se compte en jours, et la commande est idempotente (chaque
+        // ligne porte l'etage atteint), donc un passage en trop ne renvoie
+        // rien et un passage manque repart au suivant.
+        $unePasseParPeriode('matches:remind', 'jour');
         // Applique reellement la duree de conservation de 3 ans annoncee aux
         // candidats dans la politique de confidentialite (section 4 ter).
         // Hebdomadaire et non quotidien : le delai se compte en annees, une

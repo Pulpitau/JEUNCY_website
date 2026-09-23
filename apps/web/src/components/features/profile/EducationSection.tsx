@@ -40,15 +40,21 @@ export function EducationSection({
   } = useForm<EducationFormValues>({ resolver: zodResolver(educationSchema) });
 
   async function handleFormSubmit(values: EducationFormValues) {
-    await onAdd({
-      degree: values.degree,
-      school: values.school,
-      field_of_study: values.field_of_study || null,
-      start_date: values.start_date,
-      end_date: values.end_date || null,
-    });
-    reset();
-    setShowForm(false);
+    // Voir ExperienceSection : un echec d'enregistrement doit se voir.
+    try {
+      await onAdd({
+        degree: values.degree,
+        school: values.school,
+        field_of_study: values.field_of_study || null,
+        start_date: values.start_date,
+        end_date: values.end_date || null,
+      });
+      reset();
+      setShowForm(false);
+      setError(null);
+    } catch (submitError) {
+      setError(messageFromError(submitError));
+    }
   }
 
   return (
