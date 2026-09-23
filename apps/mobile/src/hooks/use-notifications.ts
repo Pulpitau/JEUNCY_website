@@ -1,3 +1,4 @@
+import { NotificationType } from '@jeuncy/shared';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { Href } from 'expo-router';
 
@@ -29,17 +30,32 @@ export function unreadCount(notifications: Notification[] | undefined): number {
   return notifications?.filter((n) => !n.read).length ?? 0;
 }
 
-// Traduit le lien du SITE porte par une notification en ecran de l'app.
-// Les liens des espaces entreprise / CFA (/mes-offres, /mes-paiements)
-// n'ont pas encore d'ecran : ils renvoient null, et la notification
-// s'affiche sans navigation plutot que d'ouvrir un ecran vide.
-export function hrefForNotification(link: string | null): Href | null {
+// Traduit une notification du SITE en ecran de l'application.
+//
+// LE TYPE PRIME SUR LE LIEN, et c'est necessaire : cote serveur, un match et
+// une nouvelle candidature pointent tous les deux vers /mes-offres, qui est
+// la page de gestion du site. Dans l'application, un match a son propre
+// onglet — y envoyer l'employeur lui montre la carte du candidat et l'etat
+// du dossier, la ou « Mes offres » ne lui montrerait que ses annonces.
+//
+// Un lien sans ecran correspondant renvoie null : la notification s'affiche
+// alors sans navigation, plutot que d'ouvrir un ecran vide.
+export function hrefForNotification(notification: Notification): Href | null {
+  const { type, link } = notification;
+
+  // Les deux faces du match menent au meme onglet, ou chaque partie lit ce
+  // qui la concerne et ce qu'elle a a faire.
+  if (type === NotificationType.NEW_MATCH || type === NotificationType.MATCH_CLOSED) {
+    return '/matchs';
+  }
+
   if (!link) return null;
 
   const offre = /^\/offres\/(\d+)$/.exec(link);
   if (offre) return { pathname: '/offres/[id]', params: { id: offre[1] } };
 
   if (link === '/mes-candidatures') return '/candidatures';
+  if (link === '/mes-offres') return '/mes-offres';
 
   return null;
 }

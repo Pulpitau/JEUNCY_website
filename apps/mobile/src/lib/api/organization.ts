@@ -1,4 +1,4 @@
-import { UserRole, type WorkMode } from '@jeuncy/shared';
+import { UserRole, type VerificationStatus, type WorkMode } from '@jeuncy/shared';
 
 import { toFormDataPart, type NativeFile } from './candidate-profile';
 import { apiRequest } from './client';
@@ -8,7 +8,21 @@ import { apiRequest } from './client';
 // (/company, /cfa-organization), mais l'application les traite ensemble : le
 // role de l'utilisateur choisit la route, les ecrans restent les memes.
 
-export interface Company {
+/**
+ * Porte d'entree de tout le modele match (MOBILE.md §4.0). Sans VERIFIED :
+ * ni pile de candidats, ni « Ca m'interesse », ni CVtheque, ni dossiers
+ * recus. Un registre muet laisse PENDING — jamais VERIFIED par defaut.
+ *
+ * Commune aux deux tables : entreprise et CFA passent la meme porte, et un
+ * ecran qui n'en verifierait qu'une laisserait l'autre entrer.
+ */
+interface VerifiableOrganization {
+  verification_status: VerificationStatus;
+  /** Raison lisible d'un refus ou d'une attente ; visible du seul proprietaire. */
+  verification_note: string | null;
+}
+
+export interface Company extends VerifiableOrganization {
   id: number;
   user_id: number;
   name: string;
@@ -26,7 +40,7 @@ export interface Company {
   trial_offers_count: number;
 }
 
-export interface CfaOrganization {
+export interface CfaOrganization extends VerifiableOrganization {
   id: number;
   user_id: number;
   name: string;

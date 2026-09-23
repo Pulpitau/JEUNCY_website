@@ -1,5 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
@@ -20,6 +20,7 @@ import { Screen } from '@/components/ui/screen';
 import { Text } from '@/components/ui/text';
 import { useCandidateProfile } from '@/hooks/use-candidate-profile';
 import { useInvalidateApplications } from '@/hooks/use-my-applications';
+import { MATCHES_KEY } from '@/hooks/use-matches';
 import { applyToOffer } from '@/lib/api/applications';
 import type { NativeFile } from '@/lib/api/candidate-profile';
 import { ApiError } from '@/lib/api/client';
@@ -53,6 +54,7 @@ export default function PostulerScreen() {
   const { colors } = useTheme();
   const offerId = Number(id);
   const invalidateApplications = useInvalidateApplications();
+  const queryClient = useQueryClient();
 
   const offer = useQuery({
     queryKey: ['job-offers', offerId],
@@ -100,6 +102,10 @@ export default function PostulerScreen() {
       }),
     onSuccess: async () => {
       await invalidateApplications();
+      // Le dossier ferme la boucle d'un match : la carte passe de « A
+      // envoyer » au statut de la candidature. Sans cette invalidation,
+      // l'onglet Matchs continuerait de reclamer un dossier deja parti.
+      await queryClient.invalidateQueries({ queryKey: MATCHES_KEY });
       Alert.alert(
         'Candidature envoyée',
         "L'entreprise a été prévenue. Tu suivras sa réponse dans l'onglet Candidatures.",

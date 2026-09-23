@@ -1,6 +1,7 @@
 import type {
   ContractType,
   JobOfferStatus,
+  OfferSector,
   PaymentStatus,
   WorkMode,
 } from '@jeuncy/shared';
@@ -9,8 +10,8 @@ import type { CompensationPeriod } from '../format-compensation';
 import { apiRequest } from './client';
 
 // Types alignes sur apps/web/src/lib/api/job-offers.ts : meme API, memes
-// colonnes. Seule la partie publique (recherche et detail) est portee ici ;
-// la gestion des offres par une entreprise arrive en phase 3.
+// colonnes. La partie publique (recherche et detail) sert au candidat, la
+// partie authentifiee en bas de fichier a l'entreprise et au CFA.
 
 export interface Skill {
   id: number;
@@ -38,6 +39,19 @@ export interface JobOffer {
   diploma_level: string | null;
   training_rhythm: string | null;
   skills: Skill[];
+  // Colonnes du modele match (lot 1). `postal_code` commande l'entree dans
+  // les deux piles : sans lui l'offre n'est geocodee nulle part, donc
+  // invisible de Decouvrir — c'est le sens de JOB_OFFER_NOT_LOCATED.
+  postal_code: string | null;
+  sector: OfferSector | null;
+  /** Rayon de recrutement en km (defaut 30 en base, jamais null). */
+  recruitment_radius_km: number;
+  schedule: string | null;
+  start_date: string | null;
+  /** 16 a 18 ; le deck employeur exige max(16, minimum_age). */
+  minimum_age: number | null;
+  requires_driving_license: boolean;
+  missions: string[] | null;
   published_at: string | null;
   expires_at: string | null;
   created_at: string;
@@ -98,4 +112,65 @@ export function publisherOf(offer: PublicJobOffer): PublisherSummary | null {
 
 export function isCfaOffer(offer: Pick<JobOffer, 'cfa_organization_id'>): boolean {
   return offer.cfa_organization_id !== null;
+}
+
+// ---------------------------------------------------------------------------
+// Cote entreprise et CFA
+// ---------------------------------------------------------------------------
+
+/** Une offre publiee, localisee : la seule qui puisse porter une pile. */
+export function canDiscoverFrom(offer: JobOffer): boolean {
+  return offer.status === 'PUBLISHED' && offer.postal_code !== null;
+}
+
+export function listMyOffers() {
+  return apiRequest<JobOffer[]>('/job-offers');
+}
+
+export interface ExpressJobOfferInput {
+  title: string;
+  contract_type: ContractType;
+  /** Cinq chiffres. Requis des l'express : l'offre est publiee dans la foulee. */
+  postal_code: string;
+  city: string;
+  sector: OfferSector;
+  recruitment_radius_km?: number;
+}
+
+/**
+ * L'offre en une minute (MOBILE.md §4.1) : de quoi entrer dans Decouvrir
+ * tout de suite, le reste se complete ensuite depuis « Mes offres ». Le
+ * serveur la cree ET la publie — rien a appeler apres.
+ */
+export function createExpressOffer(input: ExpressJobOfferInput) {
+  return apiRequest<JobOffer>('/job-offers/express', { method: 'POST', body: input });
+}
+
+export interface JobOfferInput {
+  title: string;
+  description: string;
+  contract_type: ContractType;
+  city?: string | null;
+  postal_code?: string | null;
+  sector?: OfferSector | null;
+  recruitment_radius_km?: number;
+  work_mode?: WorkMode | null;
+  schedule?: string | null;
+  start_date?: string | null;
+  minimum_age?: number | null;
+  requires_driving_license?: boolean;
+  missions?: string[];
+}
+
+export function updateOffer(id: number, input: Partial<JobOfferInput>) {
+  return apiRequest<JobOffer>(`/job-offers/${id}`, { method: 'PATCH', body: input });
+}
+
+/** Publication gratuite, le parcours normal depuis le 2026-09-15. */
+export function publishOffer(id: number) {
+  return apiRequest<JobOffer>(`/job-offers/${id}/publish`, { method: 'POST' });
+}
+
+export function archiveOffer(id: number) {
+  return apiRequest<JobOffer>(`/job-offers/${id}/archive`, { method: 'POST' });
 }

@@ -46,6 +46,15 @@ export default function AppLayout() {
       />
       {/* Le titre (entreprise ou CFA) est pose par l'ecran. */}
       <Stack.Screen name="organisation/informations" options={{ title: 'Ma fiche' }} />
+      <Stack.Screen
+        name="organisation/offre-express"
+        options={{ title: 'Offre express' }}
+      />
+      <Stack.Screen name="matchs/[id]" options={{ title: 'Match' }} />
+      <Stack.Screen
+        name="offres/[id]/candidatures"
+        options={{ title: 'Candidatures reçues' }}
+      />
     </Stack>
   );
 }

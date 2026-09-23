@@ -49,7 +49,7 @@ export default function NotificationsScreen() {
 
   const ouvrir = (notification: Notification) => {
     if (!notification.read) markRead.mutate(notification.id);
-    const href = hrefForNotification(notification.link);
+    const href = hrefForNotification(notification);
     if (href) router.push(href);
   };
 
@@ -114,7 +114,7 @@ export default function NotificationsScreen() {
               {formatRelativeFr(item.created_at)}
             </Text>
           </View>
-          {hrefForNotification(item.link) ? (
+          {hrefForNotification(item) ? (
             <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
           ) : null}
         </Pressable>

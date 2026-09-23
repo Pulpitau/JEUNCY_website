@@ -27,10 +27,12 @@ function tabIcon(active: IconName, inactive: IconName) {
   return TabIcon;
 }
 
-// Barre d'onglets de l'espace connecte. Les onglets propres au candidat sont
-// masques (href: null) pour les autres roles plutot que rendus inaccessibles
-// apres coup : un onglet qu'on ne peut pas utiliser ne doit pas exister.
-// L'espace entreprise / CFA arrive en phase 3 avec ses propres onglets.
+// Barre d'onglets de l'espace connecte. Les onglets propres a un role sont
+// masques (href: null) pour les autres plutot que rendus inaccessibles apres
+// coup : un onglet qu'on ne peut pas utiliser ne doit pas exister.
+//
+// « Decouvrir » et « Matchs » sont les deux seuls onglets communs aux deux
+// cotes — c'est le modele match : la meme mecanique, vue de chaque bord.
 export default function TabsLayout() {
   const { colors } = useTheme();
   const role = useAuthStore((state) => state.user?.role);
@@ -55,7 +57,14 @@ export default function TabsLayout() {
         options={{
           title: 'Découvrir',
           tabBarIcon: tabIcon('compass', 'compass-outline'),
-          href: isOrganization ? null : undefined,
+        }}
+      />
+      <Tabs.Screen
+        name="matchs"
+        options={{
+          title: 'Matchs',
+          tabBarIcon: tabIcon('heart', 'heart-outline'),
+          href: isCandidate || isOrganization ? undefined : null,
         }}
       />
       <Tabs.Screen
@@ -71,15 +80,21 @@ export default function TabsLayout() {
         options={{
           title: 'Candidatures',
           tabBarIcon: tabIcon('paper-plane', 'paper-plane-outline'),
-          href: isCandidate || isOrganization ? undefined : null,
+          href: isCandidate ? undefined : null,
         }}
       />
+      {/* Les dossiers recus se lisent offre par offre, depuis « Mes offres » :
+          une entreprise ne gere pas « ses candidatures » en vrac, elle gere
+          celles d'un poste. Et la CVtheque mobile n'existe pas encore (lot 5).
+          Deux onglets de moins, c'est aussi ce qui garde la barre a cinq
+          entrees de chaque cote — au-dela, les libelles deviennent illisibles
+          sur un petit iPhone. */}
       <Tabs.Screen
         name="cvtheque"
         options={{
           title: 'CVthèque',
           tabBarIcon: tabIcon('people', 'people-outline'),
-          href: isOrganization ? undefined : null,
+          href: null,
         }}
       />
       <Tabs.Screen

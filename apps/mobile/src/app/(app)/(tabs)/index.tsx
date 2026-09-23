@@ -1,10 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Redirect, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { DepartmentSheet } from '@/components/features/discover/department-sheet';
+import { EmployerDeck } from '@/components/features/discover/employer-deck';
 import { InterestSheet } from '@/components/features/discover/interest-sheet';
 import {
   JeuncyOfferCard,
@@ -14,6 +15,7 @@ import {
   SwipeDeck,
   type SwipeDirection,
 } from '@/components/features/discover/swipe-deck';
+import { VerificationGate } from '@/components/features/organization/verification-gate';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Text } from '@/components/ui/text';
 import { useDiscoverDeck, type DeckCard } from '@/hooks/use-discover-deck';
@@ -22,16 +24,27 @@ import { useSwipeStore } from '@/store/swipe-store';
 import { useTheme } from '@/theme/theme-provider';
 import { radii, spacing } from '@/theme/typography';
 
-// Onglet d'accueil du candidat : la pile « Decouvrir ». Une offre a la fois,
-// glisser a droite si ca l'interesse, a gauche pour passer, tap pour lire la
-// fiche. Prototype du 2026-09-22 : gestes enregistres sur le telephone
-// seulement (swipe-store.ts), aucune entreprise prevenue — l'ecran le dit.
+// Onglet « Decouvrir » : une pile de cartes des deux cotes, mais deux piles
+// tres differentes derriere le meme mot.
+//
+// Candidat : des offres, une a la fois. Prototype du 2026-09-22, gestes
+// enregistres sur le telephone seulement (swipe-store.ts) — l'ecran le dit ;
+// le branchement sur `discover/offers` arrive au lot 3.
+//
+// Entreprise et CFA : des candidats, pour une offre donnee, avec le vrai
+// serveur derriere. La porte de verification est posee ici plutot que dans
+// l'ecran : une entreprise non verifiee ne doit pas voir une seule carte, et
+// c'est le premier endroit ou elle en verrait.
 export default function DecouvrirScreen() {
   const organizationRole = useOrganizationRole();
 
-  // L'accueil d'une entreprise ou d'un CFA, c'est la gestion de ses offres,
-  // pas la pile du candidat (dont l'onglet lui est masque).
-  if (organizationRole) return <Redirect href="/mes-offres" />;
+  if (organizationRole) {
+    return (
+      <VerificationGate>
+        <EmployerDeck />
+      </VerificationGate>
+    );
+  }
 
   return <Decouvrir />;
 }
