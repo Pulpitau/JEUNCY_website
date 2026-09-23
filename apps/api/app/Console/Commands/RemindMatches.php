@@ -20,13 +20,18 @@ use Illuminate\Console\Command;
  */
 class RemindMatches extends Command
 {
-    protected $signature = 'matches:remind';
+    protected $signature = 'matches:remind {--a-blanc : Compte ce qui partirait, sans rien envoyer ni ecrire}';
 
     protected $description = 'Relance les intérêts, matchs et candidatures restés sans réponse';
 
     public function handle(MatchReminderService $service): int
     {
-        $compte = $service->run();
+        $aBlanc = (bool) $this->option('a-blanc');
+        $compte = $service->run($aBlanc);
+
+        if ($aBlanc) {
+            $this->warn("Passe À BLANC : rien n'a été envoyé ni enregistré.");
+        }
 
         if ($compte === []) {
             $this->info('Aucune relance à envoyer.');

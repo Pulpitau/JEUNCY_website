@@ -1857,6 +1857,36 @@ class DeployController extends Controller
     // ne tourne PAS ici : telecharger et lire des centaines de Mo dans une
     // requete HTTP depasserait le temps d'execution autorise par l'hebergeur.
     // Le mode (mesure ou publication) reste celui du .env.
+    // ------------------------------------------------------------------
+    // Relances du modele match (deploy-tools-31)
+    //
+    // A BLANC PAR DEFAUT. La premiere passe reelle tombe sur tout
+    // l'historique d'un coup : des candidatures et des interets vieux de
+    // plusieurs mois, appartenant a de vraies personnes. Sans parametre,
+    // cette route COMPTE ce qui partirait, sans rien envoyer ni ecrire.
+    //
+    // ?executer=1 envoie pour de bon. Meme verrou que l'envoi de masse des
+    // notifications de correspondance (lecon du 2026-09-08) : une action
+    // visible par des tiers ne doit jamais etre le comportement par defaut
+    // d'un parametre omis.
+    // ------------------------------------------------------------------
+    public function matchesRemind(string $token): Response
+    {
+        $this->assertAuthorized($token);
+
+        $executer = request()->query('executer') === '1';
+        $compte = app(MatchReminderService::class)->run(aBlanc: ! $executer);
+
+        return response()->json([
+            'mode' => $executer ? 'ENVOI REEL' : 'a blanc (rien envoye, rien ecrit)',
+            'par_etage' => $compte,
+            'total' => array_sum($compte),
+            'rappel' => $executer
+                ? 'Les relances sont parties. La commande est idempotente : un second passage ne renverra rien.'
+                : 'Ajoute ?executer=1 pour envoyer reellement.',
+        ]);
+    }
+
     public function lbaImport(string $token): Response
     {
         $this->assertAuthorized($token);

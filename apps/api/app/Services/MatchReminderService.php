@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\ApplicationStatus;
 use App\Enums\InterestDecision;
 use App\Enums\MatchClosedReason;
 use App\Enums\MatchReminderStage;
@@ -45,6 +46,18 @@ class MatchReminderService
     /** Nombre de lignes traitees par passage, toutes cascades confondues. */
     public const LOT_MAX = 200;
 
+    /**
+     * Passe a blanc : on compte, on n'envoie rien, on n'ecrit rien.
+     *
+     * POURQUOI CA EXISTE. La premiere passe reelle tombera sur tout
+     * l'historique d'un coup — des candidatures et des interets vieux de
+     * plusieurs mois, appartenant a de vraies personnes. Envoyer d'abord et
+     * regarder ensuite serait exactement l'inverse de la regle de Pierre :
+     * construire l'instrument avant de deviner. Une passe a blanc dit
+     * combien d'emails partiraient, et a quel etage, sans qu'aucun ne parte.
+     */
+    private bool $aBlanc = false;
+
     public function __construct(
         private readonly JobOfferService $jobOfferService,
         private readonly MailService $mailService,
@@ -56,8 +69,9 @@ class MatchReminderService
      *
      * @return array<string, int>
      */
-    public function run(): array
+    public function run(bool $aBlanc = false): array
     {
+        $this->aBlanc = $aBlanc;
         $compte = [];
 
         foreach ($this->relancesInteret() as $etage => $n) {
@@ -231,6 +245,19 @@ class MatchReminderService
         $compte = [];
 
         $dossiers = Application::query()
+            // LE STATUT FAIT FOI, PAS responded_at. La colonne a ete ajoutee
+            // au lot 1 : elle est NULL sur TOUTE candidature anterieure, y
+            // compris celles que l'employeur avait repondues depuis
+            // longtemps. S'y fier seul aurait envoye « l'entreprise n'a
+            // jamais repondu, on cloture » a des candidats dont le dossier
+            // etait accepte — mesure du 2026-09-23 : la moitie des
+            // candidatures de la base de dev sont dans ce cas.
+            //
+            // Un statut au-dela de SENT est la preuve que l'employeur a agi,
+            // quelle que soit la date ou le produit a commence a l'horodater.
+            // C'est d'ailleurs la formulation exacte de MOBILE.md §5 :
+            // « dossier sans changement de statut ».
+            ->where('status', ApplicationStatus::SENT->value)
             ->whereNull('responded_at')
             ->where(fn ($q) => $q
                 ->whereNull('reminder_stage')
@@ -298,6 +325,10 @@ class MatchReminderService
             default => null,
         };
 
+        if ($this->aBlanc) {
+            return;
+        }
+
         $dossier->reminder_stage = $etage->value;
         $dossier->reminded_at = now();
         $dossier->saveQuietly();
@@ -318,7 +349,7 @@ class MatchReminderService
             ->whereNull('closed_at')
             ->first();
 
-        if ($ligne !== null) {
+        if ($ligne !== null && ! $this->aBlanc) {
             $ligne->closed_at = now();
             $ligne->closed_reason = MatchClosedReason::CLOSED_BY_STAFF;
             $ligne->saveQuietly();
@@ -364,7 +395,7 @@ class MatchReminderService
         string $titreEmail,
         string $cta,
     ): void {
-        if ($destinataire === null) {
+        if ($destinataire === null || $this->aBlanc) {
             return;
         }
 
@@ -404,6 +435,14 @@ class MatchReminderService
         ?User $prevenir = null,
         string $message = '',
     ): void {
+        if ($this->aBlanc) {
+            if ($prevenir !== null && $message !== '') {
+                $this->notifier($prevenir, $message, '/mes-candidatures', 'Mise en relation terminée', 'Voir mes candidatures');
+            }
+
+            return;
+        }
+
         DB::transaction(function () use ($ligne, $etage, $raison) {
             $ligne->closed_at = now();
             $ligne->closed_reason = $raison;
@@ -419,6 +458,10 @@ class MatchReminderService
 
     private function marquer(OfferInterest $ligne, MatchReminderStage $etage): void
     {
+        if ($this->aBlanc) {
+            return;
+        }
+
         $ligne->reminder_stage = $etage->value;
         $ligne->reminded_at = now();
         $ligne->saveQuietly();

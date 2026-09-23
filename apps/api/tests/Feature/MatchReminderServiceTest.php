@@ -262,6 +262,51 @@ class MatchReminderServiceTest extends TestCase
         $this->assertSame(0, $this->relances($candidat));
     }
 
+    /**
+     * LE PIEGE DE responded_at, trouve en mesurant la base de dev le
+     * 2026-09-23 : la colonne a ete ajoutee au lot 1, elle est donc NULL sur
+     * toute candidature anterieure — y compris celles que l'employeur avait
+     * repondues depuis longtemps. Sans ce garde-fou, la premiere passe reelle
+     * aurait ecrit « l'entreprise n'a jamais repondu, on cloture » a des
+     * candidats dont le dossier etait accepte.
+     */
+    public function test_an_old_answered_application_without_timestamp_is_ignored(): void
+    {
+        [$candidat, $employeur, $offre] = $this->couple();
+
+        $dossier = Application::create([
+            'candidate_profile_id' => $candidat->candidateProfile->id,
+            'job_offer_id' => $offre->id,
+            'status' => ApplicationStatus::ACCEPTED,
+        ]);
+        $dossier->created_at = now()->subDays(90);
+        $dossier->responded_at = null;
+        $dossier->saveQuietly();
+
+        $this->service()->run();
+
+        $this->assertSame(0, $this->relances($candidat));
+        $this->assertSame(0, $this->relances($employeur));
+        $this->assertNull($dossier->fresh()->reminder_stage);
+    }
+
+    public function test_a_dry_run_counts_without_sending_or_writing(): void
+    {
+        [$candidat, , $offre] = $this->couple();
+        $ligne = $this->interet($candidat, $offre, [
+            'employer_decision' => InterestDecision::LIKE,
+            'employer_decided_at' => now()->subDays(4),
+        ]);
+
+        $compte = $this->service()->run(aBlanc: true);
+
+        $this->assertSame(1, $compte[MatchReminderStage::EMPLOYER_INTEREST_D3->value]);
+        // Rien n'est parti, rien n'est ecrit : la passe reelle fera encore
+        // exactement le meme travail.
+        $this->assertSame(0, $this->relances($candidat));
+        $this->assertNull($ligne->fresh()->reminder_stage);
+    }
+
     public function test_a_closed_line_is_left_alone(): void
     {
         [$candidat, , $offre] = $this->couple();

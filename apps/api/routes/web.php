@@ -28,6 +28,8 @@ Route::get('/deploy/{token}/clear-cache', [DeployController::class, 'clearCache'
 Route::get('/deploy/{token}/env-check', [DeployController::class, 'envCheck']);
 // Import La bonne alternance a la demande (au prochain passage du cron).
 Route::get('/deploy/{token}/lba-import', [DeployController::class, 'lbaImport']);
+// Relances du match : a blanc par defaut, ?executer=1 pour envoyer.
+Route::get('/deploy/{token}/matches-remind', [DeployController::class, 'matchesRemind']);
 Route::get('/deploy/{token}/scheduler', [DeployController::class, 'scheduler']);
 // Quelle version du code tourne reellement sur le serveur (voir le controleur).
 Route::get('/deploy/{token}/version', [DeployController::class, 'version']);
