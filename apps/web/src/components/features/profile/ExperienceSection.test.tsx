@@ -1,3 +1,4 @@
+import type { ComponentProps } from 'react';
 import { describe, expect, it, vi, afterEach } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 
@@ -30,7 +31,15 @@ function renderSection(overrides: Record<string, unknown> = {}) {
     ...overrides,
   };
 
-  render(<ExperienceSection {...(props as never)} />);
+  // `props as never` cassait `tsc -b` (TS2698 : on n'etale pas un `never`),
+  // donc tout le build du site. Les props sont assemblees dynamiquement pour
+  // que `overrides` puisse en remplacer une : on passe par le type reel du
+  // composant plutot que de desactiver le typage.
+  render(
+    <ExperienceSection
+      {...(props as unknown as ComponentProps<typeof ExperienceSection>)}
+    />,
+  );
 
   return props;
 }
