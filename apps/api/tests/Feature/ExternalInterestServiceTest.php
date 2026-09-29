@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Enums\ExternalInterestDecision;
 use App\Models\ExternalInterest;
 use App\Models\ExternalJobOffer;
+use App\Models\User;
 use App\Services\ExternalInterestService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\Concerns\AideMatch;
@@ -174,5 +175,107 @@ class ExternalInterestServiceTest extends TestCase
             ->assertOk()
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.title', 'Gardee');
+    }
+
+    // -----------------------------------------------------------------
+    // Retirer une offre gardee
+    // -----------------------------------------------------------------
+
+    /**
+     * @return list<int>
+     */
+    private function idsDeLaPilePartenaire(User $candidat): array
+    {
+        $reponse = $this->withToken($this->jeton($candidat))->getJson('/api/discover/offers');
+        $reponse->assertOk();
+
+        return array_column($reponse->json('data.partner.data'), 'id');
+    }
+
+    public function test_remove_takes_the_offer_out_of_the_kept_list(): void
+    {
+        $candidat = $this->candidat();
+        $offre = ExternalJobOffer::factory()->active()->located()->create(['title' => 'Gardee']);
+        $ligne = $this->service->decide($candidat, $offre, ExternalInterestDecision::KEEP);
+
+        $this->withToken($this->jeton($candidat))
+            ->deleteJson("/api/external-interests/{$ligne->id}")
+            ->assertOk();
+
+        $this->assertCount(0, $this->service->listKept($candidat));
+        $this->assertSame(ExternalInterestDecision::PASS, $ligne->fresh()->decision);
+    }
+
+    /**
+     * LE TEST QUI COMPTE. Retirer, ce n'est pas annuler : l'offre doit
+     * disparaitre de la liste SANS revenir dans la pile. Si `remove` se
+     * contentait de changer la decision sans rafraichir `decided_at`, une
+     * offre gardee il y a trois mois redeviendrait eligible a l'instant meme
+     * du retrait (le masquage d'un PASS ne dure que 60 jours), et le candidat
+     * la reverrait le soir meme.
+     */
+    public function test_a_removed_offer_does_not_come_back_in_the_deck(): void
+    {
+        $candidat = $this->candidat();
+        $profil = $this->profilDe($candidat);
+        $offre = ExternalJobOffer::factory()->active()->located()->create();
+
+        $ligne = ExternalInterest::factory()->create([
+            'candidate_profile_id' => $profil->id,
+            'external_job_offer_id' => $offre->id,
+            'decision' => ExternalInterestDecision::KEEP,
+            'decided_at' => now()->subDays(90),
+        ]);
+
+        $this->withToken($this->jeton($candidat))
+            ->deleteJson("/api/external-interests/{$ligne->id}")
+            ->assertOk();
+
+        $this->assertNotContains($offre->id, $this->idsDeLaPilePartenaire($candidat));
+    }
+
+    public function test_removing_someone_elses_kept_offer_is_forbidden(): void
+    {
+        $proprietaire = $this->candidat();
+        $intrus = $this->candidat([], ['email' => 'intrus@exemple.test']);
+        $offre = ExternalJobOffer::factory()->active()->located()->create();
+
+        $ligne = $this->service->decide($proprietaire, $offre, ExternalInterestDecision::KEEP);
+
+        $this->withToken($this->jeton($intrus))
+            ->deleteJson("/api/external-interests/{$ligne->id}")
+            ->assertStatus(403)
+            ->assertJsonPath('error.code', 'FORBIDDEN');
+
+        $this->assertCount(1, $this->service->listKept($proprietaire));
+    }
+
+    public function test_removing_an_offer_that_was_only_passed_is_refused(): void
+    {
+        $candidat = $this->candidat();
+        $offre = ExternalJobOffer::factory()->active()->located()->create();
+        $ligne = $this->service->decide($candidat, $offre, ExternalInterestDecision::PASS);
+
+        $this->withToken($this->jeton($candidat))
+            ->deleteJson("/api/external-interests/{$ligne->id}")
+            ->assertStatus(409)
+            ->assertJsonPath('error.code', 'NOT_KEPT');
+    }
+
+    /**
+     * `delete('last')` est declaree avant la route parametree : « last » ne
+     * doit jamais etre lu comme un identifiant. Sans cet ordre, annuler le
+     * dernier geste tomberait sur `destroy` et repondrait 404.
+     */
+    public function test_the_literal_last_route_still_wins_over_the_parameter(): void
+    {
+        $candidat = $this->candidat();
+        $offre = ExternalJobOffer::factory()->active()->located()->create();
+        $this->service->decide($candidat, $offre, ExternalInterestDecision::KEEP);
+
+        $this->withToken($this->jeton($candidat))
+            ->deleteJson('/api/external-interests/last')
+            ->assertOk()
+            ->assertJsonPath('data.undone.external_job_offer_id', $offre->id);
     }
 }

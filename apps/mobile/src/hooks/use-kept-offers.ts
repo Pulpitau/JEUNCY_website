@@ -7,6 +7,7 @@ import {
   decideExternalOffer,
   listKeptOffers,
   markExternalDone,
+  removeKeptOffer,
 } from '@/lib/api/external-interests';
 
 // Les offres partenaires gardées par le candidat.
@@ -59,5 +60,27 @@ export function useKeepOffer() {
       void queryClient.invalidateQueries({ queryKey: DISCOVER_KEY });
     },
     onError: (error: Error) => Alert.alert('Offre non gardée', error.message),
+  });
+}
+
+/**
+ * Retirer une offre gardée.
+ *
+ * L'invalidation de DISCOVER_KEY n'est PAS symétrique de useKeepOffer : là,
+ * l'offre sortait de la pile ; ici, elle n'y revient pas (le serveur la passe
+ * en PASS, masquée soixante jours). On invalide quand même, parce que la
+ * réponse du serveur est la seule source de vérité sur ce qui reste dans la
+ * pile — supposer qu'elle est inchangée serait la deviner.
+ */
+export function useRemoveKeptOffer() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: removeKeptOffer,
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: KEPT_OFFERS_KEY });
+      void queryClient.invalidateQueries({ queryKey: DISCOVER_KEY });
+    },
+    onError: (error: Error) => Alert.alert('Offre non retirée', error.message),
   });
 }

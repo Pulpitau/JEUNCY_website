@@ -6,7 +6,11 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Section, SectionEmpty } from '@/components/ui/section';
 import { Text } from '@/components/ui/text';
-import { useKeptOffers, useMarkKeptDone } from '@/hooks/use-kept-offers';
+import {
+  useKeptOffers,
+  useMarkKeptDone,
+  useRemoveKeptOffer,
+} from '@/hooks/use-kept-offers';
 import type { ExternalInterest } from '@/lib/api/external-interests';
 import { spacing } from '@/theme/typography';
 
@@ -27,6 +31,7 @@ import { spacing } from '@/theme/typography';
 export function KeptOffersSection() {
   const { data, isPending } = useKeptOffers();
   const marquerFait = useMarkKeptDone();
+  const retirer = useRemoveKeptOffer();
   const kept = data ?? [];
 
   const confirmerFait = (interest: ExternalInterest) => {
@@ -36,6 +41,24 @@ export function KeptOffersSection() {
       [
         { text: 'Pas encore', style: 'cancel' },
         { text: "C'est fait", onPress: () => marquerFait.mutate(interest.id) },
+      ],
+    );
+  };
+
+  // Confirmation demandée parce que le geste ne se rattrape pas : l'offre
+  // n'est pas remise dans la pile, et une offre partenaire disparue de
+  // l'export de la nuit n'est plus retrouvable nulle part.
+  const confirmerRetrait = (interest: ExternalInterest) => {
+    Alert.alert(
+      'Retirer cette offre ?',
+      'Elle quittera tes offres gardées et ne reviendra pas dans Découvrir.',
+      [
+        { text: 'Annuler', style: 'cancel' },
+        {
+          text: 'Retirer',
+          style: 'destructive',
+          onPress: () => retirer.mutate(interest.id),
+        },
       ],
     );
   };
@@ -73,6 +96,11 @@ export function KeptOffersSection() {
                 onPress={() => confirmerFait(interest)}
               />
             )}
+            <Button
+              label="Retirer"
+              variant="ghost"
+              onPress={() => confirmerRetrait(interest)}
+            />
           </Card>
         ))
       )}

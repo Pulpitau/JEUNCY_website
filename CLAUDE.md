@@ -1439,15 +1439,32 @@ volontairement pour voir les pages remplies. Production non touchée.
 
 **Connu et à traiter plus tard (lot 2)**
 
-- Rien n'est déployé : le site est à reconstruire et à envoyer quand Pierre le
-  décidera.
-- **Aucune entreprise VERIFIED en production**, donc aucune pile de candidats
-  ne peut encore se charger. Le chemin est connu et ne demande pas de code :
-  se connecter avec le compte CFA d'IDA, saisir son vrai SIRET sur
-  `/organization`, la vérification part toute seule contre le registre public.
-  Le refus « NAF enseignement » ne s'applique **qu'aux entreprises**, jamais à
-  un CFA (`CompanyVerificationService`, `$refuseTrainingNaf`) — IDA peut donc
-  passer. Le même SIRET manque dans `LBA_SIRET_WHITELIST` du `.env` de prod.
+- **Corrigé le 2026-09-29 — la partie web du lot 2 EST en ligne.** Ce point
+  disait « rien n'est déployé ». Vérifié en téléchargeant le bundle servi
+  (`index-gb-nhVRP.js`) et en y cherchant les chaînes : `mes-matchs`,
+  `interesses` et « offre express » y sont. Elles sont parties avec le build du
+  2026-09-23 (celui des correctifs de profil). Restent non déployés : le lot 3
+  (deux fichiers API) et le lot 4 (API), et toute la partie mobile — mais
+  l'app n'est publiée nulle part, donc « non déployé » y est sans effet.
+- **Corrigé le 2026-09-24 — IDA est vérifiée, et l'était déjà.** Ce point
+  disait « aucune entreprise VERIFIED en production, aucune pile de candidats
+  ne peut se charger » et a été répété plusieurs jours de suite sans être
+  revérifié. C'est faux : la migration `..._add_verification_and_coordinates_...`
+  du lot 1 passe **tous les CFA existants en VERIFIED** (IDA est le seul,
+  l'inscription CFA est fermée depuis le 2026-09-15), et elle est appliquée en
+  production depuis le 2026-09-22. `CfaOrganizationService::updateForUser` ne
+  re-vérifie que si le SIRET change : IDA le reste. Aucune saisie n'était
+  attendue de Pierre. Il y a bien 0 **entreprise** vérifiée, mais parce qu'il
+  n'y a aucune entreprise inscrite — ce n'est pas ce qui bloquait. Ce qui
+  bloquait réellement le deck, c'était l'offre d'IDA sans coordonnées
+  (`offres_publiees_sans_coordonnees: 1`), réglé le 2026-09-23. Vérifiable en
+  une requête : `selftest` → `cfa_verifiee`. Leçon : un point « en attente »
+  recopié d'une session à l'autre doit être remesuré avant d'être réénoncé,
+  au même titre qu'une hypothèse de panne.
+- Reste, sans rapport avec la vérification : `LBA_SIRET_WHITELIST` du `.env`
+  de prod porte encore le placeholder `SIRET_IDA`. Utile seulement si IDA
+  publie ses propres offres sur La bonne alternance (sinon le filtre les
+  retirerait comme école).
 - Le deck candidat reste le prototype local du lot 0 (gestes dans
   AsyncStorage) : son branchement sur `discover/offers` est le lot 3.
 - L'app mobile n'a pas d'écran de CVthèque (onglet masqué) ; prévu au lot 5.
@@ -1550,9 +1567,8 @@ install` ; Pierre n'a pas besoin de lancer pnpm, `node_modules` est déjà à
 - La base de dev n'a **aucune offre partenaire** (`partenaires: 0`), donc la
   pile partenaire, sa pagination et « Je garde » n'ont pas pu être exercées
   localement. En production il y en a 7 709.
-- Le retrait d'une offre gardée n'existe pas : le serveur ne connaît que
-  l'annulation du **dernier** geste, et l'offrir sur n'importe quelle ligne
-  annulerait en réalité autre chose. Il faut une route dédiée.
+- ~~Le retrait d'une offre gardée n'existe pas~~ — **fait le 2026-09-29**,
+  voir la section dédiée plus bas.
 
 **Modèle match — lot 4, relances, modération et badge de réponse
 (2026-09-23) : terminé, pas encore déployé**
@@ -1612,3 +1628,48 @@ install` ; Pierre n'a pas besoin de lancer pnpm, `node_modules` est déjà à
 - Rien du lot 4 n'a été exercé sur un vrai téléphone ni contre la production.
   La cascade de relances n'a tourné que contre SQLite, dans les tests : la
   première passe réelle est à regarder (`/deploy/{token}/scheduler`).
+
+**Retrait d'une offre gardée, et le build du site qui ne passait plus
+(2026-09-29) : terminé**
+
+- Dernier trou connu du lot 3 comblé : un candidat peut enfin retirer une
+  offre de sa liste « Gardées » (`DELETE external-interests/{id}`, bouton
+  « Retirer » avec confirmation dans l'onglet Candidatures).
+- **La ligne n'est pas supprimée, elle passe à PASS**, et `decided_at` est
+  remis à maintenant. Supprimer la ligne aurait fait **réapparaître l'offre
+  dans la pile dès le lendemain** — `offresPartenaires` n'écarte que ce qui
+  porte une décision. Et sans le rafraîchissement de la date, une offre gardée
+  il y a trois mois serait redevenue éligible à la seconde du retrait, le
+  masquage d'un PASS ne durant que 60 jours : le candidat aurait revu le soir
+  même l'offre qu'il venait d'écarter. C'est le test
+  `test_a_removed_offer_does_not_come_back_in_the_deck` qui tient cette
+  propriété, pas le code.
+- Retirer ≠ annuler : `undoLast` efface le geste et **redonne** la carte
+  (« je me suis trompé »), `remove` la garde écartée (« je l'ai vue, je n'en
+  veux plus »). Deux verbes, deux routes, deux intentions.
+- Piège d'ordre de routes : `Route::delete('last')` est littérale et doit
+  rester déclarée **avant** `Route::delete('{externalInterest}')`, sinon
+  « last » serait lu comme un identifiant et l'annulation répondrait 404. Un
+  test le vérifie.
+- 5 tests ajoutés (**856/856 au total**), Pint propre, `deploy-tools-32`.
+  Les trois fichiers touchés étaient déjà dans la liste surveillée.
+
+**Le build du site était cassé depuis le 2026-09-23, et personne ne le savait**
+
+- `pnpm --filter web build` échouait sur
+  `ExperienceSection.test.tsx(33,33): error TS2698: Spread types may only be
+created from object types` — `{...(props as never)}`, arrivé avec le commit
+  `a8329cb` d'une autre session. `tsc -b` précède `vite build` : **le site
+  était donc impossible à reconstruire**, y compris pour un correctif urgent,
+  et l'erreur venait d'un fichier de test qui n'est même pas embarqué.
+- Corrigé en passant par `ComponentProps<typeof ExperienceSection>` plutôt que
+  par un `never` qui désactive le typage. 40/40 tests web verts.
+- Leçon : un fichier de test peut casser une mise en production. Lancer le
+  **build**, pas seulement les tests, avant d'annoncer qu'un lot est prêt.
+- **Mesuré ensuite, et c'est une bonne nouvelle** : le bundle reconstruit
+  porte le même nom qu'en ligne (`index-gb-nhVRP.js`, `index-BCOA5Ay2.css`) et
+  son empreinte est **identique au bit près** à celle du fichier servi par
+  jeuncy.com (`932b1671ee94235e`, `ddf0ec095e079508`). Le site en ligne est
+  déjà à jour avec la source actuelle : **il n'y a rien à renvoyer côté web**,
+  et la chorégraphie « assets d'abord, index.html en dernier » ne s'applique
+  pas à cet envoi-ci.

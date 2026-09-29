@@ -14,4 +14,9 @@ Route::prefix('external-interests')
         Route::post('/', [ExternalInterestController::class, 'store']);
         Route::patch('{externalInterest}/done', [ExternalInterestController::class, 'done'])
             ->whereNumber('externalInterest');
+        // Retirer une offre gardee. Declaree APRES `delete('last')`, qui est
+        // litterale : l'ordre importe, une route parametree posee avant
+        // capturerait « last » comme un identifiant.
+        Route::delete('{externalInterest}', [ExternalInterestController::class, 'destroy'])
+            ->whereNumber('externalInterest');
     });

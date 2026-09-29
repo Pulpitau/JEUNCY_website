@@ -32,6 +32,11 @@ class ExternalInterestController extends Controller
         return response()->json($this->service->markDone($request->user(), $externalInterest));
     }
 
+    public function destroy(Request $request, ExternalInterest $externalInterest): JsonResponse
+    {
+        return response()->json($this->service->remove($request->user(), $externalInterest));
+    }
+
     public function destroyLast(Request $request): JsonResponse
     {
         return response()->json($this->service->undoLast($request->user()));

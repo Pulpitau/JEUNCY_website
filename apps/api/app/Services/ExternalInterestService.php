@@ -68,6 +68,46 @@ class ExternalInterestService
     }
 
     /**
+     * Retirer une offre de la liste « Gardées ».
+     *
+     * LA LIGNE N'EST PAS SUPPRIMEE, elle passe a PASS. Trois raisons, dans
+     * cet ordre :
+     *
+     * 1. Supprimer la ligne ferait REAPPARAITRE l'offre dans la pile des le
+     *    lendemain (offresPartenaires n'ecarte que ce qui porte une
+     *    decision). Le candidat a dit « je n'en veux plus » : la lui
+     *    reservir serait lui desobeir.
+     * 2. PASS porte un masquage de JOURS_MASQUAGE_PASS_PARTENAIRE jours, pas
+     *    un bannissement. Au bout de deux mois l'offre peut revenir, ce qui
+     *    est juste : elle aura change, ou le candidat aussi.
+     * 3. `decided_at` est remis a MAINTENANT, sinon une offre gardee il y a
+     *    trois mois serait immediatement re-eligible et reviendrait dans la
+     *    pile le soir meme du retrait.
+     *
+     * A ne pas confondre avec undoLast(), qui efface le geste : annuler,
+     * c'est dire « je me suis trompe, redonne-la moi » ; retirer, c'est dire
+     * « je l'ai vue, je n'en veux plus ».
+     */
+    public function remove(User $user, ExternalInterest $interest): ExternalInterest
+    {
+        $profile = $this->candidateProfileService->requireProfile($user);
+
+        if ($interest->candidate_profile_id !== $profile->id) {
+            throw new ApiException('FORBIDDEN', "Cette offre gardée ne t'appartient pas.", 403);
+        }
+
+        if ($interest->decision !== ExternalInterestDecision::KEEP) {
+            throw new ApiException('NOT_KEPT', "Cette offre n'est pas dans tes offres gardées.", 409);
+        }
+
+        $interest->decision = ExternalInterestDecision::PASS;
+        $interest->decided_at = now();
+        $interest->save();
+
+        return $interest;
+    }
+
+    /**
      * @return Collection<int, ExternalInterest>
      */
     public function listKept(User $user): Collection

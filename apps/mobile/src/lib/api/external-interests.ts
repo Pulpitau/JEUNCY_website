@@ -62,3 +62,17 @@ export function undoLastExternal() {
     { method: 'DELETE' },
   );
 }
+
+/**
+ * Retirer une offre de la liste « Gardées ».
+ *
+ * A NE PAS CONFONDRE avec undoLastExternal(). Annuler, c'est revenir sur un
+ * geste qu'on vient de faire — la carte revient dans la pile. Retirer, c'est
+ * dire « je l'ai vue, je n'en veux plus » : le serveur la bascule en PASS et
+ * elle ne revient pas.
+ */
+export function removeKeptOffer(id: number) {
+  return apiRequest<ExternalInterest>(`/external-interests/${id}`, {
+    method: 'DELETE',
+  });
+}
