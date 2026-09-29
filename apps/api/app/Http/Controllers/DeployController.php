@@ -38,6 +38,7 @@ use App\Services\JwtService;
 use App\Services\Lba\LbaClient;
 use App\Services\Lba\LbaImportService;
 use App\Services\MatchClosingService;
+use App\Services\MatchReminderService;
 use App\Services\MatchScorer;
 use App\Services\MatchService;
 use App\Services\PaymentService;
