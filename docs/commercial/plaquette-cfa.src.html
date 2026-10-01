@@ -1,0 +1,274 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Jeuncy — Plaquette CFA</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700&family=Inter:wght@400;500;600&display=swap">
+{{CSS}}
+<style>
+  @page { size: A4; margin: 0; }
+
+  .kicker { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
+  .kicker .accent { width: 32px; }
+
+  /* Bandeau chiffré, repris de la plaquette entreprises. */
+  .band { background: var(--navy); color: var(--on-navy-soft); border-radius: 10px; padding: 14px 18px; display: flex; gap: 14px; align-items: center; }
+  .band .num { font-family: Poppins, sans-serif; font-size: 22pt; font-weight: 700; color: var(--orange); line-height: 1; flex: none; }
+  .band p { font-size: 9.5pt; }
+  .band strong { color: var(--on-navy); }
+
+  /* Maquette de téléphone, page 3 : elle montre le geste plutôt que de le
+     décrire. Tout est en CSS — aucune image à embarquer dans le PDF. */
+  .phone-row { display: grid; grid-template-columns: 1fr 62mm; gap: 20px; align-items: start; }
+  .phone {
+    position: relative; width: 58mm; height: 108mm; margin-left: auto;
+    border-radius: 9mm; padding: 4mm;
+    background: #0b1a33; border: 1.2mm solid rgba(255,255,255,0.14);
+    display: flex; flex-direction: column; gap: 3mm;
+  }
+  .phone .notch { position: absolute; top: 2.4mm; left: 50%; transform: translateX(-50%); width: 16mm; height: 1.6mm; border-radius: 1mm; background: rgba(255,255,255,0.18); }
+  .phone .tab { margin-top: 3mm; font-family: Poppins, sans-serif; font-size: 8pt; font-weight: 600; color: var(--on-navy); }
+  .phone .tab span { color: var(--on-navy-faint); font-weight: 500; margin-left: 6px; }
+  /* La pile : les cartes suivantes dépassent par le haut, c'est ce qui se
+     voit dans l'application et ce qui fait lire « pile » plutôt que
+     « carte ». La carte du dessus est donc la plus basse des trois. */
+  .deck { position: relative; flex: 1; padding-top: 9mm; }
+  .swipe-card {
+    position: absolute; left: 0; right: 0; top: 9mm;
+    background: var(--paper); border-radius: 4mm; padding: 4mm;
+    box-shadow: 0 1mm 3mm rgba(0,0,0,0.25);
+  }
+  .swipe-card.back2 { transform: translateY(-8mm) scale(0.88); }
+  .swipe-card.back1 { transform: translateY(-4mm) scale(0.94); }
+  .swipe-card.front { transform: rotate(-2.5deg); padding-top: 10mm; }
+  .swipe-card .role { font-family: Poppins, sans-serif; font-weight: 700; font-size: 9.5pt; color: var(--ink); line-height: 1.2; }
+  .swipe-card .org { font-size: 8pt; color: var(--ink-soft); margin-top: 1.5mm; }
+  .swipe-card .tags { display: flex; flex-wrap: wrap; gap: 1.5mm; margin-top: 3mm; }
+  .swipe-card .tag { font-size: 6.5pt; font-family: Poppins, sans-serif; font-weight: 600; padding: 1mm 2.2mm; border-radius: 999px; background: var(--tint); color: var(--coral); }
+  .swipe-card .stamp {
+    position: absolute; top: 3.5mm; right: 3.5mm; transform: rotate(6deg);
+    font-family: Poppins, sans-serif; font-weight: 700; font-size: 6.5pt;
+    padding: 1mm 2.5mm; border-radius: 1.5mm; border: 0.6mm solid var(--coral); color: var(--coral);
+    background: var(--paper);
+  }
+  .phone .bar { display: flex; gap: 2.5mm; }
+  .phone .bar div {
+    flex: 1; text-align: center; font-family: Poppins, sans-serif; font-weight: 600; font-size: 7pt;
+    padding: 2.2mm 0; border-radius: 2.5mm;
+  }
+  .phone .bar .no { background: rgba(255,255,255,0.08); color: var(--on-navy-soft); }
+  .phone .bar .yes { background: var(--grad); color: #fff; }
+
+  .usecase { display: flex; gap: 12px; align-items: flex-start; padding: 9px 0; border-bottom: 1px solid var(--line-soft); font-size: 9.5pt; }
+  .usecase .who { font-family: Poppins, sans-serif; font-weight: 600; color: var(--ink); width: 34%; flex: none; }
+  .navy .usecase { border-bottom-color: rgba(255,255,255,0.12); }
+  .navy .usecase .who { color: var(--on-navy); }
+
+  .free-row th, .free-row td { padding: 8px 10px; }
+  .free-row td:last-child { font-family: Poppins, sans-serif; font-weight: 600; color: var(--coral); white-space: nowrap; }
+
+  .contact { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  .contact .card { align-items: flex-start; }
+  .contact .card .ic { color: var(--orange); }
+  .contact .card b { font-family: Poppins, sans-serif; color: var(--on-navy); font-size: 11pt; }
+</style>
+</head>
+<body>
+{{ICONS}}
+
+<!-- ================= 1. Couverture ================= -->
+<section class="page navy cover">
+  <div class="glow"></div>
+  <div class="brand"><img src="{{LOGO_DARK}}" alt=""><span class="wordmark">Jeuncy</span></div>
+  <div>
+    <p class="eyebrow on-navy">Plaquette · Centres de formation d'apprentis</p>
+    <h1 style="margin-top:14px;">Vos offres d'alternance, dans la poche des jeunes de votre bassin.</h1>
+    <p class="lead" style="margin-top:18px;">Jeuncy est la plateforme d'alternance qui met vos offres devant les jeunes là où ils sont vraiment&nbsp;: sur leur téléphone. Publication illimitée, candidatures, CVthèque et application mobile — <strong>tout est gratuit</strong>.</p>
+    <div class="grid cols-3" style="margin-top: 28px;">
+      <div class="stat"><span class="num" style="color:var(--orange)">0 €</span><span class="lab">pour publier, recevoir des candidatures et accéder à la CVthèque</span></div>
+      <div class="stat"><span class="num" style="color:var(--on-navy)">7 161</span><span class="lab">offres d'alternance consultables sur Jeuncy, remises à jour chaque nuit</span></div>
+      <div class="stat"><span class="num" style="color:var(--on-navy)">J+0</span><span class="lab">les jeunes dont le profil correspond sont prévenus le jour de la publication</span></div>
+    </div>
+  </div>
+  <div class="meta">
+    <div><b>Site</b>jeuncy.com</div>
+    <div><b>Contact</b>go@jeuncy.com</div>
+    <div><b>Téléphone</b>07 43 68 99 11</div>
+    <div><b>Agence</b>46 bd Clemenceau, Perpignan</div>
+  </div>
+</section>
+
+<!-- ================= 2. Le constat et la réponse ================= -->
+<section class="page">
+  <div class="head"><div class="brand"><img src="{{LOGO_LIGHT}}" alt=""><span class="wordmark">Jeuncy</span></div><span class="section">Pourquoi Jeuncy</span></div>
+
+  <div class="kicker"><div class="accent"></div><p class="eyebrow">Le vrai goulot d'étranglement</p></div>
+  <h2>Ce qui manque à une rentrée, ce n'est presque jamais le candidat. C'est l'entreprise qui va le prendre.</h2>
+  <p class="lead" style="margin-top:14px;">Un jeune motivé, vous en trouvez. Un employeur prêt à signer, au bon moment, sur la bonne section&nbsp;: c'est là que la rentrée se joue. Et pendant ce temps, vos annonces se noient sur des sites où le jeune ne revient pas, et votre coût d'acquisition monte.</p>
+
+  <div class="grid cols-2" style="margin-top:20px;">
+    <div class="feature">
+      <div class="icon-badge"><svg class="ic"><use href="#i-send"/></svg></div>
+      <div><h4>Publiez autant d'offres que vous voulez</h4><p>Pour vos sections, pour vos entreprises partenaires. Pas de quota, pas de durée limitée, pas de carte bancaire. Une offre est en ligne en trois minutes.</p></div>
+    </div>
+    <div class="feature">
+      <div class="icon-badge"><svg class="ic"><use href="#i-bell"/></svg></div>
+      <div><h4>Les jeunes concernés sont prévenus</h4><p>À la publication, Jeuncy prévient les profils qui correspondent — même ville, même domaine. Ils reçoivent la notification le jour même, pas la semaine suivante.</p></div>
+    </div>
+    <div class="feature">
+      <div class="icon-badge"><svg class="ic"><use href="#i-users"/></svg></div>
+      <div><h4>Une CVthèque que vous pouvez ouvrir</h4><p>Les profils des jeunes inscrits, consultables quand vous voulez. Vous voyez le parcours, les compétences et la mobilité avant même qu'une offre soit publiée.</p></div>
+    </div>
+    <div class="feature">
+      <div class="icon-badge"><svg class="ic"><use href="#i-file"/></svg></div>
+      <div><h4>Des candidatures exploitables</h4><p>Chaque jeune génère son CV sur Jeuncy en deux minutes, et le regénère à chaque nouvelle expérience. Vous recevez un dossier à jour, pas une pièce jointe de l'an dernier.</p></div>
+    </div>
+  </div>
+
+  <div class="band" style="margin-top:20px;">
+    <span class="num">7 161</span>
+    <p>offres d'alternance sont déjà consultables sur Jeuncy, reprises chaque nuit des flux officiels et <strong>nettoyées</strong>&nbsp;: nous retirons les annonces qui ne mènent pas à un vrai employeur. Un jeune qui ouvre Jeuncy trouve des postes, pas des formulaires d'inscription — c'est pour ça qu'il y revient, et c'est ce qui rend vos offres visibles.</p>
+  </div>
+
+  <div class="mt-auto">
+    <div class="hair"></div>
+    <div class="usecase"><span class="who">Vous remplissez une section</span><span>Publiez l'offre de l'entreprise partenaire&nbsp;: les jeunes du domaine sont prévenus, et vous suivez les candidatures offre par offre.</span></div>
+    <div class="usecase"><span class="who">Vous cherchez des entreprises</span><span>Les offres déjà en ligne vous montrent qui recrute des apprentis, dans quel métier et dans quel secteur, près de chez vous.</span></div>
+    <div class="usecase" style="border-bottom:none;"><span class="who">Vous préparez une rentrée</span><span>La CVthèque vous dit, avant l'été, quels profils sont en recherche sur votre territoire.</span></div>
+  </div>
+
+  <div class="foot"><span>Jeuncy — Match ton alternance</span><span class="pageno">2</span></div>
+</section>
+
+<!-- ================= 3. L'application ================= -->
+<section class="page navy">
+  <div class="head"><div class="brand"><img src="{{LOGO_DARK}}" alt=""><span class="wordmark">Jeuncy</span></div><span class="section">L'application</span></div>
+
+  <div class="kicker"><div class="accent"></div><p class="eyebrow on-navy">L'application mobile Jeuncy</p></div>
+  <h2>Vos offres arrivent là où les jeunes passent déjà leurs soirées.</h2>
+  <p class="lead" style="margin-top:12px; max-width:56ch;">Un jeune ne consulte pas un site d'offres d'emploi. Il fait défiler. L'application Jeuncy reprend exactement ce geste&nbsp;: une offre par carte, à droite si elle l'intéresse, à gauche s'il passe.</p>
+
+  <div class="phone-row" style="margin-top:18px;">
+    <div class="stack">
+      <div class="feature">
+        <div class="icon-badge"><svg class="ic"><use href="#i-compass"/></svg></div>
+        <div><h4>Découvrir</h4><p>Une pile de cartes construite pour lui&nbsp;: son métier, son rayon, sa disponibilité. Vos offres y entrent dès leur publication.</p></div>
+      </div>
+      <div class="feature">
+        <div class="icon-badge"><svg class="ic"><use href="#i-heart"/></svg></div>
+        <div><h4>« Ça m'intéresse »</h4><p>D'un geste, il vous signale son intérêt. Vous le voyez de votre côté, avec son profil.</p></div>
+      </div>
+      <div class="feature">
+        <div class="icon-badge"><svg class="ic"><use href="#i-zap"/></svg></div>
+        <div><h4>Le match</h4><p>Quand l'intérêt est réciproque, la mise en relation est directe — et son dossier complet arrive, CV compris.</p></div>
+      </div>
+      <div class="feature">
+        <div class="icon-badge"><svg class="ic"><use href="#i-pin"/></svg></div>
+        <div><h4>Autour de lui</h4><p>Le jeune règle son rayon, de 5 à 100 km. Les offres trop loin ne lui sont pas montrées&nbsp;: vous recevez des candidats qui peuvent réellement venir.</p></div>
+      </div>
+    </div>
+
+    <div class="phone" aria-hidden="true">
+      <div class="notch"></div>
+      <p class="tab">Découvrir <span>· 12 offres</span></p>
+      <div class="deck">
+        <div class="swipe-card back2">
+          <p class="role">Assistant ressources humaines</p>
+          <p class="org">Alternance · Perpignan</p>
+        </div>
+        <div class="swipe-card back1">
+          <p class="role">Vendeur conseil</p>
+          <p class="org">Alternance · Cabestany</p>
+        </div>
+        <div class="swipe-card front">
+          <span class="stamp">ÇA M'INTÉRESSE</span>
+          <p class="role">Négociateur technico&#8209;commercial</p>
+          <p class="org">Alternance · Perpignan · 12&nbsp;km</p>
+          <div class="tags">
+            <span class="tag">24 mois</span>
+            <span class="tag">Bac +2</span>
+            <span class="tag">Permis B</span>
+          </div>
+        </div>
+      </div>
+      <div class="bar"><div class="no">Passer</div><div class="yes">Ça m'intéresse</div></div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:18px; flex-direction:row; gap:14px; align-items:flex-start;">
+    <div class="icon-badge"><svg class="ic"><use href="#i-shield"/></svg></div>
+    <div>
+      <h4>De votre côté, et ce que vous voyez d'un jeune</h4>
+      <p style="margin-top:4px;">Vous parcourez les profils des jeunes de votre bassin, offre par offre, et vous marquez votre intérêt de la même façon. Avant le match, une carte montre le prénom et l'initiale, la tranche d'âge, le parcours, les compétences et la mobilité — <strong>jamais le nom complet, l'adresse ni le téléphone</strong>. Ces informations n'arrivent qu'avec la candidature, quand le jeune a décidé de vous les donner.</p>
+    </div>
+  </div>
+
+  <div class="mt-auto">
+    <div class="hair"></div>
+    <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
+      <span class="pill orange">Ouverture pilote · Pyrénées-Orientales</span>
+      <span class="pill outline">Gratuite, sans publicité</span>
+      <span class="pill outline">Réservée aux 16 ans et plus</span>
+      <p class="small" style="flex:1; min-width:52%; color:var(--on-navy-soft);">L'application ouvre par territoire, en commençant par les Pyrénées-Orientales. Les CFA partenaires y entrent dès l'ouverture&nbsp;: leurs offres sont les premières que les jeunes voient.</p>
+    </div>
+  </div>
+
+  <div class="foot"><span>Jeuncy — Match ton alternance</span><span class="pageno">3</span></div>
+</section>
+
+<!-- ================= 4. Gratuit, données, prise de contact ================= -->
+<section class="page">
+  <div class="head"><div class="brand"><img src="{{LOGO_LIGHT}}" alt=""><span class="wordmark">Jeuncy</span></div><span class="section">Ce que ça coûte</span></div>
+
+  <div class="kicker"><div class="accent"></div><p class="eyebrow">Le modèle, sans astérisque</p></div>
+  <h2>Gratuit. Sans engagement. Sans installation.</h2>
+  <p class="lead" style="margin-top:12px;">Nous remplissons la plateforme avant de la monétiser&nbsp;: plus il y a d'offres et de jeunes, plus Jeuncy sert à quelque chose. Vous n'avez donc rien à payer, rien à signer, et rien à installer.</p>
+
+  <table class="free-row" style="margin-top:16px;">
+    <thead><tr><th>Ce dont vous disposez</th><th style="width:22%;">Limite</th><th style="width:16%;">Prix</th></tr></thead>
+    <tbody>
+      <tr><td>Publication d'offres d'alternance</td><td>Aucune</td><td>0 €</td></tr>
+      <tr><td>Candidatures reçues et suivi par offre</td><td>Aucune</td><td>0 €</td></tr>
+      <tr><td>CVthèque des jeunes inscrits</td><td>Aucune</td><td>0 €</td></tr>
+      <tr><td>Présence dans l'application mobile</td><td>Aucune</td><td>0 €</td></tr>
+      <tr><td>Mise en route et accompagnement</td><td>Aucune</td><td>0 €</td></tr>
+    </tbody>
+  </table>
+  <p class="small muted" style="margin-top:8px;">Si une option payante apparaît un jour, elle sera proposée — jamais appliquée sans votre accord. Ce qui est gratuit aujourd'hui le reste pour les partenaires entrés pendant cette période.</p>
+
+  <div class="two" style="margin-top:22px;">
+    <div class="stack">
+      <h3>Comment ça se passe</h3>
+      <div class="steps">
+        <div class="step"><span class="n">1</span><p><strong>Vingt minutes au téléphone ou en visio.</strong> On regarde vos sections, vos entreprises partenaires et ce que vous cherchez à remplir.</p></div>
+        <div class="step"><span class="n">2</span><p><strong>On crée votre espace.</strong> Vous n'avez pas de formulaire à remplir&nbsp;: on monte la fiche avec vous, et vos premières offres partent le jour même.</p></div>
+        <div class="step"><span class="n">3</span><p><strong>Vous recevez vos candidatures.</strong> Notifications, tableau de bord, CV à jour. Nous restons joignables tant que ça tourne.</p></div>
+      </div>
+    </div>
+    <div class="stack">
+      <h3>Le sérieux sur les données</h3>
+      <ul class="checks">
+        <li><svg class="ic"><use href="#i-check"/></svg><span>Hébergement en France, aucune revente de données, aucune publicité.</span></li>
+        <li><svg class="ic"><use href="#i-check"/></svg><span>Un recruteur ne voit le CV et les coordonnées d'un jeune <strong>qu'après</strong> que celui-ci a postulé chez lui.</span></li>
+        <li><svg class="ic"><use href="#i-check"/></svg><span>Le jeune exporte ses données ou supprime son compte en un clic, depuis son espace.</span></li>
+        <li><svg class="ic"><use href="#i-check"/></svg><span>Inscription à partir de 15 ans sur le site, 16 ans sur l'application.</span></li>
+        <li><svg class="ic"><use href="#i-check"/></svg><span>Les annonces qui ne mènent pas à un employeur réel sont retirées de la plateforme.</span></li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="callout mt-lg">
+    <div>
+      <h3>Vingt minutes, et vos offres sont en ligne.</h3>
+      <p>On se cale quand vous voulez, y compris entre deux rendez-vous. Rien à préparer de votre côté.</p>
+    </div>
+    <span class="cta">go@jeuncy.com · 07 43 68 99 11</span>
+  </div>
+
+  <div class="foot"><span>Jeuncy — Match ton alternance · jeuncy.com</span><span class="pageno">4</span></div>
+</section>
+
+</body>
+</html>

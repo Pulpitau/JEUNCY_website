@@ -4,6 +4,7 @@ Sources HTML des documents de prospection, et leur rendu PDF dans `pdf/`.
 
 | Document                     | Source                               | Pages     | Usage                                                            |
 | ---------------------------- | ------------------------------------ | --------- | ---------------------------------------------------------------- |
+| **Plaquette CFA**            | `plaquette-cfa.src.html`             | 4 (A4)    | **À jour (2026-09-28)** — prospection des CFA, modèle gratuit    |
 | Pitch deck entreprises & CFA | `pitch-deck-jeuncy.src.html`         | 14 (16:9) | Présentation en rendez-vous                                      |
 | Plaquette entreprises & CFA  | `plaquette-entreprises-cfa.src.html` | 8 (A4)    | À envoyer aux prospects                                          |
 | Guide commercial             | `guide-commercial-jeuncy.src.html`   | 11 (A4)   | **Interne** : argumentaire, scripts, objections, règles de tarif |
@@ -27,12 +28,24 @@ Chaque page (`.page`) ou diapositive (`.slide`) a une taille fixe et coupe ce
 qui déborde : après une modification de texte, vérifier que la page n'est pas
 tronquée.
 
+## ⚠ Les cinq anciens documents portent encore les tarifs
+
+Le deck, le guide commercial et les trois plaquettes datent d'avant le passage
+au **gratuit** (décision du 2026-09-15, `CLAUDE.md`). Ils annoncent 299 €/mois,
+l'offre fondateur et l'essai de 15 jours — **ne pas les envoyer tels quels**.
+Seule `plaquette-cfa` est à jour. Les autres sont à réécrire.
+
 ## Ce qui doit rester à jour
 
-- **Le nombre de candidats** (deck diapo 10, guide page 2, plaquette entreprises
-  page 8) : lire le chiffre exact dans `/admin` avant un rendez-vous.
-- **Les places fondateur restantes** : compteur public sur `/tarifs`.
-- **Les tarifs** : source de vérité dans `apps/api/config/services.php`.
+- **Le nombre d'offres en ligne** (plaquette CFA, couverture et page 2) : il
+  bouge chaque nuit avec l'import. Le lire sur `GET /api/job-offers/count`
+  avant un rendez-vous, et régénérer le PDF s'il a beaucoup changé.
+- **Le nombre de candidats**, si un document l'affiche : chiffre exact dans
+  `/admin`. Ne jamais l'arrondir vers le haut.
+- **Ce qui n'est pas encore ouvert** : l'application mobile est présentée comme
+  une **ouverture pilote sur les Pyrénées-Orientales**, pas comme une
+  application téléchargeable — c'est l'état réel, et un prospect vérifie en dix
+  secondes.
 
 ## L'histoire de Jeuncy
 
