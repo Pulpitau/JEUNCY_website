@@ -1,8 +1,18 @@
 # Envoi des lots 3 et 4 — manifeste
 
-> Établi le 2026-09-29. État de référence en production : lot 1
-> (commit `5664604`, déployé le 2026-09-22).
-> Cible : `5fed08a` sur `feature/mobile-match`.
+> Établi le 2026-09-29, mis à jour le même jour après le premier envoi.
+> État de référence en production : lot 1 (commit `5664604`, déployé le
+> 2026-09-22). Cible : `fe7711f` sur `feature/mobile-match`.
+>
+> **Second envoi requis : un seul fichier.** Le premier envoi (23 fichiers)
+> est arrivé intact — vérifié par `version` — mais `matches-remind`
+> répondait 500 en production. Cause trouvée via `/deploy/{token}/logs` :
+> `use App\Services\MatchReminderService;` manquant dans
+> `DeployController.php` (le contrôleur appelait la classe par son nom
+> court, PHP la cherchait dans le mauvais namespace). Corrigé, testé par
+> une contre-épreuve (le nouveau test échoue bien sans le correctif), et
+> **`DeployController.php` a donc une nouvelle empreinte** — c'est le seul
+> fichier qui change dans ce second envoi.
 
 ## Ce qu'il faut envoyer, et ce qu'il ne faut pas
 
@@ -33,7 +43,7 @@ Chemins relatifs à `apps/api/`. « N » = fichier nouveau, « M » = modifié.
 | N   | `app/Enums/MatchReminderStage.php`                                                        | `897142f72336d6e8` | 2 866   |
 | M   | `app/Enums/NotificationType.php`                                                          | `8d36c8a74540529e` | 1 339   |
 | N   | `app/Http/Controllers/Admin/ModerationController.php`                                     | `a8a4df54cd95dba0` | 2 467   |
-| M   | `app/Http/Controllers/DeployController.php`                                               | `c795cfcb12d0f2f2` | 101 176 |
+| M   | `app/Http/Controllers/DeployController.php` **(v2, voir note en tête)**                   | `f0128a0e9f1e84c5` | 101 215 |
 | M   | `app/Http/Controllers/ExternalInterestController.php`                                     | `4b03697808aa48e4` | 1 540   |
 | N   | `app/Http/Requests/Admin/DecideVerificationRequest.php`                                   | `85520e3db753d009` | 1 395   |
 | N   | `app/Services/AdminModerationService.php`                                                 | `92cafad2cd2f5420` | 7 085   |
