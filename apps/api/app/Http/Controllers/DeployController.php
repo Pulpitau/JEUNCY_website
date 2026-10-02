@@ -10,11 +10,13 @@ use App\Enums\OfferSector;
 use App\Enums\PaymentStatus;
 use App\Enums\UserRole;
 use App\Enums\VerificationStatus;
+use App\Exceptions\ApiException;
 use App\Models\CandidateProfile;
 use App\Models\CfaOrganization;
 use App\Models\Company;
 use App\Models\GeocodeCache;
 use App\Models\JobOffer;
+use App\Models\NewsletterEdition;
 use App\Models\Notification;
 use App\Models\OfferInterest;
 use App\Models\Skill;
@@ -41,6 +43,8 @@ use App\Services\MatchClosingService;
 use App\Services\MatchReminderService;
 use App\Services\MatchScorer;
 use App\Services\MatchService;
+use App\Services\NewsletterPlaceholders;
+use App\Services\NewsletterService;
 use App\Services\PaymentService;
 use App\Support\MatchPerimeter;
 use Illuminate\Console\Scheduling\Schedule;
@@ -66,7 +70,7 @@ class DeployController extends Controller
     // ne peut pas savoir si le controleur lui-meme a bien ete redeploye : c est
     // arrive le 2026-09-02, ou clear-cache continuait d echouer avec une version
     // corrigee censement en place. A incrementer a chaque changement ici.
-    public const DEPLOY_TOOLS_VERSION = 'deploy-tools-32';
+    public const DEPLOY_TOOLS_VERSION = 'deploy-tools-33';
 
     // Perimetre de lancement du match mobile (decision du 2026-09-22) : les
     // Pyrenees-Orientales, mesurees autour de Perpignan (centre-ville).
@@ -829,6 +833,54 @@ class DeployController extends Controller
             'routes/api/external-interests.php',
             'routes/api/blocks-reports.php',
             'routes/api/candidate-profile.php',
+
+            // ================================================================
+            // LETTRE HEBDOMADAIRE (2026-10-01). Quinze fichiers, dont CINQ
+            // seulement modifies pour brancher — et c'est precisement la
+            // qu'etaient les deux pannes muettes de septembre. Ce que chaque
+            // absence produit, sans aucune erreur lisible :
+            //   - la migration de users : la selection des destinataires
+            //     tombe sur une colonne inconnue, donc l'envoi entier echoue ;
+            //   - la migration des editions : le contenu de la lettre n'a plus
+            //     nulle part ou vivre, donc plus aucune edition ne peut etre
+            //     deposee ;
+            //   - la migration des envois : plus aucune trace, donc une passe
+            //     rejouee REECRIT a tout le monde ;
+            //   - une coque Blade : l'edition ne se rend pas, 500 au premier
+            //     destinataire, apres reservation de sa ligne ;
+            //   - NewsletterPlaceholders ou OffersCount : les chiffres
+            //     annonces ne sont plus ceux du moment de l'envoi, ou le
+            //     compteur du site et celui de la lettre divergent ;
+            //   - routes/web.php : le lien de desinscription de CHAQUE lettre
+            //     deja partie renvoie 404, de facon definitive ;
+            //   - config/services.php : l'expediteur retombe sur no-reply@,
+            //     alors que la lettre invite a repondre ;
+            //   - MailService : la methode n'existe pas, erreur a l'appel.
+            // ================================================================
+            'database/migrations/2026_10_01_100000_add_newsletter_unsubscribe_to_users_table.php',
+            'database/migrations/2026_10_01_100001_create_newsletter_editions_table.php',
+            'database/migrations/2026_10_01_100002_create_newsletter_deliveries_table.php',
+            'app/Enums/NewsletterDeliveryStatus.php',
+            'app/Enums/NewsletterEditionStatus.php',
+            'app/Models/NewsletterDelivery.php',
+            'app/Models/NewsletterEdition.php',
+            'app/Services/NewsletterService.php',
+            'app/Services/NewsletterPlaceholders.php',
+            'app/Support/OffersCount.php',
+            // Modifie pour brancher : il sert desormais le compteur depuis
+            // OffersCount, pour que le site et la lettre ne puissent pas
+            // annoncer deux chiffres differents.
+            'app/Http/Controllers/PublicJobOfferController.php',
+            'app/Http/Controllers/NewsletterUnsubscribeController.php',
+            'resources/views/emails/newsletter/layout.blade.php',
+            'resources/views/emails/newsletter/layout-texte.blade.php',
+            'resources/views/newsletter/unsubscribe.blade.php',
+            'resources/views/deploy/newsletter-editions.blade.php',
+            // Modifies pour brancher : User (cast + scope de desinscription),
+            // MailService, config/services.php et routes/web.php sont deja
+            // plus haut dans cette liste — ils y restent, une entree en double
+            // ne coute qu'une ligne de JSON, une entree manquante coute une
+            // journee.
         ];
 
         $etat = [];
@@ -1940,6 +1992,235 @@ class DeployController extends Controller
             'dernier_import' => LbaImportService::lastReport(),
             'aide' => '?maintenant=1 pour demander un import au prochain passage du cron, ?annuler=1 pour retirer la demande. Le resultat apparait ici et dans /admin (Offres partenaires).',
         ]);
+    }
+
+    // ------------------------------------------------------------------
+    // Lettre hebdomadaire (deploy-tools-33)
+    //
+    // Meme forme que matches-remind, et pour la meme raison : A BLANC PAR
+    // DEFAUT. Une visite d'URL ne doit jamais ecrire a 125 personnes. Sans
+    // parametre, cette route COMPTE les destinataires et les exclusions, et
+    // rend les deux gabarits pour prouver qu'ils se rendent — sans envoyer ni
+    // ecrire quoi que ce soit.
+    //
+    // ?essai=1   : une seule copie, a l'adresse de contact de l'equipe.
+    // ?envoyer=1 : REFUSE seul. Il faut &tous=1, exactement comme pour l'envoi
+    //              de masse des notifications de correspondance (lecon du
+    //              2026-09-08 : un parametre omis avait envoye 37
+    //              notifications a de vrais candidats).
+    // &max=N     : borne la passe, pour un premier envoi reel prudent.
+    //
+    // AUCUNE ADRESSE EMAIL n'est renvoyee par cette route, dans aucun mode :
+    // la liste des destinataires ne sort pas du serveur, et un rapport qu'on
+    // recopie dans un message ne fait pas exception.
+    //
+    // Les `use` de NewsletterService et d'ApiException sont indispensables :
+    // leur absence ferait repondre 500 AVANT la moindre ligne de logique,
+    // sans qu'aucun test du service ne puisse le voir — c'est exactement ce
+    // qui est arrive le 2026-09-29 avec MatchReminderService. D'ou
+    // DeployNewsletterTest, qui traverse la vraie route HTTP.
+    // ------------------------------------------------------------------
+    public function newsletter(string $token): Response
+    {
+        $this->assertAuthorized($token);
+
+        $service = app(NewsletterService::class);
+
+        $json = fn (array $payload, int $statut = 200) => response()->json(
+            $payload + ['version_outils_deploiement' => self::DEPLOY_TOOLS_VERSION],
+            $statut,
+            [],
+            JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE,
+        );
+
+        try {
+            // L'edition visee : celle nommee en parametre, sinon celle qui
+            // est armee. Aucune edition armee et aucun nom donne = il n'y a
+            // rien a faire, et le dire est plus utile qu'une erreur.
+            $slug = request()->query('edition');
+            $edition = $slug
+                ? $service->editionParSlug((string) $slug)
+                : $service->editionPrete();
+
+            if ($edition === null) {
+                return $json([
+                    'mode' => 'a blanc (rien envoye, rien ecrit)',
+                    'edition' => null,
+                    'etat' => 'Aucune edition marquee PRETE.',
+                    'aide' => 'Depose et arme une edition sur /deploy/{token}/newsletter/editions, ou precise &edition=... pour en inspecter une.',
+                ]);
+            }
+
+            if (request()->query('essai') === '1') {
+                // Vers l'adresse de contact de l'equipe, et non vers une
+                // adresse passee en parametre : une adresse dans une URL finit
+                // dans les journaux du serveur et dans l'historique du
+                // navigateur.
+                return $json($service->envoyerUnEssai($edition, (string) config('services.contact.email')));
+            }
+
+            if (request()->query('envoyer') === '1') {
+                if (request()->query('tous') !== '1') {
+                    return $json([
+                        'refus' => 'Un envoi de masse ne part jamais sur un seul parametre.',
+                        'a_faire' => 'Ajoute &tous=1 pour confirmer, ou ?essai=1 pour une copie unique.',
+                    ], 400);
+                }
+
+                // Meme relevement que pour l'import LBA : 125 destinataires a
+                // ~0,55 s de pause font deux minutes, bien au-dela du defaut
+                // d'un hebergement mutualise. Si la passe est coupee malgre
+                // tout, la relancer reprend ou elle s'etait arretee.
+                @set_time_limit(900);
+
+                $max = request()->query('max');
+
+                return $json($service->envoyer(
+                    $edition,
+                    confirme: true,
+                    max: $max !== null ? (int) $max : null,
+                ) + ['mode' => 'ENVOI REEL']);
+            }
+
+            return $json($service->apercu($edition) + [
+                'mode' => 'a blanc (rien envoye, rien ecrit)',
+                'aide' => '?essai=1 pour une copie a l\'adresse de contact, ?envoyer=1&tous=1 pour l\'envoi reel, &max=N pour le borner, &edition=... pour choisir l\'edition. Depot et armement : /newsletter/editions.',
+            ]);
+        } catch (ApiException $e) {
+            return $json(['erreur' => $e->errorCode, 'message' => $e->getMessage()], $e->getStatusCode());
+        }
+    }
+
+    // ------------------------------------------------------------------
+    // Depot et armement des editions (deploy-tools-33)
+    //
+    // POURQUOI UNE PAGE ET PAS SEULEMENT DU JSON. C'est le seul endroit de
+    // l'outillage de deploiement qu'un humain doit utiliser CHAQUE SEMAINE :
+    // deposer le texte de la lettre. Le faire en curl depuis le terminal
+    // PowerShell de Pierre reviendrait a coller 3 ko de HTML dans une ligne de
+    // commande — autant dire que ca ne serait pas fait. Deux zones de texte
+    // dans un navigateur, c'est la difference entre un outil utilise et un
+    // outil abandonne.
+    //
+    // DEPOSER N'ENVOIE RIEN ET N'ARME RIEN : une edition arrive toujours en
+    // BROUILLON. Armer est un geste separe, et c'est a ce moment-la que les
+    // espaces reserves sont verifies — devant celui qui arme.
+    // ------------------------------------------------------------------
+    public function newsletterEditions(string $token): Response
+    {
+        $this->assertAuthorized($token);
+
+        $service = app(NewsletterService::class);
+
+        if (request()->isMethod('POST')) {
+            return $this->newsletterDepot($token, $service);
+        }
+
+        return response()->view('deploy.newsletter-editions', [
+            'token' => $token,
+            'editions' => NewsletterEdition::query()->orderByDesc('id')->limit(20)->get(),
+            'aide' => NewsletterPlaceholders::AIDE,
+            'message' => request()->query('message'),
+            'erreur' => request()->query('erreur'),
+        ]);
+    }
+
+    /**
+     * Arme (PRETE) ou desarme (BROUILLON) une edition.
+     *
+     * EN POST, jamais en GET. Armer, c'est decider ce qui partira a 125
+     * personnes au prochain declenchement : une URL qui le ferait serait
+     * declenchee par le premier apercu de lien ou antivirus venu, exactement
+     * comme pour la desinscription.
+     */
+    public function newsletterEditionStatus(string $token, string $slug): Response
+    {
+        $this->assertAuthorized($token);
+
+        $service = app(NewsletterService::class);
+
+        try {
+            $edition = $service->editionParSlug($slug);
+            $service->armer($edition, request()->input('prete') === '1');
+            $message = "Edition {$slug} : {$edition->fresh()->status->value}.";
+            $erreur = null;
+        } catch (ApiException $e) {
+            $message = null;
+            $erreur = $e->getMessage();
+        }
+
+        return $this->retourDepot($token, $message, $erreur);
+    }
+
+    private function newsletterDepot(string $token, NewsletterService $service): Response
+    {
+        $champs = [
+            'slug' => trim((string) request()->input('slug')),
+            'subject' => trim((string) request()->input('subject')),
+            'html' => (string) request()->input('html'),
+            'text' => (string) request()->input('text'),
+        ];
+
+        foreach ($champs as $nom => $valeur) {
+            if (trim($valeur) === '') {
+                return $this->retourDepot($token, null, "Champ manquant : {$nom}. Les quatre sont obligatoires — une lettre sans version texte part en indesirables.");
+            }
+        }
+
+        try {
+            $edition = $service->deposer($champs['slug'], $champs['subject'], $champs['html'], $champs['text']);
+        } catch (ApiException $e) {
+            return $this->retourDepot($token, null, $e->getMessage());
+        }
+
+        return $this->retourDepot(
+            $token,
+            "Edition {$edition->slug} deposee en BROUILLON. Relis-la, puis arme-la pour qu'elle puisse partir.",
+            null,
+        );
+    }
+
+    /**
+     * Apres un POST, on redirige au lieu de rendre la page : sans cela, un
+     * rafraichissement du navigateur reposterait le formulaire — et sur la
+     * route d'armement, reposterait la decision d'armer.
+     */
+    private function retourDepot(string $token, ?string $message, ?string $erreur): Response
+    {
+        $query = array_filter(['message' => $message, 'erreur' => $erreur]);
+
+        return redirect('/deploy/'.$token.'/newsletter/editions'.($query ? '?'.http_build_query($query) : ''));
+    }
+
+    /**
+     * Apercu : l'email COMPLET tel qu'il partira, coque et espaces reserves
+     * compris.
+     *
+     * Rendre l'edition seule n'aurait rien prouve : ce qui part est le
+     * resultat de la substitution dans la coque, et c'est la que se voit un
+     * « [[offres_total]] » mal ecrit ou un bloc qui casse la mise en page.
+     * ?format=texte montre la version texte, celle qu'on oublie de regarder.
+     */
+    public function newsletterEditionApercu(string $token, string $slug): Response
+    {
+        $this->assertAuthorized($token);
+
+        $service = app(NewsletterService::class);
+
+        try {
+            $edition = $service->editionParSlug($slug);
+            // Lien d'exemple sur l'identifiant 0 : l'apercu ne doit pas
+            // pouvoir desinscrire un vrai compte si on clique dedans.
+            $rendu = $service->rendre($edition, $service->lienDesinscription(0));
+        } catch (ApiException $e) {
+            return response()->json(['erreur' => $e->errorCode, 'message' => $e->getMessage()], $e->getStatusCode());
+        }
+
+        if (request()->query('format') === 'texte') {
+            return response($rendu['texte'], 200, ['Content-Type' => 'text/plain; charset=utf-8']);
+        }
+
+        return response($rendu['html'], 200, ['Content-Type' => 'text/html; charset=utf-8']);
     }
 
     /**

@@ -21,6 +21,13 @@ return [
     'resend' => [
         'key' => env('RESEND_API_KEY'),
         'from' => env('RESEND_FROM_EMAIL', 'no-reply@jeuncy.com'),
+        // Expediteur de la lettre hebdomadaire (MailService::sendNewsletter).
+        // DELIBEREMENT DIFFERENT de l'expediteur transactionnel ci-dessus :
+        // la lettre se termine par « reponds simplement a ce mail », ce qu'une
+        // adresse no-reply@ rendrait faux. Le domaine jeuncy.com est verifie
+        // chez Resend, donc SPF/DKIM passent pour n'importe quelle boite de ce
+        // domaine.
+        'newsletter_from' => env('NEWSLETTER_FROM_EMAIL', 'bonjour@jeuncy.com'),
     ],
 
     'google' => [

@@ -1,0 +1,40 @@
+<!--
+  Corps HTML de la lettre n° 1, pret a coller dans le champ « Corps HTML » de
+  /deploy/{token}/newsletter/editions.
+
+  CORPS SEUL : pas d'en-tete, pas de logo, pas de pied de page, pas de lien de
+  desinscription — la coque (resources/views/emails/newsletter/layout.blade.php)
+  s'en charge. C'est ce qui garantit qu'aucune edition ne peut partir sans lien
+  pour se desinscrire.
+
+  [[offres_total]] est remplace par le serveur AU MOMENT DE L'ENVOI : le chiffre
+  annonce est donc toujours celui du jour, jamais celui de la redaction.
+
+  Ce commentaire peut etre colle avec le reste (les clients mail l'ignorent) ou
+  supprime, au choix.
+-->
+<p style="margin:0 0 18px 0;">Salut,</p>
+<p style="margin:0 0 18px 0;">Tu t'es inscrit sur Jeuncy pour trouver ton alternance. On ne t'a pas oublié : voilà où on en est, et ce qu'on prépare pour toi.</p>
+
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#FAFAF8; border-radius:12px; margin:8px 0;">
+  <tr>
+    <td style="padding:22px; font-family:'Inter','Segoe UI',Arial,sans-serif; color:#1a1a1a;">
+      <div style="font-family:'Poppins','Segoe UI',Arial,sans-serif; font-size:32px; font-weight:700; color:#061D4F; line-height:38px;">[[offres_total]]</div>
+      <div style="font-family:'Poppins','Segoe UI',Arial,sans-serif; font-size:18px; font-weight:600; color:#061D4F; padding-top:2px;">offres d'alternance en ligne</div>
+      <p style="margin:12px 0 0 0; font-size:15px; line-height:24px;">Les nôtres et celles de nos partenaires, rassemblées au même endroit et <strong>mises à jour chaque nuit</strong>. Tu filtres par métier, par ville et par type de contrat, et tu postules.</p>
+    </td>
+  </tr>
+</table>
+
+<p style="text-align:center; margin:22px 0 8px 0;">
+  <a href="https://jeuncy.com/offres" style="display:inline-block; background-color:#FF2D55; color:#FFFFFF; font-family:'Poppins','Segoe UI',Arial,sans-serif; font-size:16px; font-weight:600; text-decoration:none; padding:15px 32px; border-radius:999px;">Voir les offres</a>
+</p>
+
+<div style="font-family:'Poppins','Segoe UI',Arial,sans-serif; font-size:18px; font-weight:600; color:#061D4F; padding-top:20px;">Une application mobile est en chantier</div>
+<p style="margin:8px 0 18px 0;">On développe en ce moment l'application Jeuncy, pour chercher et postuler depuis ton téléphone, sans passer par le site. Elle n'est pas encore sortie — on te dira ici quand tu pourras l'installer, et tu seras parmi les premiers au courant.</p>
+
+<div style="font-family:'Poppins','Segoe UI',Arial,sans-serif; font-size:18px; font-weight:600; color:#061D4F;">On se donne rendez-vous chaque semaine</div>
+<p style="margin:8px 0 18px 0;">À partir d'aujourd'hui, tu recevras ce message une fois par semaine : les nouveautés, les offres qui arrivent, ce qu'on améliore. Court, et sans blabla.</p>
+
+<p style="margin:0 0 8px 0;">Et si tu bloques quelque part — un profil que tu n'arrives pas à finir, un CV, une candidature sans réponse — <strong>réponds simplement à ce mail</strong>. Quelqu'un te lit.</p>
+<p style="margin:18px 0 0 0;">À très vite,<br />L'équipe Jeuncy</p>

@@ -450,6 +450,75 @@ class MailService
         );
     }
 
+    /**
+     * Lettre hebdomadaire aux candidats (voir NewsletterService).
+     *
+     * ELLE NE PASSE PAS PAR send() ci-dessous, pour trois raisons :
+     *
+     *   1. Elle RENVOIE le resultat. Partout ailleurs, un echec d'envoi est
+     *      avale : l'action metier (publier une offre, creer un compte) a
+     *      reussi et ne doit pas tomber pour un email. Ici l'envoi EST
+     *      l'action — l'appelant doit savoir, sans quoi il marquerait comme
+     *      recue une lettre qui n'est jamais partie, et personne ne la
+     *      renverrait jamais.
+     *   2. Elle porte une version TEXTE en plus du HTML. Un message
+     *      multipart passe les filtres anti-spam ; une lettre de masse en
+     *      HTML seul se retrouve dans les indesirables.
+     *   3. Elle pose les en-tetes de desinscription. `List-Unsubscribe` fait
+     *      apparaitre le bouton « Se desabonner » natif de Gmail et
+     *      d'Outlook, juste a cote de l'expediteur. C'est la que les gens
+     *      cliquent : sans lui, ils marquent le message comme spam a la
+     *      place, et c'est toute la reputation du domaine jeuncy.com qui
+     *      trinque. `List-Unsubscribe-Post: List-Unsubscribe=One-Click`
+     *      (RFC 8058) dit a Gmail que l'URL accepte un POST direct, sans
+     *      page intermediaire — exige par Google pour tout expediteur de
+     *      masse depuis 2024.
+     *
+     * L'expediteur est bonjour@ et non no-reply@ : la lettre invite
+     * explicitement a repondre, et une invitation vers une boite qui
+     * n'existe pas se retourne contre celui qui l'envoie.
+     */
+    public function sendNewsletter(
+        string $to,
+        string $subject,
+        string $html,
+        string $text,
+        string $unsubscribeUrl,
+    ): bool {
+        $apiKey = config('services.resend.key');
+
+        if (! $apiKey) {
+            Log::warning("RESEND_API_KEY absent : lettre \"{$subject}\" non envoyee a {$to}");
+
+            return false;
+        }
+
+        try {
+            Http::withToken($apiKey)
+                ->post('https://api.resend.com/emails', [
+                    'from' => config('services.resend.newsletter_from'),
+                    'to' => $to,
+                    'subject' => $subject,
+                    'html' => $html,
+                    'text' => $text,
+                    'headers' => [
+                        // Les chevrons font partie de la syntaxe (RFC 2369) :
+                        // sans eux, Gmail ignore purement et simplement
+                        // l'en-tete et n'affiche aucun bouton.
+                        'List-Unsubscribe' => '<'.$unsubscribeUrl.'>',
+                        'List-Unsubscribe-Post' => 'List-Unsubscribe=One-Click',
+                    ],
+                ])
+                ->throw();
+
+            return true;
+        } catch (RequestException|ConnectionException $e) {
+            Log::error("Echec d'envoi de la lettre a {$to} (\"{$subject}\") : {$e->getMessage()}");
+
+            return false;
+        }
+    }
+
     // Envoi centralise : un echec Resend (recipient invalide, quota, panne
     // ponctuelle...) ne doit jamais faire echouer l'action metier qui a
     // declenche l'email (publication d'offre, reinitialisation de mot de

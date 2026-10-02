@@ -25,6 +25,18 @@ abstract class TestCase extends BaseTestCase
      */
     protected ?Closure $geocodeur = null;
 
+    /**
+     * Reponse de l'API Resend pour le test en cours. Null = succes (ce que
+     * la quasi-totalite des tests attendent, quand ils y pensent). Un test
+     * qui veut verifier le comportement en cas d'echec — la lettre
+     * hebdomadaire, qui doit REMONTER ses echecs au lieu de les avaler —
+     * assigne ici une closure. Meme mecanique que les deux ci-dessus, et
+     * meme raison : un second Http::fake sur la meme URL ne sert a rien, le
+     * premier stub enregistre l'emporte toujours (deux heures perdues a
+     * chercher pourquoi un 429 arrivait en 200).
+     */
+    protected ?Closure $resend = null;
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -43,6 +55,7 @@ abstract class TestCase extends BaseTestCase
         // par defaut ; un test qui veut des coordonnees assigne $geocodeur.
         $this->registreEntreprises = null;
         $this->geocodeur = null;
+        $this->resend = null;
         Http::fake([
             'recherche-entreprises.api.gouv.fr/*' => function ($request) {
                 return $this->registreEntreprises
@@ -59,7 +72,11 @@ abstract class TestCase extends BaseTestCase
             // d'envoyer, mais il a suffi qu'un test pose $_ENV sans le
             // restaurer (DeployEnvCheckTest) pour que toute la suite se mette
             // a poster de vrais emails. Le stub rend l'accident impossible.
-            'api.resend.com/*' => Http::response(['id' => 'test-email-id']),
+            'api.resend.com/*' => function ($request) {
+                return $this->resend
+                    ? ($this->resend)($request)
+                    : Http::response(['id' => 'test-email-id']);
+            },
         ]);
 
         // Http::fake avec un tableau laisse passer vers le reseau toute URL

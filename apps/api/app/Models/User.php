@@ -14,6 +14,11 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 // age_confirmed_at : date d'acceptation de la case « J'ai 15 ans ou plus »
 // a l'inscription (posee par AuthService, null pour Google et les comptes
 // anterieurs).
+//
+// newsletter_unsubscribed_at : date d'opposition a la lettre hebdomadaire
+// (NewsletterService). NULL = toujours abonne. Volontairement HORS de ce
+// tableau : elle ne se pose que par le lien signe de desinscription, jamais
+// par mass-assignment depuis une requete cliente.
 #[Fillable(['email', 'password_hash', 'google_id', 'role', 'is_suspended', 'last_login_at', 'deleted_account_at', 'age_confirmed_at'])]
 #[Hidden(['password_hash'])]
 class User extends Authenticatable
@@ -40,6 +45,7 @@ class User extends Authenticatable
             'last_login_at' => 'datetime',
             'deleted_account_at' => 'datetime',
             'age_confirmed_at' => 'datetime',
+            'newsletter_unsubscribed_at' => 'datetime',
         ];
     }
 
@@ -66,6 +72,20 @@ class User extends Authenticatable
     public function isDeletedAccount(): bool
     {
         return $this->deleted_account_at !== null;
+    }
+
+    // Comptes qui n'ont pas dit non a la lettre hebdomadaire. Un scope et non
+    // un `where` recopie dans le service : le jour ou la regle change (une
+    // preference par type de message, par exemple), elle change a un seul
+    // endroit, et on ne peut pas oublier de la repercuter la ou elle compte.
+    public function scopeNewsletterSubscribed(Builder $query): Builder
+    {
+        return $query->whereNull('newsletter_unsubscribed_at');
+    }
+
+    public function isUnsubscribedFromNewsletter(): bool
+    {
+        return $this->newsletter_unsubscribed_at !== null;
     }
 
     public function candidateProfile(): HasOne

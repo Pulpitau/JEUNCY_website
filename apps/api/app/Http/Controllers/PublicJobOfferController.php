@@ -2,14 +2,10 @@
 
 namespace App\Http\Controllers;
 
-use App\Enums\ExternalJobOfferStatus;
-use App\Enums\JobOfferStatus;
 use App\Http\Requests\JobOffer\SearchJobOffersRequest;
-use App\Models\ExternalJobOffer;
-use App\Models\JobOffer;
 use App\Services\JobOfferService;
+use App\Support\OffersCount;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Support\Facades\Cache;
 
 class PublicJobOfferController extends Controller
 {
@@ -31,13 +27,12 @@ class PublicJobOfferController extends Controller
     // compte doit retrouver ce nombre sur /offres. En cache dix minutes :
     // c'est la page la plus vue du site, et le total ne bouge qu'une fois
     // par nuit.
+    //
+    // Le calcul vit dans App\Support\OffersCount depuis le 2026-10-01 : la
+    // lettre hebdomadaire annonce ce meme chiffre, et deux requetes separees
+    // auraient fini par se contredire dans le dos du candidat.
     public function count(): JsonResponse
     {
-        return response()->json(Cache::remember('offres.compteur', 600, function () {
-            $jeuncy = JobOffer::query()->where('status', JobOfferStatus::PUBLISHED)->count();
-            $partenaires = ExternalJobOffer::query()->where('status', ExternalJobOfferStatus::ACTIVE)->count();
-
-            return ['jeuncy' => $jeuncy, 'partenaires' => $partenaires, 'total' => $jeuncy + $partenaires];
-        }));
+        return response()->json(OffersCount::current());
     }
 }
