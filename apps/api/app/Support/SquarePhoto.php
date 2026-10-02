@@ -45,6 +45,13 @@ class SquarePhoto
             return null;
         }
 
+        // Redresse AVANT de recadrer : une rotation echange largeur et hauteur,
+        // donc un recadrage calcule sur les dimensions d'origine viserait a
+        // cote. Voir orientation() pour pourquoi c'est necessaire.
+        $source = self::redresse($source, self::orientation($path, $info[2]));
+        $width = imagesx($source);
+        $height = imagesy($source);
+
         // Centre horizontalement, mais cale plus haut verticalement (un tiers
         // du surplus au-dessus, deux tiers en dessous) : sur une photo en
         // pied ou en buste, le visage est au-dessus du milieu de l'image.
@@ -65,5 +72,97 @@ class SquarePhoto
         imagedestroy($canvas);
 
         return $bytes === false || $bytes === '' ? null : $bytes;
+    }
+
+    /**
+     * Degres de rotation a appliquer avec imagerotate(), qui compte en sens
+     * ANTI-horaire, pour une valeur d'orientation EXIF donnee.
+     *
+     * Publique parce que testable : c'est ici que se niche l'erreur de signe,
+     * et une photo couchee ne se remarque qu'une fois le PDF sous les yeux
+     * d'un recruteur.
+     */
+    public static function degresPour(int $orientation): int
+    {
+        return match ($orientation) {
+            3, 4 => 180,
+            5, 6 => -90,  // EXIF 6 = « tourner de 90 degres dans le sens horaire »
+            7, 8 => 90,
+            default => 0,
+        };
+    }
+
+    /**
+     * Les orientations EXIF miroir (rares : elles viennent de certaines
+     * camera frontales). Un miroir ne se corrige pas par une rotation.
+     */
+    public static function estMiroir(int $orientation): bool
+    {
+        return in_array($orientation, [2, 4, 5, 7], true);
+    }
+
+    /**
+     * Orientation EXIF declaree par le fichier, 1 si aucune.
+     *
+     * POURQUOI. Un telephone n'ecrit pas l'image dans le sens ou on la voit :
+     * il l'enregistre dans le sens du capteur et ajoute une etiquette « a
+     * afficher tournee de 90 degres ». Les navigateurs respectent cette
+     * etiquette, GD l'ignore — d'ou une photo droite sur le site et couchee
+     * dans le CV genere (signale le 2026-10-01).
+     *
+     * Deux chemins parce que les deux hebergements different : l'extension
+     * exif est presente en local, Imagick l'est sur le mutualise OVH. En
+     * l'absence des deux, on ne redresse rien plutot que de deviner.
+     */
+    private static function orientation(string $path, int $imageType): int
+    {
+        // L'etiquette n'existe que dans les JPEG (et TIFF) : inutile d'aller
+        // la chercher ailleurs.
+        if ($imageType !== IMAGETYPE_JPEG) {
+            return 1;
+        }
+
+        if (function_exists('exif_read_data')) {
+            $exif = @exif_read_data($path);
+
+            return is_array($exif) && isset($exif['Orientation']) ? (int) $exif['Orientation'] : 1;
+        }
+
+        if (class_exists(\Imagick::class)) {
+            try {
+                $orientation = (new \Imagick($path))->getImageOrientation();
+
+                return $orientation > 0 ? $orientation : 1;
+            } catch (\Throwable) {
+                // Une photo illisible par Imagick reste lisible par GD : on
+                // continue sans redresser plutot que d'echouer la generation.
+                return 1;
+            }
+        }
+
+        return 1;
+    }
+
+    /**
+     * @param  \GdImage  $source
+     * @return \GdImage
+     */
+    private static function redresse($source, int $orientation)
+    {
+        $degres = self::degresPour($orientation);
+
+        if ($degres !== 0) {
+            $tourne = @imagerotate($source, $degres, 0);
+            if ($tourne !== false) {
+                imagedestroy($source);
+                $source = $tourne;
+            }
+        }
+
+        if (self::estMiroir($orientation) && function_exists('imageflip')) {
+            imageflip($source, IMG_FLIP_HORIZONTAL);
+        }
+
+        return $source;
     }
 }
