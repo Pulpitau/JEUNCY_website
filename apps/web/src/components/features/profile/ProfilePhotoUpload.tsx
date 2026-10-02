@@ -3,7 +3,11 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
 const ACCEPTED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
-const MAX_SIZE_BYTES = 2 * 1024 * 1024;
+// 12 Mo, aligne sur UploadProfilePhotoRequest (max:12288). La limite de 2 Mo
+// bloquait des candidats dont la photo de telephone depassait ce poids
+// (signale le 2026-10-01) : le fichier etait refuse ICI, avant tout envoi,
+// donc relever la seule regle serveur n'aurait rien debloque.
+const MAX_SIZE_BYTES = 12 * 1024 * 1024;
 
 interface ProfilePhotoUploadProps {
   photoUrl: string | null;
@@ -39,7 +43,7 @@ export function ProfilePhotoUpload({
       return;
     }
     if (file.size > MAX_SIZE_BYTES) {
-      setError("L'image ne doit pas dépasser 2 Mo.");
+      setError("L'image ne doit pas dépasser 12 Mo.");
       return;
     }
 
@@ -92,7 +96,7 @@ export function ProfilePhotoUpload({
           )}
         </div>
         <p className="font-inter text-xs text-muted-foreground">
-          JPEG, PNG ou WEBP, 2 Mo max.
+          JPEG, PNG ou WEBP, 12 Mo max.
         </p>
         {error && (
           <p role="alert" className="text-xs text-destructive">

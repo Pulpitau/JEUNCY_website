@@ -30,7 +30,7 @@ const DEFAULT_LABELS = {
 
 // Image tactile : un tap propose la galerie, l'appareil photo, la suppression.
 // Sert a la photo du candidat et au logo de l'organisation. Le serveur accepte
-// jpeg/png/webp jusqu'a 2 Mo ; l'image est recadree en carre et compressee
+// jpeg/png/webp jusqu'a 12 Mo ; l'image est recadree en carre et compressee
 // avant l'envoi pour rester sous cette limite avec une photo de telephone.
 export function AvatarUpload({
   imageUrl,
