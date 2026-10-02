@@ -1673,3 +1673,38 @@ created from object types` — `{...(props as never)}`, arrivé avec le commit
   déjà à jour avec la source actuelle : **il n'y a rien à renvoyer côté web**,
   et la chorégraphie « assets d'abord, index.html en dernier » ne s'applique
   pas à cet envoi-ci.
+
+**Premier test sur iPhone du modèle match, contre la vraie production
+(2026-10-01) : en cours, backlog ouvert pour la prochaine session**
+
+- Serveur Expo lancé en tâche de fond sur le PC de Pierre (pas de TTY
+  interactif dans cette session, donc pas de QR code affichable) : URL
+  entrée à la main dans Expo Go, `exp://192.168.1.15:8081`. L'app vise par
+  défaut `https://api.jeuncy.com/api` (pas de `.env` local) — **les tests du
+  jour portent donc sur la vraie production**, pas sur une base de dev.
+- **Badge « Répond en N jours » absent sur le compte IDA (CFA)** —
+  attendu : `EmployerResponseStats` fait partie des 23 fichiers du lot 3/4,
+  pas encore envoyés (voir `docs/mobile/envoi-lots-3-4.md`).
+- **Swipe à droite sur une carte candidat, depuis le compte IDA, ne fait
+  rien** (pas de retour visible, pas de match créé) — **à investiguer en
+  premier demain**. La route `POST interests` est du lot 1, déjà en
+  production depuis le 2026-09-22 : ce n'est donc probablement pas une
+  simple histoire de lot 3/4 non déployé, contrairement au badge ci-dessus.
+  Ne pas supposer la cause avant d'avoir regardé les requêtes réseau
+  (`read_network_requests` ou logs Metro) pendant un swipe reproduit.
+- **« Candidatures reçues » (côté IDA) n'a pas d'entrée « offre express »** —
+  à vérifier si c'est un oubli d'emplacement dans l'app ou un comportement
+  attendu pour ce rôle.
+- **Côté candidat (compte personnel de Pierre) : tout fonctionne**, y
+  compris le bouton **« Retirer »** sur une offre partenaire gardée — ce qui
+  **contredit l'hypothèse que cette route dépend du lot 3/4 non déployé**
+  (voir point ci-dessus sur le swipe IDA : ne pas supposer l'état de
+  déploiement sans le revérifier, `version`/`selftest` tranchent).
+- **Idée produit notée par Pierre** : forcer au moins une photo de profil à
+  la création du profil candidat, pour que les cartes soient plus
+  engageantes côté deck entreprise/CFA — pas encore un ticket, à soupeser
+  demain (impact sur les ~115 profils existants sans photo).
+- Rien de tout ça n'est corrigé ce soir — Pierre a dû partir. Reprendre par
+  l'investigation du swipe IDA muet, c'est le seul des quatre points qui
+  ressemble à un vrai bug plutôt qu'à un manque de déploiement ou une
+  question produit.
