@@ -2365,6 +2365,15 @@ class DeployController extends Controller
         $queue = (string) fread($handle, $octets);
         fclose($handle);
 
+        // Deux sources d'octets invalides, et la reponse JSON echoue sur les
+        // deux (json_encode rend false, donc 500 — constate le 2026-10-06) :
+        // le fseek ci-dessus coupe a un offset arbitraire, donc au milieu d'un
+        // caractere multi-octets des que le fichier depasse la fenetre ; et une
+        // exception peut porter une entree malformee venue d'ailleurs. Une
+        // route de diagnostic qui tombe au moment ou on en a besoin est pire
+        // qu'absente.
+        $queue = (string) mb_convert_encoding($queue, 'UTF-8', 'UTF-8');
+
         // Une entree commence par un horodatage entre crochets ; les lignes
         // suivantes (trace) lui appartiennent.
         $morceaux = preg_split('/\n(?=\[\d{4}-\d{2}-\d{2})/', $queue) ?: [];
