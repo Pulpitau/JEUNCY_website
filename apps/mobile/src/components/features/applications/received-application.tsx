@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { ApplicationStatus } from '@jeuncy/shared';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Alert, Pressable, StyleSheet, View } from 'react-native';
+import { Alert, Linking, Pressable, StyleSheet, View } from 'react-native';
 
 import { statusTone } from '@/components/features/applications/status';
 import { openPdf } from '@/components/features/profile/cv-section';
@@ -82,10 +82,15 @@ export function ReceivedApplicationCard({
       </View>
 
       <View style={styles.contact}>
-        <ContactLine icon="mail-outline" value={profile.user.email} />
+        <ContactLine
+          icon="mail-outline"
+          value={profile.user.email}
+          href={`mailto:${profile.user.email}`}
+        />
         <ContactLine
           icon="call-outline"
           value={application.contact_phone ?? profile.phone}
+          href={`tel:${(application.contact_phone ?? profile.phone ?? '').replace(/\s/g, '')}`}
         />
         {profile.birth_date ? (
           <ContactLine
@@ -164,23 +169,45 @@ export function ReceivedApplicationCard({
   );
 }
 
+// Le lien (mailto:, tel:) ne sert qu'ici : le dossier est deja livre au
+// recruteur, donc l'appel ou le mail ne revele rien de nouveau. Avant le
+// dossier, aucun contact n'est affiche (voir matchs/[id].tsx).
 function ContactLine({
   icon,
   value,
+  href,
 }: {
   icon: keyof typeof Ionicons.glyphMap;
   value: string | null;
+  href?: string;
 }) {
   const { colors } = useTheme();
   if (!value) return null;
 
-  return (
-    <View style={styles.contactLine}>
+  const content = (
+    <>
       <Ionicons name={icon} size={16} color={colors.textMuted} />
-      <Text variant="small" style={styles.contactText} selectable>
+      <Text
+        variant="small"
+        style={[styles.contactText, href ? { color: colors.accent } : null]}
+        selectable={!href}
+      >
         {value}
       </Text>
-    </View>
+    </>
+  );
+
+  if (!href) return <View style={styles.contactLine}>{content}</View>;
+
+  return (
+    <Pressable
+      onPress={() => void Linking.openURL(href)}
+      accessibilityRole="link"
+      accessibilityLabel={`Contacter ${value}`}
+      style={({ pressed }) => [styles.contactLine, { opacity: pressed ? 0.6 : 1 }]}
+    >
+      {content}
+    </Pressable>
   );
 }
 

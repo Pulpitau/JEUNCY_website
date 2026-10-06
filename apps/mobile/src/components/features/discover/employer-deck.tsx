@@ -1,6 +1,15 @@
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withDelay,
+  withSequence,
+  withSpring,
+  withTiming,
+} from 'react-native-reanimated';
+import { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -20,8 +29,9 @@ import { ApiError } from '@/lib/api/client';
 import type { DeckCandidateCard } from '@/lib/api/discover';
 import { INTEREST_ERRORS } from '@/lib/api/interests';
 import type { JobOffer } from '@/lib/api/job-offers';
+import { palette, signatureGradient } from '@/theme/colors';
 import { useTheme } from '@/theme/theme-provider';
-import { spacing } from '@/theme/typography';
+import { radii, spacing } from '@/theme/typography';
 
 // « Decouvrir » cote entreprise et CFA (MOBILE.md §4.1).
 //
@@ -47,6 +57,9 @@ export function EmployerDeck() {
   const [match, setMatch] = useState<{ label: string; applicationSent: boolean } | null>(
     null,
   );
+  // Intérêt envoyé, pas encore de réponse : le candidat décide de son côté.
+  // Effacé au geste suivant, pour ne pas s'accumuler sous la pile.
+  const [pending, setPending] = useState<string | null>(null);
 
   // L'offre qui porte la pile : celle qu'on a choisie si elle est toujours
   // utilisable, sinon la premiere disponible.
@@ -71,12 +84,20 @@ export function EmployerDeck() {
       return;
     }
 
+    setPending(null);
+
     void like(card)
       .then(({ matched, applicationSent }) => {
-        if (!matched) return;
+        if (!matched) {
+          setPending(labelOf(card));
+
+          return;
+        }
         setMatch({ label: labelOf(card), applicationSent });
       })
-      .catch((cause: unknown) => signalerEchecInteret(cause));
+      .catch((cause: unknown) => {
+        signalerEchecInteret(cause);
+      });
   };
 
   const handleUndo = () => {
@@ -198,6 +219,8 @@ export function EmployerDeck() {
         <CandidateDetailSheet candidate={opened} onClose={() => setOpened(null)} />
       ) : null}
 
+      {pending ? <InterestToast label={pending} top={insets.top} /> : null}
+
       {match ? (
         <MatchSheet
           counterpartLabel={match.label}
@@ -305,6 +328,48 @@ function labelOf(card: DeckCandidateCard): string {
     .join(' ');
 }
 
+/**
+ * Bannière « notification » en haut de l'écran, comme celles d'iOS : elle
+ * glisse depuis le bord avec un ressort amorti, reste deux secondes et
+ * remonte. Aucune interaction, aucun toucher intercepté.
+ */
+function InterestToast({ label, top }: { label: string; top: number }) {
+  const offset = useSharedValue(-120);
+
+  useEffect(() => {
+    offset.value = withSequence(
+      withSpring(0, { damping: 20, stiffness: 200 }),
+      withDelay(2000, withTiming(-120, { duration: 260 })),
+    );
+  }, [offset]);
+
+  const style = useAnimatedStyle(() => ({
+    transform: [{ translateY: offset.value }],
+  }));
+
+  return (
+    <Animated.View
+      pointerEvents="none"
+      style={[styles.toast, { top: top + spacing.sm }, style]}
+    >
+      <LinearGradient
+        colors={[...signatureGradient]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.toastIcon}
+      >
+        <Ionicons name="paper-plane" size={16} color={palette.white} />
+      </LinearGradient>
+      <View style={styles.toastText}>
+        <Text variant="bodyStrong">Intérêt envoyé</Text>
+        <Text variant="small" tone="muted" numberOfLines={1}>
+          {label} n&apos;a pas encore répondu
+        </Text>
+      </View>
+    </Animated.View>
+  );
+}
+
 function HeaderButton({
   icon,
   label,
@@ -355,6 +420,30 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  toast: {
+    position: 'absolute',
+    left: spacing.lg,
+    right: spacing.lg,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    padding: spacing.md,
+    borderRadius: radii.lg,
+    backgroundColor: palette.white,
+    shadowColor: palette.navy,
+    shadowOpacity: 0.12,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 6,
+  },
+  toastIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  toastText: { flex: 1, gap: 2 },
   content: { flex: 1, paddingBottom: spacing.md },
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.md },
 });
