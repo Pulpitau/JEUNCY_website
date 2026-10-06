@@ -126,6 +126,12 @@ class DeployController extends Controller
         'job-offers:notify-matching-candidates' => 'jour',
         'cv-downloads:purge' => 'semaine',
         'lba:import' => 'jour',
+        // Sans elle, /scheduler etait structurellement aveugle a la seule
+        // tache dont on voulait verifier la premiere passe (constate le
+        // 2026-10-02, toujours vrai le 06). Elle ne tourne que si
+        // JEUNCY_RELANCES_ACTIVES est vrai : une derniere passe absente peut
+        // donc vouloir dire « desactivee », pas « en panne ».
+        'matches:remind' => 'jour',
     ];
 
     private function assertAuthorized(string $token): void
@@ -379,7 +385,12 @@ class DeployController extends Controller
 
         // Une offre n'a pas de code postal : celui de son proprietaire,
         // entreprise ou CFA (jamais les deux, invariant de JobOfferService).
-        $codePostalProprietaire = 'COALESCE(companies.postal_code, cfa_organizations.postal_code)';
+        // job_offers.postal_code d'abord : il est saisi sur l'offre depuis le
+        // lot 1 et c'est LUI qui decide du geocodage et donc de la presence
+        // dans le deck. Le lire en dernier faisait annoncer « 1 offre sans
+        // code postal exploitable » pour l'offre d'IDA, pourtant geocodee en
+        // 66000 — un faux « en attente » recopie plusieurs jours de suite.
+        $codePostalProprietaire = 'COALESCE(job_offers.postal_code, companies.postal_code, cfa_organizations.postal_code)';
 
         $repartition = self::regrouperParDepartement(
             DB::table('job_offers')
@@ -595,6 +606,10 @@ class DeployController extends Controller
             'app/Http/Requests/Cvtheque/SearchCvthequeRequest.php',
             'app/Http/Requests/CandidateProfile/StoreCandidateProfileRequest.php',
             'app/Http/Requests/CandidateProfile/UpdateCandidateProfileRequest.php',
+            // Porte la limite de poids de la photo (12 Mo depuis le
+            // 2026-10-01). Non surveille, son absence du serveur aurait
+            // produit « la photo ne passe pas » sans aucune erreur.
+            'app/Http/Requests/CandidateProfile/UploadProfilePhotoRequest.php',
             // Role STAFF : equipe Jeuncy, lecture de la CVtheque sans admin.
             'app/Enums/UserRole.php',
             // Son absence a coute une matinee : une valeur d'enum manquante ne
@@ -1815,6 +1830,7 @@ class DeployController extends Controller
         // creee pendant une panne de l'IGN reste hors des deux piles
         // indefiniment, sans qu'aucune erreur ne le signale.
         'geocode:backfill',
+        'matches:remind',
     ];
 
     // Extrait du controleur pour etre testable sur des entrees choisies : le
@@ -1892,6 +1908,16 @@ class DeployController extends Controller
         $report['_jeuncy'] = [
             'gratuit' => (bool) config('services.jeuncy.gratuit'),
             'inscription_cfa_ouverte' => (bool) config('services.jeuncy.inscription_cfa_ouverte'),
+            // Le defaut est false : la cascade de relances est planifiee mais
+            // inerte tant que personne ne pose le drapeau. Sans cette ligne,
+            // la seule facon de le savoir etait de lire le code.
+            'relances_actives' => (bool) config('services.jeuncy.relances_actives'),
+            // Ces deux chemins n'existent que sur le serveur (public/ deploye
+            // a part). Leur perte casse l'envoi de photo et la generation de
+            // CV *sans aucune erreur* — c'est arrive le 2026-10-01 et il a
+            // fallu trois heures pour le voir.
+            'public_storage_path' => filled(env('PUBLIC_STORAGE_PATH')) ? 'ok' : 'MANQUANT — photos et CV ecrits hors du web',
+            'dompdf_public_path' => filled(env('DOMPDF_PUBLIC_PATH')) ? 'ok' : 'MANQUANT — generation de CV cassee',
         ];
         $report['_lba'] = [
             'LBA_API_KEY' => filled(config('services.lba.api_key')) ? 'ok' : 'MANQUANTE — import desactive',
