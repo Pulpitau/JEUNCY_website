@@ -100,6 +100,18 @@ class DiscoverService
 
         $profile = $this->candidateProfileService->requireProfile($user);
 
+        // Seul Decouvrir se ferme : connexion, profil, export et suppression
+        // du compte restent ouverts, sans quoi le candidat ne pourrait meme
+        // plus exercer ses droits RGPD.
+        $photoExigeeLe = $profile->photo_url ? null : config('services.jeuncy.photo_obligatoire_le');
+        if ($photoExigeeLe && today()->toDateString() >= $photoExigeeLe) {
+            throw new ApiException(
+                'PHOTO_REQUIRED',
+                'Ajoute une photo de profil pour découvrir les offres.',
+                403,
+            );
+        }
+
         [$lat, $lng, $source] = $this->positionDe($profile);
         $rayon = (int) ($profile->search_radius_km ?: 30);
         $departement = PostalCodes::department($profile->postal_code);
@@ -125,6 +137,7 @@ class DiscoverService
                 // sans distance, au lieu de celles d'a cote.
                 'partner_scope' => $porteePartenaire,
                 'quota' => $this->quotaFor($profile),
+                'photo_required_from' => $photoExigeeLe,
             ],
         ];
     }

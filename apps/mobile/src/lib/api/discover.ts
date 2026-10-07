@@ -143,6 +143,8 @@ export interface DeckMeta {
    * sans rien proteger.
    */
   quota: { limit: number; used: number; active: boolean };
+  /** Date (Y-m-d) à partir de laquelle la pile se ferme faute de photo ; null si le profil en a une. */
+  photo_required_from: string | null;
 }
 
 export interface DiscoverOffersResponse {

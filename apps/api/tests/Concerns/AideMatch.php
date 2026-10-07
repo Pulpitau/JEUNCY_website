@@ -52,7 +52,7 @@ trait AideMatch
         CandidateProfile::factory()
             ->adult()
             ->located()
-            ->create(array_merge(['user_id' => $user->id], $profil));
+            ->create(array_merge(['user_id' => $user->id, 'photo_url' => '/storage/photos/portrait.jpg'], $profil));
 
         return $user->fresh();
     }

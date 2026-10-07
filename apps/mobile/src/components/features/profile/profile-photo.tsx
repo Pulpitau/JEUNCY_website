@@ -1,8 +1,9 @@
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Alert } from 'react-native';
 
 import { AvatarUpload } from '@/components/ui/avatar-upload';
 import { useInvalidateProfile } from '@/hooks/use-candidate-profile';
+import { DISCOVER_KEY } from '@/hooks/use-discover-deck';
 import { removeProfilePhoto, uploadProfilePhoto } from '@/lib/api/candidate-profile';
 import { ApiError } from '@/lib/api/client';
 
@@ -14,11 +15,18 @@ export interface ProfilePhotoProps {
 
 // Photo de profil du candidat : AvatarUpload branche sur l'API du profil.
 export function ProfilePhoto({ photoUrl, firstName, lastName }: ProfilePhotoProps) {
-  const invalidate = useInvalidateProfile();
+  const invalidateProfile = useInvalidateProfile();
+  const queryClient = useQueryClient();
+  // La pile Découvrir dépend de la photo (obligatoire) : elle doit se rouvrir
+  // dès l'envoi, sans attendre un redémarrage de l'app.
+  const invalidate = () => {
+    void invalidateProfile();
+    void queryClient.invalidateQueries({ queryKey: DISCOVER_KEY });
+  };
 
   const upload = useMutation({
     mutationFn: uploadProfilePhoto,
-    onSuccess: () => void invalidate(),
+    onSuccess: invalidate,
     onError: (error, file) => {
       // L'erreur native (error.cause) reste dans les logs Metro : c'est elle
       // qui a permis de trouver la cause reelle le 2026-09-15 (voir
@@ -35,7 +43,7 @@ export function ProfilePhoto({ photoUrl, firstName, lastName }: ProfilePhotoProp
 
   const remove = useMutation({
     mutationFn: removeProfilePhoto,
-    onSuccess: () => void invalidate(),
+    onSuccess: invalidate,
   });
 
   return (

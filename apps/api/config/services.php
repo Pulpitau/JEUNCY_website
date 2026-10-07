@@ -188,6 +188,10 @@ return [
         // La marche a suivre est donc : deployer, mesurer a blanc
         // (/deploy/{token}/matches-remind), puis mettre ce drapeau a true.
         'relances_actives' => filter_var(env('JEUNCY_RELANCES_ACTIVES', false), FILTER_VALIDATE_BOOLEAN),
+        // A partir de cette date (Y-m-d), un candidat sans photo ne peut plus
+        // ouvrir Decouvrir. Avant, la pile s'ouvre et annonce l'echeance.
+        // Decision du 2026-10-07 : preavis de 7 jours pour les comptes existants.
+        'photo_obligatoire_le' => env('JEUNCY_PHOTO_OBLIGATOIRE_LE', '2026-10-14'),
     ],
 
     'ses' => [

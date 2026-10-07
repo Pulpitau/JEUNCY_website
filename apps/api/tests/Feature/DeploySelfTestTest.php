@@ -94,6 +94,15 @@ class DeploySelfTestTest extends TestCase
      * middlewares de role et des 16 ans, les Form Requests, les controleurs
      * et les services.
      */
+    public function test_the_match_journey_survives_the_photo_deadline(): void
+    {
+        config()->set('services.jeuncy.photo_obligatoire_le', today()->subDay()->toDateString());
+
+        $parcours = $this->sonde()->assertOk()->json('tests.parcours_match.resultat');
+
+        $this->assertSame(200, $parcours['discover_offers']['statut']);
+    }
+
     public function test_the_match_journey_goes_all_the_way_to_a_match(): void
     {
         $parcours = $this->sonde()->assertOk()->json('tests.parcours_match.resultat');

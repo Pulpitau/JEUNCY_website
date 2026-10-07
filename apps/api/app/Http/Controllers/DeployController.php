@@ -1287,6 +1287,10 @@ class DeployController extends Controller
             'is_visible_in_cvtheque' => true,
             'search_radius_km' => 30,
             'mobility_radius_km' => 30,
+            // Sans photo, Decouvrir refuse le candidat apres
+            // services.jeuncy.photo_obligatoire_le : la sonde annoncerait une
+            // panne qui n'en est pas une.
+            'photo_url' => '/storage/photos/sonde.jpg',
         ]);
         // ~5 km au nord de Perpignan : assez pres pour entrer dans les deux
         // rayons, assez loin pour que distance_km ne soit pas zero — un zero

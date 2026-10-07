@@ -404,6 +404,32 @@ class DiscoverOffersTest extends TestCase
             ->assertJsonPath('error.code', 'MATCH_NOT_OPEN_YET');
     }
 
+    public function test_without_photo_the_pile_opens_before_the_deadline_and_announces_it(): void
+    {
+        config()->set('services.jeuncy.photo_obligatoire_le', today()->addDay()->toDateString());
+        $candidat = $this->candidat(['photo_url' => null]);
+
+        $this->assertSame(today()->addDay()->toDateString(), $this->pile($candidat)['meta']['photo_required_from']);
+    }
+
+    public function test_without_photo_the_pile_closes_on_the_deadline(): void
+    {
+        config()->set('services.jeuncy.photo_obligatoire_le', today()->toDateString());
+        $candidat = $this->candidat(['photo_url' => null]);
+
+        $this->withToken($this->jeton($candidat))
+            ->getJson('/api/discover/offers')
+            ->assertForbidden()
+            ->assertJsonPath('error.code', 'PHOTO_REQUIRED');
+    }
+
+    public function test_with_a_photo_the_deadline_changes_nothing(): void
+    {
+        config()->set('services.jeuncy.photo_obligatoire_le', today()->subYear()->toDateString());
+
+        $this->assertNull($this->pile($this->candidat())['meta']['photo_required_from']);
+    }
+
     public function test_the_flag_is_on_by_default(): void
     {
         // Le defaut est VRAI a dessein : fermer par defaut masquerait aussi

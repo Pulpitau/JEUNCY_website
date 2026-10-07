@@ -20,6 +20,7 @@ import { Text } from '@/components/ui/text';
 import { useDiscoverDeck, type DeckCard } from '@/hooks/use-discover-deck';
 import { ApiError } from '@/lib/api/client';
 import { INTEREST_ERRORS } from '@/lib/api/interests';
+import { formatDateFr } from '@/lib/dates';
 import { KEPT_OFFERS_KEY } from '@/hooks/use-kept-offers';
 import { useQueryClient } from '@tanstack/react-query';
 import { useTheme } from '@/theme/theme-provider';
@@ -200,6 +201,21 @@ export function CandidateDeck() {
         />
       </View>
 
+      {meta?.photo_required_from ? (
+        <Pressable
+          onPress={() => router.push('/profil')}
+          accessibilityRole="button"
+          style={[styles.notice, { backgroundColor: colors.surfaceMuted }]}
+        >
+          <Ionicons name="camera-outline" size={18} color={colors.accentWarm} />
+          <Text variant="small" style={styles.noticeText}>
+            Ajoute une photo de profil avant le {formatDateFr(meta.photo_required_from)}{' '}
+            pour continuer à découvrir des offres.
+          </Text>
+          <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
+        </Pressable>
+      ) : null}
+
       {notice ? (
         <View
           style={[styles.notice, { backgroundColor: colors.surfaceMuted }]}
@@ -352,6 +368,16 @@ function DeckError({ error, onRetry }: { error: unknown; onRetry: () => void }) 
           label: 'Chercher une offre',
           onPress: () => router.push('/offres/recherche'),
         }}
+      />
+    );
+  }
+
+  if (code === 'PHOTO_REQUIRED') {
+    return (
+      <EmptyState
+        title="Ajoute ta photo de profil"
+        description="Elle est obligatoire pour découvrir les offres : les recruteurs répondent bien plus souvent à un profil avec photo."
+        action={{ label: 'Ajouter ma photo', onPress: () => router.push('/profil') }}
       />
     );
   }
