@@ -1708,3 +1708,32 @@ created from object types` — `{...(props as never)}`, arrivé avec le commit
   l'investigation du swipe IDA muet, c'est le seul des quatre points qui
   ressemble à un vrai bug plutôt qu'à un manque de déploiement ou une
   question produit.
+
+**Point du 2026-10-07 : production à jour, photo obligatoire en ligne**
+
+- **État de la production mesuré** (`/version`, `/env-check`, `/scheduler`) :
+  169/169 fichiers surveillés identiques au dépôt. Les lots 3 et 4 sont donc
+  en ligne depuis fin septembre (les mentions « pas encore déployé » plus haut
+  sont périmées). `relances_actives: true`, `matches:remind` tourne chaque jour.
+- Backlog du test iPhone du 2026-10-01 : le swipe IDA « muet » appelait bien
+  `like()` depuis le lot 2, seul le retour visuel manquait (ajouté le
+  2026-10-06, commit `2713937`) ; l'absence d'entrée « offre express » est
+  normale (aucune colonne `is_express`, une offre express est une offre
+  ordinaire). Reste à confirmer sur iPhone : bannière au swipe et badge
+  « Répond en N jours ».
+- Correctif newsletter : un tiret Windows-1252 collé depuis Word est converti
+  au dépôt au lieu d'être refusé (commit `2bcf21a`, en ligne).
+- **Photo de profil obligatoire** (décision de Pierre, commit `47e6c36`, en
+  ligne) : sans photo, `discover/offers` répond `PHOTO_REQUIRED` (403) à
+  partir de `services.jeuncy.photo_obligatoire_le` (défaut 2026-10-14,
+  `JEUNCY_PHOTO_OBLIGATOIRE_LE`). Avant, la pile s'ouvre et l'app affiche
+  l'échéance (`meta.photo_required_from`). Connexion, profil, recherche,
+  export et suppression ne sont jamais bloqués. La sonde du `selftest` a
+  reçu une photo, sinon elle aurait annoncé une fausse panne dès le 14.
+- Nouvelle feuille de route (démarchage des CFA) et décisions RGPD : voir la
+  mémoire `feuille-de-route-cfa-2026-10-07`. Chantiers suivants : badge
+  « JEUNCY x école », espace CFA avec entreprises partenaires (comptes
+  vérifiés uniquement), fiche candidat swipable côté employeur.
+- **Chemin critique de la commercialisation** : l'app n'est publiée sur aucun
+  store. Compte Apple Developer et Google Play à ouvrir avant tout démarchage.
+- Commande `/reprendre` ajoutée (`.claude/commands/reprendre.md`).
