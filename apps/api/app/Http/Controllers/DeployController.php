@@ -2188,6 +2188,13 @@ class DeployController extends Controller
         ];
 
         foreach ($champs as $nom => $valeur) {
+            // Un tiret ou une apostrophe colle depuis Word arrive en Windows-1252 (octet 0x97 pour le tiret cadratin) :
+            // MySQL refuse cet octet, et la lettre n°2 a echoue deux fois le 2026-10-06. On convertit au lieu de refuser.
+            if (! mb_check_encoding($valeur, 'UTF-8')) {
+                $valeur = mb_convert_encoding($valeur, 'UTF-8', 'Windows-1252');
+                $champs[$nom] = $valeur;
+            }
+
             if (trim($valeur) === '') {
                 return $this->retourDepot($token, null, "Champ manquant : {$nom}. Les quatre sont obligatoires — une lettre sans version texte part en indesirables.");
             }

@@ -980,4 +980,18 @@ class NewsletterTest extends TestCase
             ->assertOk()
             ->assertHeader('Content-Type', 'text/plain; charset=utf-8');
     }
+
+    public function test_a_windows_1252_dash_in_the_subject_is_converted_not_refused(): void
+    {
+        // Le tiret cadratin arrive en Windows-1252 (0x97) : sans conversion, MySQL refuse l'insertion.
+        $this->post('/deploy/'.self::TOKEN.'/newsletter/editions', [
+            'slug' => '2026-10-07-lettre-03',
+            'subject' => "Offres du jour \x97 nouvelles chaque nuit",
+            'html' => '<p>corps</p>',
+            'text' => 'corps',
+        ])->assertRedirect();
+
+        $edition = NewsletterEdition::query()->where('slug', '2026-10-07-lettre-03')->firstOrFail();
+        $this->assertSame("Offres du jour \u{2014} nouvelles chaque nuit", $edition->subject);
+    }
 }
