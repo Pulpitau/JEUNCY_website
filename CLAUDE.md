@@ -1738,42 +1738,9 @@ created from object types` — `{...(props as never)}`, arrivé avec le commit
   store. Compte Apple Developer et Google Play à ouvrir avant tout démarchage.
 - Commande `/reprendre` ajoutée (`.claude/commands/reprendre.md`).
 
-**Où on s'est arrêté (fin de session du 2026-10-07)**
-
-- **En cours : tests de l'app sur iPhone, sur la BASE DE TEST** (jamais en
-  production : un swipe à droite y prévient un vrai jeune). Prochaine étape
-  exacte : Pierre rouvre l'app dans Expo Go (`exp://192.168.1.15:8081`), se
-  connecte en `cfa.test@demo-match.example.com` / `Password123!`, swipe à
-  droite sur Yanis → vérifier que le match s'affiche **instantanément** avec
-  vibration. Puis la suite du plan de test : swipe droit sur un candidat sans
-  « oui » (bannière « Intérêt envoyé »), gauche, annuler, onglet Matchs, côté
-  candidat (`candidat.test`), envoi de dossier, photo obligatoire
-  (`sans.photo`). **Une étape à la fois.**
-- **Environnement de test à relancer** (les serveurs meurent avec la session) :
-  - API : `cd apps/api/public && APP_URL=http://192.168.1.15:3000 php -S
-0.0.0.0:3000 ../vendor/laravel/framework/src/Illuminate/Foundation/resources/server.php`
-  - Expo : `cd apps/mobile && npx expo start --lan` (pas de QR ici : URL à
-    taper à la main dans Expo Go).
-  - `apps/mobile/.env` vise l'API de test. **Le supprimer** (puis relancer
-    Expo) pour revenir à la production.
-  - Remise à zéro des piles :
-    `APP_URL=http://192.168.1.15:3000 php artisan db:seed --class=MatchDemoSeeder --force`
-    (recrée les comptes : Pierre doit se reconnecter).
-  - La base Clever Cloud (plan DEV) refuse les connexions ~2-3 min si on
-    l'utilise trop vite ; le PC de Pierre a manqué de mémoire une fois.
-- **Non commité** (à relire puis commiter au signal de Pierre) :
-  `MatchDemoSeeder.php` (jeu de démo, refuse la production), `employer-deck.tsx`
-  (matchs en file d'attente + affichage instantané avant la réponse serveur),
-  `match-sheet.tsx` (entrée en ressort + vibration), `expo-haptics ~57.0.3`
-  ajouté (`package.json`, `pnpm-lock.yaml` réécrit par pnpm, Prettier le
-  reformatera au commit).
-- **Production, à décider avec Pierre** : ses swipes de test depuis le compte
-  IDA ont notifié de vrais candidats (et déclenchent des relances à J+3).
-  Conseillé : remettre `JEUNCY_RELANCES_ACTIVES=false` le temps de nettoyer.
-  Un outil de nettoyage en production a été bloqué par l'environnement : ne
-  rien effacer en prod sans autorisation explicite de Pierre.
-- Apple Developer : demande envoyée (Enrollment ID DAJ8F9ARRS), attente de
-  l'email d'Apple.
+**Point d'arrêt du 2026-10-07 : entièrement soldé le 2026-10-08** (plan de
+test iPhone validé, code commité, relances laissées actives par décision de
+Pierre — voir les sections suivantes).
 
 **Plan de test mobile du modele match : valide sur iPhone, sur la base de
 test (2026-10-08)**
@@ -1908,3 +1875,30 @@ test (2026-10-08)**
   build.
 - Eleves d'IDA rattaches par Pierre depuis `/admin` → Candidats le
   2026-10-08, badge « JEUNCY x IDA » verifie dans la CVtheque.
+
+**Où on s'est arrêté (fin de session du 2026-10-08)**
+
+- **Fait aujourd'hui, tout en production sauf le mobile** : badge « JEUNCY x
+  école », espace CFA (partenaires + recommandation), élèves d'IDA rattachés
+  par Pierre. Fiche candidat du deck (mobile, feuille native iOS) validée sur
+  iPhone, mais l'app n'est publiée nulle part. Branche à jour sur origin.
+- **Chemin critique : les stores, pas le code.** Prochaine étape exacte :
+  Pierre paie les 25 $ de Google Play (carte de la société, ou carte perso en
+  note de frais) sur https://play.google.com/console/signup, connecté en
+  `go@jeuncy.com`, bouton « Créer un compte et payer ». Tout est rempli
+  jusque-là ; détails et valeurs à ressaisir dans la mémoire
+  `publication-stores`. Apple Developer : toujours en attente de l'email
+  (Enrollment ID DAJ8F9ARRS).
+- **Ensuite** : pièce d'identité pour Google, preuve de propriété de
+  jeuncy.com (DNS chez OVH), puis configuration de build EAS — les
+  identifiants de bundle sont définitifs, à faire valider par Pierre avant de
+  les fixer.
+- **Captures d'écran de Pierre** : les lire directement dans
+  `C:\Users\Pierre\OneDrive\Images\Screenshots` (la plus récente), ne pas lui
+  demander de les coller.
+- **Environnement de test** : `apps/mobile/.env` vise toujours l'API de test
+  locale (`192.168.1.15:3000`). Les serveurs (API `php -S`, Expo) meurent avec
+  la session — commandes de relance plus haut, section du 2026-10-07 dans
+  l'historique git (`git show 76c32ec:CLAUDE.md`).
+- **Non commité, pas à moi** : `docs/communication/newsletter/2026-10-08-lettre-03-corps.txt`
+  (lettre n°3, probablement l'autre session) — ne pas y toucher.
