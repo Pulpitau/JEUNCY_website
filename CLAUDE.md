@@ -1890,3 +1890,21 @@ test (2026-10-08)**
   l'ecriture reelle de la valeur d'enum en MySQL est ce que SQLite ne prouve
   pas. Donnees de test retirees de la base de dev ensuite.
 - Build web (`tsc -b` + `vite build`) et lint verifies en plus des tests.
+
+**Badge et espace CFA : deployes en production le 2026-10-08**
+
+- Manifeste : `docs/exploitation/envoi-2026-10-08.md` (24 fichiers API +
+  site), etabli en comparant `/version` de la production au depot plutot
+  qu'en supposant l'etat d'apres le journal. Ordre suivi : les 4 migrations
+  SEULES d'abord puis `migrate`, ensuite le code — dans l'autre sens, le
+  nouveau presenteur aurait lu une colonne absente et fait tomber deck,
+  CVtheque et matchs en 500 le temps de migrer.
+- Le premier envoi des 20 fichiers de code n'etait arrive nulle part ou
+  Laravel lit (12 empreintes inchangees, nouvelles routes en 404). Repere en
+  une requete par `/version`, renvoye par Pierre, puis : 181/181 fichiers
+  identiques, `deploy-tools-34`, routes en 401, selftest 16/16 avec la cle
+  `cfa_badge_label` presente dans la carte qu'il produit. Le site en ligne
+  (`index-BxqjSU82.js`, `index-BWcrnnvd.css`) est identique au bit pres au
+  build.
+- Reste a faire par Pierre : rattacher les eleves d'IDA depuis `/admin` →
+  Candidats. Sans ca, IDA n'a personne a recommander.
