@@ -1906,5 +1906,5 @@ test (2026-10-08)**
   `cfa_badge_label` presente dans la carte qu'il produit. Le site en ligne
   (`index-BxqjSU82.js`, `index-BWcrnnvd.css`) est identique au bit pres au
   build.
-- Reste a faire par Pierre : rattacher les eleves d'IDA depuis `/admin` →
-  Candidats. Sans ca, IDA n'a personne a recommander.
+- Eleves d'IDA rattaches par Pierre depuis `/admin` → Candidats le
+  2026-10-08, badge « JEUNCY x IDA » verifie dans la CVtheque.
