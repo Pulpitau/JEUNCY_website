@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\CandidateProfile;
+use App\Models\CfaOrganization;
 use App\Models\JobOffer;
 use App\Models\Skill;
 use App\Presenters\CandidateCardPresenter;
@@ -236,5 +237,20 @@ class CandidateCardPresenterTest extends TestCase
         // presentable, la tranche est simplement inconnue.
         $sansDate = CandidateProfile::factory()->create(['birth_date' => null]);
         $this->assertNull($this->presenter->present($sansDate)['age_band']);
+    }
+
+    // Badge « JEUNCY x <ecole> » (feuille de route CFA, 2026-10-07) : absent
+    // par defaut, present une fois le candidat rattache par un admin.
+    public function test_cfa_badge_label(): void
+    {
+        $sansCfa = CandidateProfile::factory()->adult()->create();
+        $this->assertNull($this->presenter->present($sansCfa)['cfa_badge_label']);
+
+        // cfa_organization_id n'est pas mass-assignable (meme raison que
+        // latitude/longitude) : forceFill, comme le ferait AdminService.
+        $cfa = CfaOrganization::factory()->create(['name' => 'IDA']);
+        $avecCfa = CandidateProfile::factory()->adult()->create();
+        $avecCfa->forceFill(['cfa_organization_id' => $cfa->id])->saveQuietly();
+        $this->assertSame('JEUNCY x IDA', $this->presenter->present($avecCfa->fresh())['cfa_badge_label']);
     }
 }

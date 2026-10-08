@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Enums\UserRole;
 use App\Models\CandidateProfile;
+use App\Models\CfaOrganization;
 use App\Models\Skill;
 use App\Models\User;
 use App\Services\AdminService;
@@ -178,5 +179,67 @@ class AdminCandidateNameTest extends TestCase
         ])->assertStatus(401);
 
         $this->assertSame('Permis', $profile->fresh()->first_name);
+    }
+
+    // --- Badge « JEUNCY x <ecole> » ---
+
+    public function test_it_attaches_a_cfa_organization(): void
+    {
+        $profile = $this->makeProfile('Lea', 'Girard');
+        $cfa = CfaOrganization::factory()->create(['name' => 'IDA']);
+
+        $rattache = $this->service->updateCandidateCfaOrganization($profile, $cfa->id);
+
+        $this->assertSame($cfa->id, $rattache->cfa_organization_id);
+        $this->assertSame('IDA', $rattache->cfaOrganization->name);
+        $this->assertSame($cfa->id, $profile->fresh()->cfa_organization_id);
+    }
+
+    public function test_it_detaches_a_cfa_organization(): void
+    {
+        $profile = $this->makeProfile('Lea', 'Girard');
+        $cfa = CfaOrganization::factory()->create();
+        $this->service->updateCandidateCfaOrganization($profile, $cfa->id);
+
+        $detache = $this->service->updateCandidateCfaOrganization($profile, null);
+
+        $this->assertNull($detache->cfa_organization_id);
+    }
+
+    public function test_it_lists_cfa_organizations_for_the_selector(): void
+    {
+        CfaOrganization::factory()->create(['name' => 'Zeta Formation']);
+        CfaOrganization::factory()->create(['name' => 'IDA']);
+
+        $liste = $this->service->listCfaOrganizations();
+
+        $this->assertSame(['IDA', 'Zeta Formation'], array_column($liste, 'name'));
+    }
+
+    public function test_the_cfa_organization_route_is_closed_to_non_admins(): void
+    {
+        $profile = $this->makeProfile('Lea', 'Girard');
+        $cfa = CfaOrganization::factory()->create();
+
+        $this->patchJson("/api/admin/candidate-profiles/{$profile->id}/cfa-organization", [
+            'cfa_organization_id' => $cfa->id,
+        ])->assertStatus(401);
+
+        $this->assertNull($profile->fresh()->cfa_organization_id);
+    }
+
+    public function test_an_admin_can_attach_a_cfa_organization_through_the_route(): void
+    {
+        $admin = User::create(['email' => 'admin@example.com', 'password_hash' => 'x', 'role' => UserRole::ADMIN]);
+        $profile = $this->makeProfile('Lea', 'Girard');
+        $cfa = CfaOrganization::factory()->create(['name' => 'IDA']);
+
+        $this->actingAs($admin, 'api')
+            ->patchJson("/api/admin/candidate-profiles/{$profile->id}/cfa-organization", [
+                'cfa_organization_id' => $cfa->id,
+            ])
+            ->assertOk();
+
+        $this->assertSame($cfa->id, $profile->fresh()->cfa_organization_id);
     }
 }

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\ListCandidateProfilesRequest;
+use App\Http\Requests\Admin\UpdateCandidateCfaOrganizationRequest;
 use App\Http\Requests\Admin\UpdateCandidateNameRequest;
 use App\Models\CandidateProfile;
 use App\Services\AdminService;
@@ -18,6 +19,11 @@ class CandidateProfileController extends Controller
         return response()->json($this->service->listCandidateProfiles($request->validated()));
     }
 
+    public function cfaOrganizations(): JsonResponse
+    {
+        return response()->json($this->service->listCfaOrganizations());
+    }
+
     public function updateName(
         UpdateCandidateNameRequest $request,
         CandidateProfile $candidateProfile,
@@ -26,6 +32,16 @@ class CandidateProfileController extends Controller
             $candidateProfile,
             $request->validated('first_name'),
             $request->validated('last_name'),
+        ));
+    }
+
+    public function updateCfaOrganization(
+        UpdateCandidateCfaOrganizationRequest $request,
+        CandidateProfile $candidateProfile,
+    ): JsonResponse {
+        return response()->json($this->service->updateCandidateCfaOrganization(
+            $candidateProfile,
+            $request->validated('cfa_organization_id'),
         ));
     }
 }

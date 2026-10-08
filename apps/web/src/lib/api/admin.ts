@@ -178,7 +178,14 @@ export interface AdminCandidateProfile {
   last_name: string;
   city: string | null;
   headline: string | null;
+  cfa_organization_id: number | null;
+  cfa_organization: { id: number; name: string } | null;
   user: { id: number; email: string; is_suspended: boolean } | null;
+}
+
+export interface AdminCfaOrganization {
+  id: number;
+  name: string;
 }
 
 export function listAdminCandidateProfiles(filters: {
@@ -203,6 +210,25 @@ export function updateCandidateName(
     method: 'PATCH',
     body: payload,
   });
+}
+
+export function listAdminCfaOrganizations() {
+  return apiRequest<AdminCfaOrganization[]>('/admin/cfa-organizations');
+}
+
+// Badge « JEUNCY x <école> » (feuille de route CFA, 2026-10-07). null
+// détache le candidat de tout CFA.
+export function updateCandidateCfaOrganization(
+  id: number,
+  cfaOrganizationId: number | null,
+) {
+  return apiRequest<AdminCandidateProfile>(
+    `/admin/candidate-profiles/${id}/cfa-organization`,
+    {
+      method: 'PATCH',
+      body: { cfa_organization_id: cfaOrganizationId },
+    },
+  );
 }
 
 // Bascule candidat <-> membre de l'équipe Jeuncy. Réservée à ces deux rôles

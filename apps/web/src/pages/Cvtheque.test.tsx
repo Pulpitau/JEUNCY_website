@@ -39,6 +39,7 @@ const carte: CandidateCard = {
   experiences: [],
   photo_url: null,
   has_uploaded_cv: true,
+  cfa_badge_label: null,
 };
 
 const cartePolluee = {

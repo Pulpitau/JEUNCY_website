@@ -73,6 +73,12 @@ class CandidateCardPresenter
             // Le fait qu'un CV existe, jamais son URL : le document se
             // telecharge par la route gardee, apres candidature.
             'has_uploaded_cv' => $profile->cv_file_url !== null,
+            // Badge « JEUNCY x <ecole> » (feuille de route CFA, 2026-10-07) :
+            // rassure une entreprise partenaire du CFA que ce candidat en
+            // fait bien partie. Null si l'admin n'a rattache aucun CFA.
+            'cfa_badge_label' => $profile->cfaOrganization === null
+                ? null
+                : "JEUNCY x {$profile->cfaOrganization->name}",
         ];
 
         if ($offer !== null && $coversOffer !== null) {

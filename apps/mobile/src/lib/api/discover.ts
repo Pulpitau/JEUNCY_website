@@ -67,6 +67,8 @@ export interface CandidateCard {
   /** Renseigne seulement si le candidat a autorise son portrait (defaut : non). */
   photo_url: string | null;
   has_uploaded_cv: boolean;
+  /** « JEUNCY x <ecole> », quand un admin a rattache le candidat a un CFA partenaire. */
+  cfa_badge_label: string | null;
   /**
    * « Sa zone de mobilite couvre ton offre » — jamais une distance, jamais une
    * ville de residence (decision du 2026-09-22 : L1132-1). Absent du detail

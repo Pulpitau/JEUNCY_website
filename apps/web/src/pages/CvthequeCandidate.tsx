@@ -108,6 +108,11 @@ export function CvthequeCandidate() {
           )}
           <div className="min-w-0">
             <CardTitle className="text-2xl">{displayName}</CardTitle>
+            {c.cfa_badge_label && (
+              <Badge variant="secondary" className="mt-1 w-fit text-xs">
+                {c.cfa_badge_label}
+              </Badge>
+            )}
             {c.headline && (
               <p className="font-inter text-muted-foreground">{c.headline}</p>
             )}

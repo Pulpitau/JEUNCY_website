@@ -232,7 +232,8 @@ class MatchService
         return $query
             ->whereHas('jobOffer', fn ($o) => $o->where($colonne, $id))
             ->with(['candidateProfile.skills:id,name', 'candidateProfile.software:id,name',
-                'candidateProfile.languages', 'candidateProfile.educations', 'candidateProfile.experiences'])
+                'candidateProfile.languages', 'candidateProfile.educations', 'candidateProfile.experiences',
+                'candidateProfile.cfaOrganization:id,name'])
             ->when($bloques !== [], fn (Builder $q) => $q->whereHas('candidateProfile', fn ($p) => $p->whereNotIn('user_id', $bloques)));
     }
 

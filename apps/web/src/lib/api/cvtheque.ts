@@ -55,6 +55,9 @@ export interface CandidateCard {
   // entreprises » (opt-in, defaut false).
   photo_url: string | null;
   has_uploaded_cv: boolean;
+  // « JEUNCY x <ecole> », quand un admin a rattache le candidat a un CFA
+  // partenaire (feuille de route CFA, 2026-10-07).
+  cfa_badge_label: string | null;
 }
 
 // La fiche n'ajoute plus de coordonnees : elle ajoute seulement le droit de

@@ -9,8 +9,6 @@ import Animated, {
   SlideInDown,
   ZoomIn,
 } from 'react-native-reanimated';
-
-const iosEaseOut = Easing.bezier(0.25, 0.1, 0.25, 1);
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/ui/button';
@@ -18,6 +16,8 @@ import { Text } from '@/components/ui/text';
 import { palette, signatureGradient } from '@/theme/colors';
 import { useTheme } from '@/theme/theme-provider';
 import { radii, spacing } from '@/theme/typography';
+
+const iosEaseOut = Easing.bezier(0.25, 0.1, 0.25, 1);
 
 // « C'est un match ! » — l'annonce, au moment du geste.
 //

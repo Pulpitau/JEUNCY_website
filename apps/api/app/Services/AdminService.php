@@ -11,6 +11,7 @@ use App\Enums\VideoRoomStatus;
 use App\Exceptions\ApiException;
 use App\Models\Application;
 use App\Models\CandidateProfile;
+use App\Models\CfaOrganization;
 use App\Models\JobOffer;
 use App\Models\Payment;
 use App\Models\Skill;
@@ -178,7 +179,7 @@ class AdminService
     public function listCandidateProfiles(array $filters): LengthAwarePaginator
     {
         $query = CandidateProfile::query()
-            ->with('user:id,email,is_suspended')
+            ->with(['user:id,email,is_suspended', 'cfaOrganization:id,name'])
             ->whereHas('user', fn ($q) => $q->notDeleted())
             ->latest();
 
@@ -284,6 +285,31 @@ class AdminService
         $profile->update(['first_name' => trim($first), 'last_name' => trim($last)]);
 
         return $profile->fresh(['user']);
+    }
+
+    // forceFill, pas update() : cfa_organization_id est volontairement
+    // absent du #[Fillable] du modele (meme raison que latitude/longitude),
+    // seul un admin le pose.
+    public function updateCandidateCfaOrganization(CandidateProfile $profile, ?int $cfaOrganizationId): CandidateProfile
+    {
+        $profile->forceFill(['cfa_organization_id' => $cfaOrganizationId])->save();
+
+        return $profile->fresh(['user', 'cfaOrganization']);
+    }
+
+    /**
+     * Pour le selecteur du panneau admin : juste de quoi nommer un CFA dans
+     * une liste deroulante, rien de plus.
+     *
+     * @return list<array{id: int, name: string}>
+     */
+    public function listCfaOrganizations(): array
+    {
+        return CfaOrganization::query()
+            ->orderBy('name')
+            ->get(['id', 'name'])
+            ->map(fn (CfaOrganization $cfa) => ['id' => $cfa->id, 'name' => $cfa->name])
+            ->all();
     }
 
     public function listJobOffers(array $filters): LengthAwarePaginator

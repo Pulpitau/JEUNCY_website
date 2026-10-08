@@ -92,6 +92,13 @@ export function CandidateCardFace({
           ) : null}
         </View>
 
+        {/* 3bis. Badge « JEUNCY x <ecole> » : rassure une entreprise partenaire du CFA. */}
+        {candidate.cfa_badge_label ? (
+          <View style={styles.chips}>
+            <Badge label={candidate.cfa_badge_label} tone="accent" />
+          </View>
+        ) : null}
+
         {/* 4. Titre du profil. */}
         {candidate.headline ? (
           <Text variant="bodyStrong" numberOfLines={2}>

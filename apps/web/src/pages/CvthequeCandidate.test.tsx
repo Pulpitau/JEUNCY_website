@@ -34,6 +34,7 @@ const fiche: CvthequeCandidateDetail = {
   ],
   photo_url: null,
   has_uploaded_cv: true,
+  cfa_badge_label: null,
   cv_available: false,
 };
 

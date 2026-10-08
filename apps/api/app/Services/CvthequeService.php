@@ -72,6 +72,7 @@ class CvthequeService
         'languages:id,candidate_profile_id,name,level',
         'educations',
         'experiences',
+        'cfaOrganization:id,name',
     ];
 
     // hasPaidAccess et non hasActiveSubscription : un compte ADMIN consulte la

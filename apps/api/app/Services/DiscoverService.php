@@ -186,7 +186,7 @@ class DiscoverService
         }
 
         $profils = $this->candidatesQuery($user, $offer)
-            ->with(['skills:id,name', 'software:id,name', 'languages', 'educations', 'experiences'])
+            ->with(['skills:id,name', 'software:id,name', 'languages', 'educations', 'experiences', 'cfaOrganization:id,name'])
             ->paginate(self::TAILLE_PILE, ['*'], 'page', $page);
 
         $competencesOffre = $offer->skills()->pluck('name')->all();

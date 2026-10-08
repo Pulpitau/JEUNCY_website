@@ -146,6 +146,14 @@ function CandidateCard({ candidate }: { candidate: CandidateCardData }) {
         </div>
       </div>
 
+      {/* Rassure une entreprise partenaire du CFA que ce candidat en fait
+          bien partie (feuille de route CFA, 2026-10-07). */}
+      {candidate.cfa_badge_label && (
+        <Badge variant="secondary" className="w-fit text-xs">
+          {candidate.cfa_badge_label}
+        </Badge>
+      )}
+
       {/* Aucune ville ici, et ce n'est pas un oubli : le lieu de residence
           n'est pas montre avant candidature. */}
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 font-inter text-xs text-muted-foreground">

@@ -5,6 +5,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
   listAdminCandidateProfiles,
+  listAdminCfaOrganizations,
+  updateCandidateCfaOrganization,
   updateCandidateName,
   type AdminCandidateProfile,
 } from '@/lib/api/admin';
@@ -28,6 +30,13 @@ export function AdminCandidatesPanel() {
     queryFn: () => listAdminCandidateProfiles({ suspicious: suspiciousOnly, page }),
   });
 
+  // Rarement modifiee (une poignee de CFA partenaires) : pas besoin de la
+  // reinvalider avec la liste des candidats.
+  const cfaOrganizationsQuery = useQuery({
+    queryKey: ['admin', 'cfa-organizations'],
+    queryFn: listAdminCfaOrganizations,
+  });
+
   const renameMutation = useMutation({
     mutationFn: ({
       id,
@@ -39,6 +48,19 @@ export function AdminCandidatesPanel() {
     }) => updateCandidateName(id, payload),
     onSuccess: async () => {
       setEditingId(null);
+      await queryClient.invalidateQueries({ queryKey: ['admin', 'candidate-profiles'] });
+    },
+  });
+
+  const cfaOrganizationMutation = useMutation({
+    mutationFn: ({
+      id,
+      cfaOrganizationId,
+    }: {
+      id: number;
+      cfaOrganizationId: number | null;
+    }) => updateCandidateCfaOrganization(id, cfaOrganizationId),
+    onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['admin', 'candidate-profiles'] });
     },
   });
@@ -92,6 +114,10 @@ export function AdminCandidatesPanel() {
               onSave={(first_name, last_name) =>
                 renameMutation.mutate({ id: profile.id, first_name, last_name })
               }
+              cfaOrganizations={cfaOrganizationsQuery.data ?? []}
+              onCfaOrganizationChange={(cfaOrganizationId) =>
+                cfaOrganizationMutation.mutate({ id: profile.id, cfaOrganizationId })
+              }
             />
           ))}
         </div>
@@ -109,6 +135,8 @@ function CandidateRow({
   onEdit,
   onCancel,
   onSave,
+  cfaOrganizations,
+  onCfaOrganizationChange,
 }: {
   profile: AdminCandidateProfile;
   isEditing: boolean;
@@ -116,11 +144,35 @@ function CandidateRow({
   onEdit: () => void;
   onCancel: () => void;
   onSave: (firstName: string, lastName: string) => void;
+  cfaOrganizations: { id: number; name: string }[];
+  onCfaOrganizationChange: (cfaOrganizationId: number | null) => void;
 }) {
   const [firstName, setFirstName] = useState(profile.first_name);
   const [lastName, setLastName] = useState(profile.last_name);
 
   const canSave = firstName.trim().length > 0 && lastName.trim().length > 0;
+
+  // Badge « JEUNCY x <école> » : rassure une entreprise partenaire du CFA
+  // que ce candidat en fait bien partie.
+  const cfaSelector = (
+    <label className="flex items-center gap-2 text-xs text-muted-foreground">
+      JEUNCY x
+      <select
+        className="rounded-md border border-input bg-background px-2 py-1 text-xs"
+        value={profile.cfa_organization_id ?? ''}
+        onChange={(event) =>
+          onCfaOrganizationChange(event.target.value ? Number(event.target.value) : null)
+        }
+      >
+        <option value="">Aucun CFA</option>
+        {cfaOrganizations.map((cfa) => (
+          <option key={cfa.id} value={cfa.id}>
+            {cfa.name}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
 
   if (!isEditing) {
     return (
@@ -134,9 +186,12 @@ function CandidateRow({
             {profile.city ? ` — ${profile.city}` : ''}
           </p>
         </div>
-        <Button type="button" size="sm" variant="outline" onClick={onEdit}>
-          Corriger le nom
-        </Button>
+        <div className="flex items-center gap-3">
+          {cfaSelector}
+          <Button type="button" size="sm" variant="outline" onClick={onEdit}>
+            Corriger le nom
+          </Button>
+        </div>
       </div>
     );
   }

@@ -154,6 +154,14 @@ class CandidateProfile extends Model
         return $this->belongsTo(User::class);
     }
 
+    // Jamais mass-assignable (absent du #[Fillable] ci-dessus, meme raison
+    // que latitude/longitude) : seul un admin le pose, via
+    // AdminService::updateCandidateCfaOrganization.
+    public function cfaOrganization(): BelongsTo
+    {
+        return $this->belongsTo(CfaOrganization::class);
+    }
+
     public function experiences(): HasMany
     {
         return $this->hasMany(Experience::class);

@@ -21,7 +21,10 @@ Route::prefix('admin')->middleware(['auth:api', 'role:ADMIN'])->group(function (
     Route::post('users/{user}/demote-staff', [UserController::class, 'demoteFromStaff']);
 
     Route::get('candidate-profiles', [CandidateProfileController::class, 'index']);
+    Route::get('cfa-organizations', [CandidateProfileController::class, 'cfaOrganizations']);
     Route::patch('candidate-profiles/{candidateProfile}/name', [CandidateProfileController::class, 'updateName']);
+    // Rattachement/detachement d'un badge « JEUNCY x <ecole> ».
+    Route::patch('candidate-profiles/{candidateProfile}/cfa-organization', [CandidateProfileController::class, 'updateCfaOrganization']);
     Route::post('users/{user}/suspend', [UserController::class, 'suspend']);
     Route::post('users/{user}/reactivate', [UserController::class, 'reactivate']);
 
