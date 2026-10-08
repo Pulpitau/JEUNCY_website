@@ -1737,3 +1737,40 @@ created from object types` — `{...(props as never)}`, arrivé avec le commit
 - **Chemin critique de la commercialisation** : l'app n'est publiée sur aucun
   store. Compte Apple Developer et Google Play à ouvrir avant tout démarchage.
 - Commande `/reprendre` ajoutée (`.claude/commands/reprendre.md`).
+
+**Où on s'est arrêté (fin de session du 2026-10-07)**
+
+- **En cours : tests de l'app sur iPhone, sur la BASE DE TEST** (jamais en
+  production : un swipe à droite y prévient un vrai jeune). Prochaine étape
+  exacte : Pierre rouvre l'app dans Expo Go (`exp://192.168.1.15:8081`), se
+  connecte en `cfa.test@demo-match.example.com` / `Password123!`, swipe à
+  droite sur Yanis → vérifier que le match s'affiche **instantanément** avec
+  vibration. Puis la suite du plan de test : swipe droit sur un candidat sans
+  « oui » (bannière « Intérêt envoyé »), gauche, annuler, onglet Matchs, côté
+  candidat (`candidat.test`), envoi de dossier, photo obligatoire
+  (`sans.photo`). **Une étape à la fois.**
+- **Environnement de test à relancer** (les serveurs meurent avec la session) :
+  - API : `cd apps/api/public && APP_URL=http://192.168.1.15:3000 php -S
+0.0.0.0:3000 ../vendor/laravel/framework/src/Illuminate/Foundation/resources/server.php`
+  - Expo : `cd apps/mobile && npx expo start --lan` (pas de QR ici : URL à
+    taper à la main dans Expo Go).
+  - `apps/mobile/.env` vise l'API de test. **Le supprimer** (puis relancer
+    Expo) pour revenir à la production.
+  - Remise à zéro des piles :
+    `APP_URL=http://192.168.1.15:3000 php artisan db:seed --class=MatchDemoSeeder --force`
+    (recrée les comptes : Pierre doit se reconnecter).
+  - La base Clever Cloud (plan DEV) refuse les connexions ~2-3 min si on
+    l'utilise trop vite ; le PC de Pierre a manqué de mémoire une fois.
+- **Non commité** (à relire puis commiter au signal de Pierre) :
+  `MatchDemoSeeder.php` (jeu de démo, refuse la production), `employer-deck.tsx`
+  (matchs en file d'attente + affichage instantané avant la réponse serveur),
+  `match-sheet.tsx` (entrée en ressort + vibration), `expo-haptics ~57.0.3`
+  ajouté (`package.json`, `pnpm-lock.yaml` réécrit par pnpm, Prettier le
+  reformatera au commit).
+- **Production, à décider avec Pierre** : ses swipes de test depuis le compte
+  IDA ont notifié de vrais candidats (et déclenchent des relances à J+3).
+  Conseillé : remettre `JEUNCY_RELANCES_ACTIVES=false` le temps de nettoyer.
+  Un outil de nettoyage en production a été bloqué par l'environnement : ne
+  rien effacer en prod sans autorisation explicite de Pierre.
+- Apple Developer : demande envoyée (Enrollment ID DAJ8F9ARRS), attente de
+  l'email d'Apple.

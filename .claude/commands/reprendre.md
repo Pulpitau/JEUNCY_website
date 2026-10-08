@@ -2,29 +2,24 @@
 description: Reprendre le travail là où la dernière session l'a laissé
 ---
 
-Reprendre, c'est retrouver ce qui restait en cours — pas relire tout
-`CLAUDE.md` comme une liste à cocher (il est tenu à la main et prend du retard
-de plusieurs sessions, voir §11). Dans l'ordre :
+Reprendre, c'est retrouver ce qui restait en cours, puis donner à Pierre **une
+seule étape**, en réponse courte. Dans l'ordre :
 
-1. `git status` et `git diff` sur tout le repo (pas seulement `apps/mobile`) :
-   des fichiers modifiés non commités sont le signal le plus fiable d'un
-   travail interrompu en plein milieu.
-2. `git log --oneline -20` : le dernier commit donne la date de « hier »
-   réelle et le sujet du dernier chantier fini.
-3. Si des fichiers sont modifiés : lire le diff en entier, comprendre ce qui
-   manque pour que ce soit fini (test qui couvre le changement, suite
-   correspondante qui passe), finir, puis **demander avant de commit** — ne
-   jamais commit sans confirmation explicite.
-4. Si rien n'est en cours : chercher le dernier point ouvert non résolu —
-   dans l'ordre de fiabilité, un memory `project`/`feedback` récent, puis les
-   dernières sections « Connu et à traiter plus tard » de `CLAUDE.md` (en se
-   rappelant qu'elles peuvent déjà être résolues par un commit plus récent :
-   vérifier dans le code, jamais prendre la note pour un fait actuel).
-5. Annoncer en une phrase ce qui semble être « où on s'est arrêté » et
-   pourquoi (quel fichier, quel commit, quelle note), avant de continuer —
-   si deux pistes sont également plausibles, les nommer toutes les deux et
-   demander laquelle plutôt que de deviner.
+1. Lire la **dernière section « Où on s'est arrêté »** à la fin de `CLAUDE.md` :
+   c'est le point d'arrêt écrit en fin de session (prochaine étape exacte,
+   environnement de test, travail non commité, décisions en attente).
+2. `git status` et `git log --oneline -10` sur tout le repo : des fichiers
+   modifiés non commités confirment le travail interrompu. Ne jamais commiter
+   sans le feu vert de Pierre.
+3. Vérifier, sans le croire sur parole, ce que la note affirme : un point
+   « en attente » peut avoir été réglé depuis (voir mémoire
+   [[diagnostiquer-avant-de-supposer]]).
+4. Si la reprise demande l'environnement de test (API locale, Expo, base de
+   démo), le relancer comme décrit dans la note, vérifier qu'il répond, puis
+   seulement donner l'étape à Pierre.
+5. Répondre à Pierre en **trois lignes au plus** : où on en est, puis **la
+   seule prochaine étape** qu'il doit faire. Jamais la liste complète (mémoire
+   [[une-etape-a-la-fois]]).
 
-Ne jamais supposer l'état de la production à partir d'une note : une note dit
-ce qui était vrai quand elle a été écrite, pas ce qui est vrai maintenant
-(voir memory [[diagnostiquer-avant-de-supposer]]).
+Ne jamais tester en production ce qui touche de vrais candidats : la base de
+test et `MatchDemoSeeder` existent pour ça.
