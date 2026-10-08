@@ -70,7 +70,7 @@ class DeployController extends Controller
     // ne peut pas savoir si le controleur lui-meme a bien ete redeploye : c est
     // arrive le 2026-09-02, ou clear-cache continuait d echouer avec une version
     // corrigee censement en place. A incrementer a chaque changement ici.
-    public const DEPLOY_TOOLS_VERSION = 'deploy-tools-33';
+    public const DEPLOY_TOOLS_VERSION = 'deploy-tools-34';
 
     // Perimetre de lancement du match mobile (decision du 2026-09-22) : les
     // Pyrenees-Orientales, mesurees autour de Perpignan (centre-ville).
@@ -896,6 +896,35 @@ class DeployController extends Controller
             // plus haut dans cette liste — ils y restent, une entree en double
             // ne coute qu'une ligne de JSON, une entree manquante coute une
             // journee.
+
+            // ================================================================
+            // BADGE « JEUNCY x ECOLE » ET ESPACE CFA (2026-10-08). Ce que
+            // chaque absence produit :
+            //   - la migration de candidate_profiles : le presenteur lit une
+            //     relation sur une colonne inconnue, donc deck, CVtheque et
+            //     matchs tombent en 500 ensemble ;
+            //   - la migration de l'enum : la recommandation est enregistree
+            //     mais sa notification echoue, l'entreprise n'en sait rien ;
+            //   - routes/api/cfa-partnership.php : toute la section CFA du
+            //     site repond 404 alors que chaque autre fichier est la.
+            // Deja surveilles plus haut, modifies pour brancher :
+            // CandidateProfile, CfaOrganization, NotificationType,
+            // CandidateCardPresenter, AdminService, CvthequeService,
+            // DiscoverService, MatchService, Admin/CandidateProfileController,
+            // routes/api/admin.php, routes/api.php.
+            // ================================================================
+            'database/migrations/2026_10_08_091151_add_cfa_organization_to_candidate_profiles_table.php',
+            'database/migrations/2026_10_08_093457_create_cfa_partner_companies_table.php',
+            'database/migrations/2026_10_08_093458_create_candidate_recommendations_table.php',
+            'database/migrations/2026_10_08_093459_add_candidate_recommended_to_notifications_type_enum.php',
+            'app/Http/Requests/Admin/UpdateCandidateCfaOrganizationRequest.php',
+            'app/Models/CandidateRecommendation.php',
+            'app/Services/CfaPartnershipService.php',
+            'app/Http/Controllers/CfaPartnershipController.php',
+            'app/Http/Requests/CfaPartnership/SearchVerifiedCompaniesRequest.php',
+            'app/Http/Requests/CfaPartnership/AddPartnerCompanyRequest.php',
+            'app/Http/Requests/CfaPartnership/RecommendCandidateRequest.php',
+            'routes/api/cfa-partnership.php',
         ];
 
         $etat = [];
