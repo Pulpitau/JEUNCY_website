@@ -1774,3 +1774,59 @@ created from object types` — `{...(props as never)}`, arrivé avec le commit
   rien effacer en prod sans autorisation explicite de Pierre.
 - Apple Developer : demande envoyée (Enrollment ID DAJ8F9ARRS), attente de
   l'email d'Apple.
+
+**Plan de test mobile du modele match : valide sur iPhone, sur la base de
+test (2026-10-08)**
+
+- Les six etapes restantes de la session precedente sont passees : match
+  instantane (avec vibration), « Ca m'interesse » sans reponse (« Interet
+  envoye »), passer, annuler, onglet Matchs (cote CFA et cote candidat,
+  dossier envoye), photo obligatoire (avertissement avant le 14 octobre,
+  comportement attendu). Aucun des tests n'a touche la production.
+- Animations de `MatchSheet` reprises trois fois sur retour de Pierre
+  (« tourbillon d'enfant », puis « toujours des oscillations ») : les
+  springs sous-amortis (damping 8 puis 16/20, toujours < le seuil critique
+  ~28 pour ces raideurs) oscillaient reellement, ce n'etait pas une
+  impression. Remplaces par une courbe ease-out pure (meme cubic-bezier
+  qu'iOS, aucun spring), plus une entree en cascade (badge, titre, texte,
+  boutons) plutot que tout d'un coup. Reutiliser cette courbe pour toute
+  future animation d'entree « premium » plutot que repartir d'un spring.
+- `MatchDemoSeeder` corrige : `candidat.test` n'avait aucun match pre-fait,
+  impossible de tester l'envoi de dossier sans rejouer tout le parcours.
+  Ajoute un match deja conclu avec l'offre du CFA.
+- Decision de Pierre sur le risque de relances en production (swipes de
+  test du 2026-10-01 sur le vrai compte IDA) : laisser
+  `JEUNCY_RELANCES_ACTIVES=true`, les tests ulterieurs passant desormais
+  uniquement par les comptes `*.test` sur l'API locale. Rien change cote
+  serveur.
+- Les deux commits de la session precedente (animations/seeder/relecture
+  docs) sont pousses sur `origin/feature/mobile-match`.
+
+**Badge « JEUNCY x <ecole> » (2026-10-08) : termine, pas deploye**
+
+- Premier des trois chantiers de la feuille de route CFA (2026-10-07), le
+  plus simple : un candidat peut etre rattache a un CFA partenaire (ex.
+  IDA) par un admin, pour rassurer les entreprises partenaires de cette
+  ecole quand elles voient sa carte.
+- `candidate_profiles.cfa_organization_id` (migration, nullable,
+  nullOnDelete), jamais mass-assignable (meme raison que
+  latitude/longitude : seul `AdminService::updateCandidateCfaOrganization`
+  le pose, par `forceFill`). `CandidateCardPresenter` — le point unique
+  d'exposition du deck, de la CVtheque et du match — ajoute
+  `cfa_badge_label` (« JEUNCY x IDA » ou null), avec l'eager-load
+  correspondant aux trois endroits qui l'appellent (sinon N+1 silencieux).
+- Admin : `PATCH admin/candidate-profiles/{id}/cfa-organization`
+  (rattacher/detacher) et `GET admin/cfa-organizations` (liste pour le
+  selecteur), cables dans l'onglet Candidats de `/admin` (menu deroulant
+  par ligne, a cote du bouton de correction du nom).
+- Affichage : carte candidat du deck mobile (juste sous le prenom et la
+  tranche d'age) et CVtheque du site (liste et fiche).
+- 6 tests ajoutes (934/934 au total), build web (`tsc -b` + `vite build`)
+  et lint verifies en plus des tests — leçon du 2026-09-29 (un fichier de
+  test avait casse le build sans casser les tests).
+- Pas encore deploye, et IDA n'est pas encore rattachee a ses eleves : la
+  prochaine fois que ce sujet revient, verifier d'abord si Pierre l'a fait
+  depuis l'admin plutot que de supposer que non.
+- Reste de la feuille de route CFA, non commence : espace CFA (saisir ses
+  entreprises partenaires), fiche candidat detaillee swipable pour
+  l'employeur apres un like.
