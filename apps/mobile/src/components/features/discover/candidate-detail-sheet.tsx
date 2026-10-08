@@ -47,29 +47,32 @@ export function CandidateDetailSheet({
     .filter(Boolean)
     .join(' ');
 
+  // pageSheet : la feuille native d'iOS. Elle se ferme en la tirant vers le
+  // bas (onRequestClose est appele a la fin du geste), et la pile reste
+  // visible derriere, en retrait. Une barre de prehension dessinee a la main
+  // promettait ce geste sans le tenir. Android l'affiche en plein ecran.
   return (
     <Modal
       visible
-      transparent
       animationType="slide"
+      presentationStyle="pageSheet"
       onRequestClose={onClose}
-      statusBarTranslucent
     >
-      <Pressable
-        style={styles.backdrop}
-        onPress={onClose}
-        accessibilityRole="button"
-        accessibilityLabel="Fermer la fiche"
-      />
       <View
-        style={[
-          styles.sheet,
-          { backgroundColor: colors.surface, borderColor: colors.border },
-        ]}
+        style={[styles.sheet, { backgroundColor: colors.surface }]}
         accessibilityViewIsModal
       >
         <View style={styles.grip}>
           <View style={[styles.gripBar, { backgroundColor: colors.border }]} />
+          <Pressable
+            onPress={onClose}
+            accessibilityRole="button"
+            accessibilityLabel="Fermer la fiche"
+            hitSlop={12}
+            style={styles.close}
+          >
+            <Ionicons name="close" size={22} color={colors.textMuted} />
+          </Pressable>
         </View>
 
         <ScrollView
@@ -78,15 +81,19 @@ export function CandidateDetailSheet({
             { paddingBottom: insets.bottom + spacing.xxl },
           ]}
         >
+          {/* Le portrait en grand, seulement si le candidat l'a autorise :
+              le serveur renvoie null sinon, rien a masquer ici. */}
+          {candidate.photo_url ? (
+            <Image
+              source={{ uri: candidate.photo_url }}
+              style={styles.portrait}
+              contentFit="cover"
+              transition={200}
+              accessibilityLabel=""
+            />
+          ) : null}
+
           <View style={styles.identity}>
-            {candidate.photo_url ? (
-              <Image
-                source={{ uri: candidate.photo_url }}
-                style={styles.portrait}
-                contentFit="cover"
-                accessibilityLabel=""
-              />
-            ) : null}
             <View style={styles.identityText}>
               <Text variant="title">{nom || 'Candidat'}</Text>
               {candidate.age_band ? (
@@ -306,19 +313,14 @@ function Entry({
 }
 
 const styles = StyleSheet.create({
-  backdrop: { flex: 1, backgroundColor: 'rgba(6, 29, 79, 0.45)' },
-  sheet: {
-    maxHeight: '88%',
-    borderTopLeftRadius: radii.lg,
-    borderTopRightRadius: radii.lg,
-    borderTopWidth: 1,
-  },
-  grip: { alignItems: 'center', paddingVertical: spacing.sm },
-  gripBar: { width: 44, height: 4, borderRadius: 2 },
+  sheet: { flex: 1 },
+  grip: { alignItems: 'center', justifyContent: 'center', paddingVertical: spacing.md },
+  gripBar: { width: 36, height: 5, borderRadius: 3 },
+  close: { position: 'absolute', right: spacing.lg, top: spacing.sm },
   content: { paddingHorizontal: spacing.xl, gap: spacing.lg },
   identity: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
   identityText: { flex: 1, gap: 2 },
-  portrait: { width: 64, height: 64, borderRadius: 32 },
+  portrait: { width: '100%', aspectRatio: 1, borderRadius: radii.lg },
   pitch: { fontStyle: 'italic' },
   block: { gap: spacing.sm },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs },

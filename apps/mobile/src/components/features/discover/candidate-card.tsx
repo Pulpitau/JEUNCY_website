@@ -45,9 +45,12 @@ export function CandidateCardFace({
   candidate,
   /** Vignette de fin ; masquee dans un detail qui affiche deja le portrait plus haut. */
   showPhoto = true,
+  /** Vrai dans le deck, ou un appui ouvre la fiche : rien ne le disait. */
+  openable = false,
 }: {
   candidate: Card;
   showPhoto?: boolean;
+  openable?: boolean;
 }) {
   const { colors } = useTheme();
 
@@ -191,6 +194,14 @@ export function CandidateCardFace({
             ? 'CV disponible après candidature'
             : 'Profil Jeuncy'}
         </Text>
+        {openable ? (
+          <View style={styles.openHint}>
+            <Text variant="small" style={{ color: colors.accent }}>
+              Voir le profil
+            </Text>
+            <Ionicons name="chevron-forward" size={14} color={colors.accent} />
+          </View>
+        ) : null}
       </View>
     </CardFrame>
   );
@@ -331,6 +342,7 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
   },
   footerText: { flex: 1 },
+  openHint: { flexDirection: 'row', alignItems: 'center', gap: 2 },
   thumbnail: { width: 32, height: 32, borderRadius: 16 },
   initialTile: { alignItems: 'center', justifyContent: 'center' },
 });

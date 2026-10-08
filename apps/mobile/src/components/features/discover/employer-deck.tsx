@@ -204,7 +204,7 @@ export function EmployerDeck() {
           <SwipeDeck
             cards={deck}
             keyOf={(card) => String(card.id)}
-            renderCard={(card) => <CandidateCardFace candidate={card} />}
+            renderCard={(card) => <CandidateCardFace candidate={card} openable />}
             onSwipe={handleSwipe}
             onOpen={(card) => setOpened(card)}
             onUndo={canUndo ? handleUndo : undefined}
