@@ -145,6 +145,9 @@ class CfaPartnershipServiceTest extends TestCase
         $this->assertCount(1, $notifications);
         $this->assertSame(NotificationType::CANDIDATE_RECOMMENDED, $notifications->first()->type);
         $this->assertStringContainsString('IDA', $notifications->first()->message);
+        // La page qui existe vraiment cote site (App.tsx) : un lien mort
+        // ferait atterrir l'entreprise dans le vide au clic sur la cloche.
+        $this->assertSame('/recommandations', $notifications->first()->link);
     }
 
     public function test_recommend_rejects_a_candidate_not_linked_to_this_cfa(): void

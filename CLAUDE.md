@@ -1830,3 +1830,63 @@ test (2026-10-08)**
 - Reste de la feuille de route CFA, non commence : espace CFA (saisir ses
   entreprises partenaires), fiche candidat detaillee swipable pour
   l'employeur apres un like.
+
+**Espace CFA, chantier 2 : entreprises partenaires + recommandation
+(2026-10-08) : termine et verifie contre la vraie base MySQL**
+
+- Deux decisions prises avec Pierre avant d'ecrire du code : (1) « pousser un
+  profil » = une recommandation (notification + lien vers la carte), jamais
+  un faux `OfferInterest` cree a la place de l'entreprise — elle reste libre
+  de liker ou non via le « Ca m'interesse » normal, inchange ; (2) un CFA ne
+  peut recommander que SES candidats (`cfa_organization_id`, le badge du
+  chantier precedent), jamais n'importe quel profil de la CVtheque.
+- Nouvelles tables : `cfa_partner_companies` (pivot CFA/Company, toujours un
+  compte Jeuncy VERIFIED, jamais un envoi a l'aveugle) et
+  `candidate_recommendations` (unique candidat/offre : un second clic ne
+  spamme pas une seconde notification). Nouveau type d'enum
+  `NotificationType::CANDIDATE_RECOMMENDED` (cote employeur seulement, le
+  candidat n'est pas prevenu qu'on l'a recommande).
+- `CfaPartnershipService` reutilise l'existant plutot que de le dupliquer :
+  `CfaOrganizationService::requireCfaOrganization` pour resoudre le CFA
+  courant, et surtout `DiscoverService::candidatesQuery` — EXACTEMENT la
+  meme garde que `InterestService::assertCibleEligible` — pour refuser une
+  recommandation sur un candidat que l'offre ne pourrait de toute facon
+  jamais liker (hors rayon, mauvais type de contrat...). Aucune nouvelle
+  route de « like » n'a ete necessaire : `POST interests` (lot 1, deja en
+  production) suffit tel quel des que l'employeur a la bonne carte sous les
+  yeux.
+- Routes `cfa/partner-companies` (recherche/ajout/retrait), `cfa/candidates`,
+  `cfa/partner-companies/{id}/job-offers`, `cfa/recommendations` (role CFA) ;
+  `GET recommendations` cote entreprise (role COMPANY). 13 tests PHPUnit
+  (947/947 au total).
+- **Web seulement, pas mobile** — ecart assume par rapport au reflexe habituel
+  « mobile d'abord » du modele match. Raison : contrairement au deck swipe,
+  recommander est un geste ponctuel et rare (un CFA qui gere ses partenaires),
+  pas un geste repete en mobilite — un formulaire classique (recherche,
+  3 menus deroulants) convient mieux qu'un geste tactile. Section
+  « Entreprises partenaires » + « Recommander un candidat » dans
+  `/organization` (CFA), page `/recommandations` **en lecture seule** cote
+  entreprise (`ReceivedRecommendations.tsx`) — volontairement sans bouton
+  « Ca m'interesse » : cette action n'existe nulle part ailleurs sur le site
+  (confirme par une recherche dans le code, « le site n'a pas de pile de
+  cartes »), lui en ajouter une ici aurait cree une deuxieme facon de liker
+  divergente de celle du mobile. La page renvoie donc vers l'application.
+- **Piege de deploiement reproduit et corrige avant tout envoi FTP** : le nom
+  d'index auto-genere de `candidate_recommendations` (69 caracteres) a
+  depasse la limite MySQL de 64 — EXACTEMENT le piege d'`external_interests`
+  documente plus haut (lot 1). Reproduit en conditions reelles sur la base de
+  dev Clever Cloud (la table s'est creee sans son index, migration non
+  enregistree), corrige avec un nom explicite court + le meme rattrapage
+  `Schema::dropIfExists` en tete de `up()`. Lecon confirmee une seconde fois :
+  **toute migration creant un index compose sur des colonnes a nom long doit
+  etre jouee contre un vrai MySQL avant l'envoi**, SQLite ne le voit pas.
+- **Verifie en conditions reelles contre la vraie base MySQL** (curl, comptes
+  `cfa.test`/`entreprise.test` du jeu de demo) : recherche d'entreprise
+  verifiee, ajout en partenaire, liste « mes candidats » (badge CFA inclus),
+  liste des offres publiees du partenaire, recommandation creee, **second
+  clic idempotent** (meme id renvoye, aucune notification supplementaire),
+  reception cote entreprise avec le bon candidat et la bonne offre,
+  notification `CANDIDATE_RECOMMENDED` ecrite avec le bon message —
+  l'ecriture reelle de la valeur d'enum en MySQL est ce que SQLite ne prouve
+  pas. Donnees de test retirees de la base de dev ensuite.
+- Build web (`tsc -b` + `vite build`) et lint verifies en plus des tests.

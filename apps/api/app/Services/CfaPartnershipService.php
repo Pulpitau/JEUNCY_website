@@ -172,7 +172,7 @@ class CfaPartnershipService
             $ownerUser->notifications()->create([
                 'type' => NotificationType::CANDIDATE_RECOMMENDED,
                 'message' => "{$cfa->name} te recommande un candidat pour ton offre « {$offer->title} ».",
-                'link' => "/offres/{$offer->id}/recommandations",
+                'link' => '/recommandations',
             ]);
         }
 

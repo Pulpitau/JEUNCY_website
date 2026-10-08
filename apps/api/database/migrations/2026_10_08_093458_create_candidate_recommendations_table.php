@@ -11,9 +11,8 @@ use Illuminate\Support\Facades\Schema;
 // Decisions de Pierre (2026-10-08) : ca ne cree JAMAIS d'interet employeur a
 // sa place (pas de faux OfferInterest), seulement une notification + un lien
 // vers la carte du candidat. L'employeur reste libre de liker ou non — voir
-// CandidateRecommendationController::show, qui reutilise
-// InterestService::assertCibleEligible (via DiscoverService::candidatesQuery)
-// pour la meme garde que le "Ca m'interesse" normal.
+// CfaPartnershipService::recommend, qui reprend la garde
+// d'InterestService::assertCibleEligible (DiscoverService::candidatesQuery).
 //
 // Unique [candidate_profile_id, job_offer_id] : une recommandation repetee
 // par erreur ne doit pas spammer l'employeur d'une notification par clic.
