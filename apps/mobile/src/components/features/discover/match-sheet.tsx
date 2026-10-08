@@ -1,6 +1,16 @@
 import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Modal, Pressable, StyleSheet, View } from 'react-native';
+import { useEffect } from 'react';
+import { Modal, Pressable, StyleSheet } from 'react-native';
+import Animated, {
+  Easing,
+  FadeInDown,
+  SlideInDown,
+  ZoomIn,
+} from 'react-native-reanimated';
+
+const iosEaseOut = Easing.bezier(0.25, 0.1, 0.25, 1);
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/ui/button';
@@ -39,6 +49,10 @@ export function MatchSheet({
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
 
+  useEffect(() => {
+    void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  }, []);
+
   return (
     <Modal
       visible
@@ -53,7 +67,8 @@ export function MatchSheet({
         accessibilityRole="button"
         accessibilityLabel="Continuer"
       />
-      <View
+      <Animated.View
+        entering={SlideInDown.duration(320).easing(iosEaseOut)}
         style={[
           styles.sheet,
           {
@@ -65,28 +80,39 @@ export function MatchSheet({
         accessibilityViewIsModal
         accessibilityLiveRegion="polite"
       >
-        <LinearGradient
-          colors={[...signatureGradient]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 0 }}
-          style={styles.badge}
+        <Animated.View entering={ZoomIn.delay(80).springify().damping(24).stiffness(200)}>
+          <LinearGradient
+            colors={[...signatureGradient]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.badge}
+          >
+            <Ionicons name="heart" size={26} color={palette.white} />
+          </LinearGradient>
+        </Animated.View>
+
+        <Animated.View entering={FadeInDown.delay(180).duration(260).easing(iosEaseOut)}>
+          <Text variant="hero">C&apos;est un match !</Text>
+        </Animated.View>
+        <Animated.View entering={FadeInDown.delay(250).duration(260).easing(iosEaseOut)}>
+          <Text variant="body" tone="muted">
+            {applicationSent
+              ? `${counterpartLabel} avait déjà envoyé son dossier : tu peux le lire dès maintenant.`
+              : `${counterpartLabel} s'intéresse aussi à ton offre. On vient de le prévenir : c'est à lui d'envoyer son dossier.`}
+          </Text>
+        </Animated.View>
+
+        <Animated.View
+          entering={FadeInDown.delay(320).duration(260).easing(iosEaseOut)}
+          style={styles.actions}
         >
-          <Ionicons name="heart" size={26} color={palette.white} />
-        </LinearGradient>
-
-        <Text variant="hero">C&apos;est un match !</Text>
-        <Text variant="body" tone="muted">
-          {applicationSent
-            ? `${counterpartLabel} avait déjà envoyé son dossier : tu peux le lire dès maintenant.`
-            : `${counterpartLabel} s'intéresse aussi à ton offre. On vient de le prévenir : c'est à lui d'envoyer son dossier.`}
-        </Text>
-
-        <Button
-          label={applicationSent ? 'Voir le dossier' : 'Voir mes matchs'}
-          onPress={onSeeMatches}
-        />
-        <Button label="Continuer à découvrir" variant="ghost" onPress={onContinue} />
-      </View>
+          <Button
+            label={applicationSent ? 'Voir le dossier' : 'Voir mes matchs'}
+            onPress={onSeeMatches}
+          />
+          <Button label="Continuer à découvrir" variant="ghost" onPress={onContinue} />
+        </Animated.View>
+      </Animated.View>
     </Modal>
   );
 }
@@ -108,4 +134,5 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  actions: { gap: spacing.md },
 });

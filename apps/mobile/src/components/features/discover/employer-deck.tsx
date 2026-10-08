@@ -54,12 +54,17 @@ export function EmployerDeck() {
   const [chosenId, setChosenId] = useState<number | null>(null);
   const [choosingOffer, setChoosingOffer] = useState(false);
   const [opened, setOpened] = useState<DeckCandidateCard | null>(null);
-  const [match, setMatch] = useState<{ label: string; applicationSent: boolean } | null>(
-    null,
-  );
+  // File d'attente, pas un seul match : la réponse d'un « oui » peut arriver
+  // après le swipe suivant (le serveur envoie ses emails dans la requête), et
+  // un second match écrasait alors le premier sans qu'il soit jamais annoncé.
+  const [matches, setMatches] = useState<
+    { id: number; label: string; applicationSent: boolean }[]
+  >([]);
+  const match = matches[0] ?? null;
+  const closeMatch = () => setMatches((queue) => queue.slice(1));
   // Intérêt envoyé, pas encore de réponse : le candidat décide de son côté.
-  // Effacé au geste suivant, pour ne pas s'accumuler sous la pile.
-  const [pending, setPending] = useState<string | null>(null);
+  // L'identifiant sert de clé : deux intérêts de suite rejouent la bannière.
+  const [pending, setPending] = useState<{ id: number; label: string } | null>(null);
 
   // L'offre qui porte la pile : celle qu'on a choisie si elle est toujours
   // utilisable, sinon la premiere disponible.
@@ -84,18 +89,41 @@ export function EmployerDeck() {
       return;
     }
 
-    setPending(null);
+    // Annoncé tout de suite, sans attendre le serveur (plusieurs secondes : il
+    // envoie ses emails dans la requête). La carte dit déjà si le candidat a
+    // dit oui, donc si ce geste fait un match.
+    const label = labelOf(card);
+    const retirerMatch = () =>
+      setMatches((queue) => queue.filter((entry) => entry.id !== card.id));
+
+    if (card.candidate_interested) {
+      setMatches((queue) => [...queue, { id: card.id, label, applicationSent: false }]);
+    } else {
+      setPending({ id: card.id, label });
+    }
 
     void like(card)
       .then(({ matched, applicationSent }) => {
-        if (!matched) {
-          setPending(labelOf(card));
+        if (matched && card.candidate_interested) {
+          setMatches((queue) =>
+            queue.map((entry) =>
+              entry.id === card.id ? { ...entry, applicationSent } : entry,
+            ),
+          );
 
           return;
         }
-        setMatch({ label: labelOf(card), applicationSent });
+        // Le serveur a tranché autrement : le candidat a changé d'avis
+        // entre le chargement de la pile et le geste.
+        if (matched) {
+          setMatches((queue) => [...queue, { id: card.id, label, applicationSent }]);
+        } else if (card.candidate_interested) {
+          retirerMatch();
+          setPending({ id: card.id, label });
+        }
       })
       .catch((cause: unknown) => {
+        retirerMatch();
         signalerEchecInteret(cause);
       });
   };
@@ -219,17 +247,20 @@ export function EmployerDeck() {
         <CandidateDetailSheet candidate={opened} onClose={() => setOpened(null)} />
       ) : null}
 
-      {pending ? <InterestToast label={pending} top={insets.top} /> : null}
+      {pending ? (
+        <InterestToast key={pending.id} label={pending.label} top={insets.top} />
+      ) : null}
 
       {match ? (
         <MatchSheet
+          key={match.id}
           counterpartLabel={match.label}
           applicationSent={match.applicationSent}
           onSeeMatches={() => {
-            setMatch(null);
+            setMatches([]);
             router.push('/matchs');
           }}
-          onContinue={() => setMatch(null)}
+          onContinue={closeMatch}
         />
       ) : null}
     </View>
