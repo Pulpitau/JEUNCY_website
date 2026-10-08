@@ -29,4 +29,10 @@ enum NotificationType: string
     // Relances du modele match (lot 4) : un seul type pour toute la cascade,
     // ce qui change d'un etage a l'autre est le message.
     case MATCH_REMINDER = 'MATCH_REMINDER';
+
+    // Un CFA recommande un de ses candidats a une entreprise partenaire pour
+    // une offre precise (espace CFA, chantier 2). Cote employeur seulement :
+    // contrairement a INTEREST_RECEIVED ce n'est pas un interet reel, juste
+    // "regarde cette carte" — le candidat n'est pas prevenu.
+    case CANDIDATE_RECOMMENDED = 'CANDIDATE_RECOMMENDED';
 }

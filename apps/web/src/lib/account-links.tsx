@@ -8,6 +8,7 @@ import {
   Send,
   Shield,
   Sparkles,
+  Star,
   User,
   Video,
   type LucideIcon,
@@ -51,6 +52,11 @@ export function accountLinksFor(role: string): AccountLink[] {
       },
       { to: '/mes-offres', label: 'Mes offres', icon: FileText },
       { to: '/mes-matchs', label: 'Mes matchs', icon: Heart },
+      // Un CFA ne recoit pas de recommandation, il en envoie (depuis
+      // /organization) : lien reserve a l'entreprise.
+      ...(role === UserRole.COMPANY
+        ? [{ to: '/recommandations', label: 'Recommandations', icon: Star }]
+        : []),
       { to: '/candidats', label: 'Candidats', icon: Search },
       { to: '/mes-visios', label: 'Visio démo', icon: Video },
       // « Paiements » retire du menu le 2026-09-15 : Jeuncy est gratuit pour

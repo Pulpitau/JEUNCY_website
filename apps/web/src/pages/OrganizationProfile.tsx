@@ -11,6 +11,7 @@ import {
 } from '@/components/ui/card';
 import { CompanyForm } from '@/components/features/organization/CompanyForm';
 import { CfaForm } from '@/components/features/organization/CfaForm';
+import { CfaPartnershipsSection } from '@/components/features/organization/CfaPartnershipsSection';
 import { DirectoryVisibilitySection } from '@/components/features/organization/DirectoryVisibilitySection';
 import { OrganizationSummary } from '@/components/features/organization/OrganizationSummary';
 import { LogoUpload } from '@/components/features/organization/LogoUpload';
@@ -250,6 +251,10 @@ export function OrganizationProfile() {
           queryKey={CFA_QUERY_KEY}
         />
       )}
+
+      {/* Espace CFA, chantier 2 : seulement une fois la fiche créée (et
+          vérifiée, sans quoi la recherche d'entreprise n'a aucun sens). */}
+      {!isCompany && cfaQuery.data && <CfaPartnershipsSection />}
     </main>
   );
 }

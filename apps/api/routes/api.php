@@ -22,3 +22,4 @@ require __DIR__.'/api/interests.php';
 require __DIR__.'/api/matches.php';
 require __DIR__.'/api/external-interests.php';
 require __DIR__.'/api/blocks-reports.php';
+require __DIR__.'/api/cfa-partnership.php';

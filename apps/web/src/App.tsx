@@ -37,6 +37,7 @@ import { CompanyProfile } from '@/pages/CompanyProfile';
 import { CfaOrganizations } from '@/pages/CfaOrganizations';
 import { CfaOrganizationProfile } from '@/pages/CfaOrganizationProfile';
 import { AccountPrivacy } from '@/pages/AccountPrivacy';
+import { ReceivedRecommendations } from '@/pages/ReceivedRecommendations';
 
 export default function App() {
   return (
@@ -187,6 +188,17 @@ export default function App() {
               element={
                 <RequireAuth role={[UserRole.COMPANY, UserRole.CFA]}>
                   <MyPayments />
+                </RequireAuth>
+              }
+            />
+            {/* Espace CFA, chantier 2 : cote entreprise seulement — un CFA ne
+              recoit pas de recommandation, il en envoie (voir
+              /organization). */}
+            <Route
+              path="/recommandations"
+              element={
+                <RequireAuth role={UserRole.COMPANY}>
+                  <ReceivedRecommendations />
                 </RequireAuth>
               }
             />

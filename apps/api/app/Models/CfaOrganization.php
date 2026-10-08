@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 // trial_started_at et trial_offers_count sont volontairement absents de ce
@@ -71,5 +72,17 @@ class CfaOrganization extends Model
     public function jobOffers(): HasMany
     {
         return $this->hasMany(JobOffer::class);
+    }
+
+    // Espace CFA, chantier 2 : les entreprises que ce CFA a declarees
+    // partenaires, pour pouvoir leur recommander un de ses candidats.
+    public function partnerCompanies(): BelongsToMany
+    {
+        return $this->belongsToMany(Company::class, 'cfa_partner_companies');
+    }
+
+    public function candidates(): HasMany
+    {
+        return $this->hasMany(CandidateProfile::class);
     }
 }

@@ -12,6 +12,7 @@ export const NotificationType = {
   INTEREST_RECEIVED: 'INTEREST_RECEIVED',
   MATCH_CLOSED: 'MATCH_CLOSED',
   MATCH_REMINDER: 'MATCH_REMINDER',
+  CANDIDATE_RECOMMENDED: 'CANDIDATE_RECOMMENDED',
 } as const;
 
 export type NotificationType = (typeof NotificationType)[keyof typeof NotificationType];
