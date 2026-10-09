@@ -1898,7 +1898,25 @@ production**
 **Où on s'est arrêté (fin de session du 2026-10-09)**
 
 - **Fait** : âge minimum 16 ans + page CSAE/recours parental, en production
-  (section ci-dessus). Rien d'autre en cours, branche à jour sur origin.
+  (section ci-dessus). Branche à jour sur origin.
+- **Préparation des stores sans payer (décidé le 2026-10-09)** : identifiant
+  `com.jeuncy.app` validé par Pierre (définitif) ; compte Expo `JEUNCYDEV`
+  (go@jeuncy.com), organisation `jeuncy-app`, projet `@jeuncy-app/jeuncy`
+  lié dans `app.json` ; `eas.json` (profils `preview` = APK Android
+  installable, `production`), les deux forcent l'API de production. La
+  session Expo de Pierre est visible depuis mon shell : je lance les
+  commandes EAS moi-même (`npx -y eas-cli@latest ...`).
+- **Premier build Android** : le 1er a échoué (`@jeuncy/shared` sans `dist/`
+  sur le serveur EAS, corrigé par `eas-build-post-install` dans
+  `apps/mobile/package.json`). Le 2e
+  (`f7d4c92f-4821-495c-9e43-e62a47bd28ca`) avait passé l'assemblage JS et
+  compilait encore à 16h50 : **à vérifier en premier** avec
+  `npx -y eas-cli@latest build:view f7d4c92f-4821-495c-9e43-e62a47bd28ca`.
+  Journaux EAS compressés en brotli (`zlib.brotliDecompressSync`).
+- `expo doctor` : 10 paquets Expo en retard d'un correctif (non bloquant) — à
+  mettre à jour avant le build pour les stores, puis retester sur iPhone.
+- Ensuite (sans payer) : textes des fiches, questionnaires âge/données,
+  captures, compte de démo pour la revue Apple.
 - **Chemin critique : les stores, pas le code.** Prochaine étape exacte,
   toujours la même qu'au 2026-10-08 (pas encore faite le 2026-10-09) :
   Pierre paie les 25 $ de Google Play (carte de la société, ou carte perso en
