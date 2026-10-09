@@ -1876,13 +1876,31 @@ test (2026-10-08)**
 - Eleves d'IDA rattaches par Pierre depuis `/admin` → Candidats le
   2026-10-08, badge « JEUNCY x IDA » verifie dans la CVtheque.
 
-**Où on s'est arrêté (fin de session du 2026-10-08)**
+**Âge minimum 16 ans, page CSAE et recours parental (2026-10-09) : en
+production**
 
-- **Fait aujourd'hui, tout en production sauf le mobile** : badge « JEUNCY x
-  école », espace CFA (partenaires + recommandation), élèves d'IDA rattachés
-  par Pierre. Fiche candidat du deck (mobile, feuille native iOS) validée sur
-  iPhone, mais l'app n'est publiée nulle part. Branche à jour sur origin.
-- **Chemin critique : les stores, pas le code.** Prochaine étape exacte :
+- Décision de Pierre : 15 ans paraissait trop jeune. **Site et app exigent
+  désormais 16 ans** à la création du profil (`StoreCandidateProfileRequest`,
+  seul changement de comportement) ; textes d'inscription web et mobile,
+  politique de confidentialité, plaquettes commerciales et `MOBILE.md` alignés.
+- **Comptes existants sous 16 ans conservés** : `UpdateCandidateProfileRequest`
+  est volontairement resté à 15, sinon ces candidats ne pourraient plus
+  modifier leur profil. Ils restaient déjà exclus de Découvrir et des matchs
+  (`EnsureMatchAge`). Test : `test_an_existing_profile_under_16_can_still_be_updated`.
+- **`/mentions-legales` §8** : tolérance zéro CSAE (Pharos, LCEN art. 6-1),
+  signalement et blocage tels qu'ils existent (lot 4, traitement sous 24 h),
+  recours parental par email avec réponse sous 5 jours ouvrés. Exigé par
+  Apple ; le texte décrit le mécanisme réel, rien d'inventé.
+- 949/949 tests. Envoi : `docs/exploitation/envoi-2026-10-09.md`. Vérifié
+  après envoi : 181/181 fichiers identiques, bundle servi
+  (`index-DqcauMHX.js`) identique au bit près au build.
+
+**Où on s'est arrêté (fin de session du 2026-10-09)**
+
+- **Fait** : âge minimum 16 ans + page CSAE/recours parental, en production
+  (section ci-dessus). Rien d'autre en cours, branche à jour sur origin.
+- **Chemin critique : les stores, pas le code.** Prochaine étape exacte,
+  toujours la même qu'au 2026-10-08 (pas encore faite le 2026-10-09) :
   Pierre paie les 25 $ de Google Play (carte de la société, ou carte perso en
   note de frais) sur https://play.google.com/console/signup, connecté en
   `go@jeuncy.com`, bouton « Créer un compte et payer ». Tout est rempli
