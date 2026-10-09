@@ -1895,7 +1895,8 @@ production**
   après envoi : 181/181 fichiers identiques, bundle servi
   (`index-DqcauMHX.js`) identique au bit près au build.
 
-**Où on s'est arrêté (fin de session du 2026-10-09)**
+**Où on s'est arrêté (fin de session du vendredi 2026-10-09, reprise lundi
+2026-10-12)**
 
 - **Fait** : âge minimum 16 ans + page CSAE/recours parental, en production
   (section ci-dessus). Branche à jour sur origin.
