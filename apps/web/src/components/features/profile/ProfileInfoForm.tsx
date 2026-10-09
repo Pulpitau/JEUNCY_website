@@ -22,7 +22,8 @@ const profileSchema = z.object({
     .optional()
     .or(z.literal('')),
   // Obligatoire : l'age est un critere de selection pour les entreprises
-  // (le cout d'un alternant en depend). Le serveur impose 15 ans minimum.
+  // (le cout d'un alternant en depend). Le serveur impose 16 ans minimum
+  // pour un nouveau profil (les profils plus anciens restent modifiables).
   birth_date: z.string().min(1, 'Indique ta date de naissance.'),
   address: z.string().optional().or(z.literal('')),
   city: z.string().optional().or(z.literal('')),

@@ -37,13 +37,13 @@ const schema = z.object({
     .email('Adresse email invalide.'),
   password: z.string().min(8, 'Le mot de passe doit faire au moins 8 caractères.'),
   role: z.enum([UserRole.CANDIDATE, UserRole.COMPANY]),
-  // Age minimum de 15 ans : en France, un mineur peut consentir seul au
-  // traitement de ses donnees a partir de cet age. En dessous, l'accord d'un
-  // titulaire de l'autorite parentale serait requis (MOBILE.md section 9.3).
-  // Declaratif, comme partout : il s'agit d'etre explicite sur la regle, pas
-  // de verifier un etat civil.
+  // Age minimum de 16 ans depuis le 2026-10-09 (decision de Pierre, 15 ans
+  // paraissait trop jeune ; auparavant aligne sur le plancher legal francais
+  // de 15 ans - MOBILE.md section 9.3). Declaratif, comme partout : il
+  // s'agit d'etre explicite sur la regle, pas de verifier un etat civil - la
+  // vraie barriere est la date de naissance du profil.
   ageConfirmed: z.literal(true, {
-    errorMap: () => ({ message: 'Tu dois avoir 15 ans ou plus pour créer un compte.' }),
+    errorMap: () => ({ message: 'Tu dois avoir 16 ans ou plus pour créer un compte.' }),
   }),
 });
 
@@ -136,7 +136,7 @@ export default function InscriptionScreen() {
           name="ageConfirmed"
           render={({ field: { onChange, value } }) => (
             <Checkbox
-              label="J'ai 15 ans ou plus."
+              label="J'ai 16 ans ou plus."
               checked={Boolean(value)}
               onChange={onChange}
               error={errors.ageConfirmed?.message}

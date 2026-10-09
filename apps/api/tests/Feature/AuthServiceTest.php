@@ -128,7 +128,7 @@ class AuthServiceTest extends TestCase
 
     public function test_age_confirmed_sets_timestamp(): void
     {
-        // La case « J'ai 15 ans ou plus » etait validee sans etre
+        // La case « J'ai 16 ans ou plus » etait validee sans etre
         // enregistree : une declaration qu'on ne garde pas ne prouve rien le
         // jour ou il faut la produire.
         $sans = $this->authService->register('sans@example.com', 'password123', UserRole::CANDIDATE);

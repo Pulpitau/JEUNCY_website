@@ -242,8 +242,9 @@ function OfferCard({
  *
  * Trois d'entre eux se réparent en deux clics (profil, date de naissance), un
  * ne se répare pas du tout (moins de 16 ans) — et c'est justement celui-là
- * qu'un message générique rendrait incompréhensible, puisque le site accepte
- * les inscriptions dès 15 ans.
+ * qu'un message générique rendrait incompréhensible : quelques comptes créés
+ * avant le 2026-10-09, quand le site acceptait encore les inscriptions dès 15
+ * ans, existent toujours.
  */
 function Blocked({ error }: { error: unknown }) {
   const code = error instanceof ApiError ? error.code : null;

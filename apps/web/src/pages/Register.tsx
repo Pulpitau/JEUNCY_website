@@ -49,10 +49,11 @@ function landingRouteAfterSignup(role: string): string {
 const registerSchema = z.object({
   email: z.string().email('Adresse email invalide.'),
   password: z.string().min(8, 'Le mot de passe doit contenir au moins 8 caractères.'),
-  // Age minimum de 15 ans (loi Informatique et Libertes, art. 45 : un mineur
-  // peut consentir seul au traitement de ses donnees a partir de 15 ans).
-  // Demande aux seuls candidats : entreprises et CFA sont des personnes
-  // morales. La verification reelle est la date de naissance du profil.
+  // Age minimum de 16 ans (decision de Pierre du 2026-10-09 : 15 ans, la
+  // limite legale la plus basse possible en France - art. 45 de la loi
+  // Informatique et Libertes - paraissait trop jeune). Demande aux seuls
+  // candidats : entreprises et CFA sont des personnes morales. La
+  // verification reelle est la date de naissance du profil.
   age_confirmed: z.boolean().optional(),
   role: z.enum(['CANDIDATE', 'COMPANY'], {
     errorMap: () => ({ message: 'Choisis un type de compte.' }),
@@ -64,7 +65,7 @@ type RegisterFormValues = z.infer<typeof registerSchema>;
 const registerSchemaWithAge = registerSchema.refine(
   (values) => values.role !== 'CANDIDATE' || values.age_confirmed === true,
   {
-    message: 'Tu dois avoir 15 ans ou plus pour créer un compte.',
+    message: 'Tu dois avoir 16 ans ou plus pour créer un compte.',
     path: ['age_confirmed'],
   },
 );
@@ -197,9 +198,9 @@ export function Register() {
                     {...registerField('age_confirmed')}
                   />
                   <span>
-                    J'ai 15 ans ou plus.{' '}
+                    J'ai 16 ans ou plus.{' '}
                     <span className="text-muted-foreground">
-                      Jeuncy est réservé aux personnes de 15 ans et plus.
+                      Jeuncy est réservé aux personnes de 16 ans et plus.
                     </span>
                   </span>
                 </label>

@@ -54,7 +54,7 @@ export async function register(
   return openSession(
     await apiRequest<SessionResponse>('/auth/register', {
       method: 'POST',
-      // age_confirmed : la case « J'ai 15 ans ou plus » cochee a l'inscription.
+      // age_confirmed : la case « J'ai 16 ans ou plus » cochee a l'inscription.
       // Le formulaire ne laisse pas soumettre sans, donc toujours true ici ;
       // le serveur la valide s'il la recoit (RegisterRequest, 2026-09-11).
       body: { email, password, role, age_confirmed: true },

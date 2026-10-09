@@ -93,8 +93,8 @@ class DeployController extends Controller
     // n'ont de toute facon pas la masse pour etre ouverts.
     public const SEUIL_SECRET_STATISTIQUE = 3;
 
-    // Age minimum sur l'application mobile (decision du 2026-09-22 ; le site
-    // classique reste a 15 ans).
+    // Age minimum du parcours match (decision du 2026-09-22) ; le site classique
+    // exige la meme chose depuis le 2026-10-09 (StoreCandidateProfileRequest).
     public const AGE_MINIMUM_APP = 16;
 
     // Cle du battement du planificateur, ecrite par bootstrap/app.php a

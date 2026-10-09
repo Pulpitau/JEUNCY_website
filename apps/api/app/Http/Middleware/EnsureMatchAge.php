@@ -10,8 +10,9 @@ use Symfony\Component\HttpFoundation\Response;
 
 /**
  * Seize ans minimum sur toute route du match, quel que soit le client
- * (decision de Pierre du 2026-09-22 : le site reste a 15 ans, l'application
- * passe a 16).
+ * (decision de Pierre du 2026-09-22 : l'application exige 16 ans ; le site
+ * exige desormais la meme chose depuis le 2026-10-09, voir
+ * StoreCandidateProfileRequest).
  *
  * POURQUOI UN MIDDLEWARE ET NON UNE GARDE DANS CHAQUE SERVICE. Cette regle
  * ne souffre aucune exception et doit tenir sur une route ajoutee demain par

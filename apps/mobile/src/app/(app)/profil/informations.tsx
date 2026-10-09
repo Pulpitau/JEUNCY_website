@@ -164,8 +164,8 @@ export default function InformationsScreen() {
               value={value || null}
               onChange={(iso) => onChange(iso ?? '')}
               error={errors.birth_date?.message}
-              // 15 ans minimum, comme le serveur ; 100 ans, borne de bon sens.
-              maximumDate={yearsAgo(15)}
+              // 16 ans minimum, comme le serveur ; 100 ans, borne de bon sens.
+              maximumDate={yearsAgo(16)}
               minimumDate={yearsAgo(100)}
             />
           )}

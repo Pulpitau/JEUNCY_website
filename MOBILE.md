@@ -57,7 +57,7 @@ garantie », et commence par le côté entreprise, là où le volume existe.
 | --- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
 | 1   | Geste droit candidat = feuille à deux boutons : « Envoyer mon dossier maintenant » ou « Juste marquer mon intérêt ». Jamais de candidature sans geste.                                                                                 | Une candidature signifie « je veux ce poste » ; c'est la décision du 2026-09-03 appliquée au geste.                                         |
 | 2   | Pas de distance ni de tri par proximité côté employeur. Il voit « Sa zone de mobilité couvre ton offre », permis par catégorie, véhicule, et règle un rayon de recrutement sur l'offre. Le candidat, lui, voit la distance des offres. | Le lieu de résidence est un critère discriminatoire (L1132-1, recommandations CNIL recrutement) ; un contentieux coûterait plus que l'info. |
-| 3   | Âge minimum de l'app : **16 ans** (le site reste à 15). Règle serveur : Découvrir, intérêts et matchs exigent `birth_date` ≥ 16 ans quel que soit le client.                                                                           | Classification 16+ des stores sans parcours d'exception parentale ; un 15 ans garde le site classique.                                      |
+| 3   | Âge minimum : **16 ans**, app comme site depuis le 2026-10-09 (le site exigeait 15 jusque-là). Règle serveur : inscription candidat, Découvrir, intérêts et matchs exigent `birth_date` ≥ 16 ans quel que soit le client.              | Classification 16+ des stores sans parcours d'exception parentale ; Pierre a aussi jugé 15 ans trop jeune pour le site.                     |
 | 4   | CVthèque du site alignée sur « rien avant candidature ».                                                                                                                                                                               | Une seule règle d'exposition ; sinon la promesse « caché avant le match » est fausse dès qu'on ouvre le site.                               |
 | 5   | STAFF = Pierre et Claude au début.                                                                                                                                                                                                     | Chaque action admin doit tenir en un clic, tout ce qui peut être automatique (rappels, clôture J+30) l'est.                                 |
 | 6   | Périmètre de lancement : Pyrénées-Orientales (66), ouverture par département via configuration.                                                                                                                                        | Réseau atomique d'abord (IDA, Perpignan), comme les précédents qui ont tenu.                                                                |
@@ -646,10 +646,12 @@ candidat actif ≥ 5, réponse employeur sous 72 h ≥ 50 %.
 - **CNIL et AIPD** : scoring d'éligibilité + personnes vulnérables (mineurs) +
   localisation = analyse d'impact obligatoire avant le pilote ; politique de
   confidentialité datée (exposition, localisation, photos) ; recours parental
-  documenté ; page CSAE.
+  et page CSAE **écrits le 2026-10-09** (`/mentions-legales` §8), pas encore
+  déployés.
 - **Classification 16+** : questionnaire honnête puis override 16+ sur les
-  deux stores ; l'app refuse un 15 ans, le site l'accepte — les deux textes
-  doivent le dire.
+  deux stores ; app et site exigent désormais 16 ans depuis le 2026-10-09
+  (quelques comptes créés avant cette date sous 16 ans restent modifiables,
+  voir `StoreCandidateProfileRequest`).
 - **Modération** : signalements sous 24 h, photos validées, employeurs muets
   relancés — Pierre et Claude au début. Sans une personne qui répond, aucun
   badge de réponse ni promesse « réponse garantie » n'est affiché.

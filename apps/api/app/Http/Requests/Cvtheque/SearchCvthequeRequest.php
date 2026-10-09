@@ -24,9 +24,10 @@ class SearchCvthequeRequest extends FormRequest
             // c'est desormais un booleen structure (colonne has_driving_license).
             'has_driving_license' => ['sometimes', 'boolean'],
             // Bornes d'age. 16 est l'age minimum du modele match (MOBILE.md
-            // §9), 99 une borne de bon sens contre une URL forgee. Le site
-            // accepte toujours un compte a 15 ans ; il n'est simplement pas
-            // proposable a un employeur.
+            // §9) et, depuis le 2026-10-09, du site lui-meme ; 99 une borne de
+            // bon sens contre une URL forgee. Quelques comptes crees avant ce
+            // changement ont moins de 16 ans ; ils ne sont simplement pas
+            // proposables a un employeur.
             'age_min' => ['sometimes', 'integer', 'min:16', 'max:99'],
             'age_max' => [
                 'sometimes', 'integer', 'min:16', 'max:99',

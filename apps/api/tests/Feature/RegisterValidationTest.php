@@ -61,14 +61,14 @@ class RegisterValidationTest extends TestCase
         $this->assertSame(1, User::count());
     }
 
-    // --- Age minimum (15 ans) ---
+    // --- Age minimum (16 ans) ---
     //
-    // La case « j'ai 15 ans ou plus » est facultative cote serveur : le client
+    // La case « j'ai 16 ans ou plus » est facultative cote serveur : le client
     // mobile ne l'envoie pas encore, et l'exiger casserait son inscription. Si
     // elle est envoyee, elle doit etre vraie. La verification reelle est la
-    // date de naissance, imposee >= 15 ans a la creation du profil.
+    // date de naissance, imposee >= 16 ans a la creation du profil.
 
-    public function test_a_declared_age_below_15_is_refused(): void
+    public function test_a_declared_age_below_16_is_refused(): void
     {
         $this->postJson('/api/auth/register', [
             'email' => 'lea.girard@example.com',

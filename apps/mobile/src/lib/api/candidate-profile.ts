@@ -54,7 +54,7 @@ export interface CandidateProfile {
   last_name: string;
   headline: string | null;
   phone: string | null;
-  /** Obligatoire depuis le 2026-09-11, 15 ans minimum (StoreCandidateProfileRequest). */
+  /** Obligatoire depuis le 2026-09-11, 16 ans minimum depuis le 2026-10-09 (StoreCandidateProfileRequest). */
   birth_date: string | null;
   address: string | null;
   city: string | null;

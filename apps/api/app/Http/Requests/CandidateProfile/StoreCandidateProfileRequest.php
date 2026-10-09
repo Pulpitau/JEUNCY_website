@@ -15,7 +15,7 @@ class StoreCandidateProfileRequest extends FormRequest
     {
         return [
             'birth_date.required' => 'Indique ta date de naissance : les entreprises en ont besoin pour te proposer un contrat.',
-            'birth_date.before_or_equal' => 'Il faut avoir au moins 15 ans pour utiliser Jeuncy.',
+            'birth_date.before_or_equal' => 'Il faut avoir au moins 16 ans pour utiliser Jeuncy.',
             'birth_date.after' => 'Cette date de naissance ne semble pas correcte.',
         ];
     }
@@ -29,8 +29,11 @@ class StoreCandidateProfileRequest extends FormRequest
             'phone' => ['nullable', 'string', 'max:20', 'regex:/^[0-9 .+-]*$/'],
             // Obligatoire depuis le 2026-09-11 : l'age est un critere de
             // selection pour les entreprises (le cout d'un alternant en
-            // depend). 15 ans minimum, l'age requis pour un compte Jeuncy.
-            'birth_date' => ['required', 'date', 'before_or_equal:'.now()->subYears(15)->toDateString(), 'after:'.now()->subYears(100)->toDateString()],
+            // depend). 16 ans minimum depuis le 2026-10-09 (decision de
+            // Pierre, 15 ans paraissait trop jeune) — les profils crees
+            // avant ce changement sous 16 ans restent modifiables, voir
+            // UpdateCandidateProfileRequest, volontairement inchange.
+            'birth_date' => ['required', 'date', 'before_or_equal:'.now()->subYears(16)->toDateString(), 'after:'.now()->subYears(100)->toDateString()],
             'address' => ['nullable', 'string', 'max:255'],
             'city' => ['nullable', 'string', 'max:255'],
             'postal_code' => ['nullable', 'string', 'max:10', 'regex:/^[0-9]*$/'],

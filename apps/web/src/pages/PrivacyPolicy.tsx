@@ -127,17 +127,20 @@ export function PrivacyPolicy() {
               sur l'intérêt légitime de Jeuncy à assurer la sécurité et le bon
               fonctionnement de la plateforme.
             </p>
-            {/* Paragraphe ajoute le 2026-09-12. Jeuncy s'adresse a des jeunes,
-                dont des mineurs de 15 a 17 ans : la regle etait appliquee
-                (date de naissance verifiee) mais n'etait ecrite nulle part. */}
+            {/* Paragraphe ajoute le 2026-09-12, reecrit le 2026-10-09 (minimum
+                releve de 15 a 16 ans, decision de Pierre : 15 ans paraissait
+                trop jeune). Jeuncy s'adresse a des jeunes, dont des mineurs
+                de 16 et 17 ans : la regle est appliquee (date de naissance
+                verifiee) et doit rester ecrite ici. */}
             <p className="mt-3">
-              <strong>Âge minimum.</strong> Jeuncy est réservé aux personnes de 15 ans et
+              <strong>Âge minimum.</strong> Jeuncy est réservé aux personnes de 16 ans et
               plus. En France, un mineur peut consentir seul au traitement de ses données
-              personnelles à partir de 15 ans (article 45 de la loi Informatique et
-              Libertés) : les candidats de 15 à 17 ans peuvent donc créer un compte et
+              personnelles dès 15 ans (article 45 de la loi Informatique et Libertés) ;
+              Jeuncy retient néanmoins 16 ans comme âge minimum, au-delà de ce plancher
+              légal. Les candidats de 16 et 17 ans peuvent donc créer un compte et
               utiliser Jeuncy sans autorisation parentale. Cette condition est déclarée à
               l'inscription et vérifiée par la date de naissance renseignée sur le profil.
-              Si vous avez moins de 15 ans, vous ne pouvez pas créer de compte ; un parent
+              Si vous avez moins de 16 ans, vous ne pouvez pas créer de compte ; un parent
               ou un titulaire de l'autorité parentale peut nous écrire à <ContactEmail />{' '}
               pour toute question.
             </p>

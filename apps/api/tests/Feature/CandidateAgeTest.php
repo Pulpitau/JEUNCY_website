@@ -181,27 +181,59 @@ class CandidateAgeTest extends TestCase
             ->assertJsonPath('error.code', 'INVALID_INPUT');
     }
 
-    public function test_a_candidate_under_15_is_refused(): void
+    public function test_a_candidate_under_16_is_refused(): void
     {
         $this->actingAs($this->candidatSansProfil(), 'api')
             ->postJson('/api/candidate-profile', [
                 'first_name' => 'Lea', 'last_name' => 'Girard',
-                'birth_date' => '2012-01-01', // 14 ans
+                'birth_date' => now()->subYears(14)->toDateString(),
             ])
             ->assertStatus(400)
             ->assertJsonPath('error.code', 'INVALID_INPUT');
     }
 
-    public function test_a_candidate_of_15_is_accepted(): void
+    // Decision de Pierre du 2026-10-09 : le minimum passe de 15 a 16 ans,
+    // 15 paraissant trop jeune. C'est precisement la frontiere qui a bouge.
+    public function test_a_candidate_of_15_is_refused(): void
     {
         $this->actingAs($this->candidatSansProfil(), 'api')
             ->postJson('/api/candidate-profile', [
                 'first_name' => 'Lea', 'last_name' => 'Girard',
-                'birth_date' => '2011-09-11', // 15 ans aujourd'hui
+                'birth_date' => now()->subYears(15)->toDateString(),
+            ])
+            ->assertStatus(400)
+            ->assertJsonPath('error.code', 'INVALID_INPUT');
+    }
+
+    public function test_a_candidate_of_16_is_accepted(): void
+    {
+        $this->actingAs($this->candidatSansProfil(), 'api')
+            ->postJson('/api/candidate-profile', [
+                'first_name' => 'Lea', 'last_name' => 'Girard',
+                'birth_date' => now()->subYears(16)->toDateString(),
             ])
             ->assertStatus(201);
 
-        $this->assertSame(15, CandidateProfile::firstOrFail()->age);
+        $this->assertSame(16, CandidateProfile::firstOrFail()->age);
+    }
+
+    // Les profils crees avant le 2026-10-09 sous 16 ans restent modifiables :
+    // UpdateCandidateProfileRequest n'a volontairement pas suivi le
+    // changement, pour ne pas bloquer un candidat deja inscrit legitimement.
+    public function test_an_existing_profile_under_16_can_still_be_updated(): void
+    {
+        $user = $this->candidatSansProfil();
+        CandidateProfile::create([
+            'user_id' => $user->id, 'first_name' => 'Lea', 'last_name' => 'Girard',
+            'birth_date' => now()->subYears(15)->toDateString(),
+        ]);
+
+        $this->actingAs($user, 'api')
+            ->patchJson('/api/candidate-profile', [
+                'city' => 'Toulouse',
+                'birth_date' => now()->subYears(15)->toDateString(),
+            ])
+            ->assertOk();
     }
 
     // Une mise a jour partielle (la ville, par exemple) ne doit pas exiger de

@@ -124,9 +124,50 @@ export function LegalNotice() {
             </p>
           </section>
 
+          {/* Section ajoutee le 2026-10-09, exigee par la directive App Store
+              1.2 pour toute app avec mise en relation entre utilisateurs :
+              politique CSAE publiee + recours parental. Decrit le mecanisme
+              reel (signalement/blocage du lot 4), pas un engagement invente. */}
           <section>
             <h2 className="font-poppins text-xl font-semibold text-foreground">
-              8. Contact
+              8. Protection des mineurs et signalement de contenu abusif
+            </h2>
+            <p className="mt-3">
+              Jeuncy applique une tolérance zéro envers tout contenu d'exploitation ou
+              d'abus sexuel impliquant un mineur (« CSAE »). Un tel contenu entraîne la
+              suspension immédiate du compte concerné, la conservation des éléments
+              nécessaires et un signalement aux autorités compétentes — en France, la
+              plateforme Pharos (internet-signalement.gouv.fr) et, le cas échéant, le
+              procureur de la République, conformément à l'article 6-1 de la loi n°
+              2004-575 du 21 juin 2004 pour la confiance dans l'économie numérique.
+            </p>
+            <p className="mt-3">
+              Tout utilisateur connecté peut signaler un profil, une offre ou un match
+              directement depuis l'application ou le site, en un geste, sans justification
+              à fournir. Chaque signalement est examiné par l'équipe Jeuncy, généralement
+              sous 24 heures, et peut aboutir à un avertissement, un retrait de contenu,
+              une suspension ou une suppression de compte ; la personne signalée n'est
+              jamais informée de l'identité de l'auteur du signalement. Un utilisateur
+              peut aussi bloquer un autre compte à tout moment : les deux comptes
+              disparaissent alors immédiatement l'un pour l'autre.
+            </p>
+            <p className="mt-3">
+              <strong>Recours parental.</strong> Jeuncy est accessible aux candidats de 16
+              ans et plus, sur le site comme sur l'application (voir notre{' '}
+              <Link to="/confidentialite" className="text-primary hover:underline">
+                politique de confidentialité
+              </Link>
+              ). Un parent ou un titulaire de l'autorité parentale peut à tout moment nous
+              écrire à <ContactEmail /> pour faire examiner, suspendre ou supprimer le
+              compte d'un mineur dont il a la responsabilité, en précisant l'adresse email
+              du compte concerné. Nous répondons sous 5 jours ouvrés et donnons suite à
+              toute demande légitime, y compris par la suppression immédiate du compte.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="font-poppins text-xl font-semibold text-foreground">
+              9. Contact
             </h2>
             <p className="mt-3">
               Pour toute question relative au site ou à ces mentions légales :{' '}

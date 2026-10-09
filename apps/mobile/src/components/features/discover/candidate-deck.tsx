@@ -349,8 +349,9 @@ function signalerEchec(cause: unknown): void {
 
 /**
  * Les gardes du parcours match ont chacune leur suite. Celle des 16 ans ne
- * se répare pas : le site accepte les inscriptions dès 15 ans, et c'est
- * précisément pour ça qu'un message générique serait incompréhensible.
+ * se répare pas : quelques comptes créés avant que le site passe à 16 ans
+ * (2026-10-09) ont encore moins de 16 ans, et c'est précisément pour ça
+ * qu'un message générique serait incompréhensible.
  */
 function DeckError({ error, onRetry }: { error: unknown; onRetry: () => void }) {
   const router = useRouter();
