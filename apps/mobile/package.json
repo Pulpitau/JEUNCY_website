@@ -62,7 +62,8 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "lint": "eslint .",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "eas-build-post-install": "pnpm --filter @jeuncy/shared build"
   },
   "private": true
 }
