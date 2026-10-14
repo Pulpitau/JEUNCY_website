@@ -240,3 +240,47 @@ export function promoteToStaff(id: number) {
 export function demoteFromStaff(id: number) {
   return apiRequest<AdminUser>(`/admin/users/${id}/demote-staff`, { method: 'POST' });
 }
+
+// Files de moderation (AdminModerationService, lot 4).
+export interface PendingVerification {
+  type: 'COMPANY' | 'CFA';
+  id: number;
+  name: string;
+  siret: string | null;
+  verification_note: string | null;
+  email: string | null;
+  created_at: string;
+}
+
+export function listPendingVerifications() {
+  return apiRequest<PendingVerification[]>('/admin/verifications');
+}
+
+export function decideVerification(
+  item: Pick<PendingVerification, 'type' | 'id'>,
+  payload: { status: 'VERIFIED' | 'REJECTED'; note: string },
+) {
+  return apiRequest(`/admin/verifications/${item.type}/${item.id}`, {
+    method: 'POST',
+    body: payload,
+  });
+}
+
+export interface AdminReport {
+  id: number;
+  context: string;
+  reason: string;
+  details: string | null;
+  created_at: string;
+  reporter: { email: string } | null;
+  reported: { email: string } | null;
+  job_offer: { title: string } | null;
+}
+
+export function listPendingReports() {
+  return apiRequest<Paginated<AdminReport>>('/admin/reports');
+}
+
+export function handleReport(id: number) {
+  return apiRequest(`/admin/reports/${id}/handle`, { method: 'POST' });
+}

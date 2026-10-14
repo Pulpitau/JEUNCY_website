@@ -491,6 +491,8 @@ class ApplicationServiceTest extends TestCase
     {
         $offer = $this->makePublishedOffer();
         $candidate = $this->makeCandidate();
+        // Photo obligatoire pour Decouvrir depuis le 2026-10-14.
+        $candidate->candidateProfile->update(['photo_url' => 'https://x/p.png']);
 
         $this->service->applyForUser($candidate, $offer, null);
 

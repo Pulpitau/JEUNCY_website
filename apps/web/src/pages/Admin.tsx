@@ -8,9 +8,11 @@ import { AdminJobOffersPanel } from '@/components/features/admin/AdminJobOffersP
 import { AdminExternalOffersPanel } from '@/components/features/admin/AdminExternalOffersPanel';
 import { AdminPaymentsPanel } from '@/components/features/admin/AdminPaymentsPanel';
 import { AdminVideoRoomsPanel } from '@/components/features/admin/AdminVideoRoomsPanel';
+import { AdminModerationPanel } from '@/components/features/admin/AdminModerationPanel';
 
 const TABS = [
   { key: 'stats', label: 'Statistiques' },
+  { key: 'moderation', label: 'Modération' },
   { key: 'users', label: 'Utilisateurs' },
   { key: 'candidates', label: 'Candidats' },
   { key: 'job-offers', label: 'Offres' },
@@ -50,6 +52,7 @@ export function Admin() {
       </div>
 
       {tab === 'stats' && <AdminStatsPanel />}
+      {tab === 'moderation' && <AdminModerationPanel />}
       {tab === 'users' && <AdminUsersPanel />}
       {tab === 'candidates' && <AdminCandidatesPanel />}
       {tab === 'job-offers' && <AdminJobOffersPanel />}

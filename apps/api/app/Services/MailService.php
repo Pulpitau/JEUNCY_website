@@ -568,6 +568,15 @@ class MailService
         string $html,
         ?string $replyTo = null,
     ): void {
+        // Adresses reservees (RFC 2606) des jeux de demo et de test : jamais
+        // livrables. Chaque envoi serait un rebond qui degrade la reputation
+        // d'expedition de jeuncy.com, celle dont depend la lettre aux candidats.
+        if (preg_match('/[@.]example\.com$/i', $to)) {
+            Log::info("Adresse fictive, email non envoye a {$to} (\"{$subject}\")");
+
+            return;
+        }
+
         try {
             $payload = [
                 'from' => config('services.resend.from'),

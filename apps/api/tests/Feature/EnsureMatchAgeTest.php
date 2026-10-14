@@ -64,7 +64,8 @@ class EnsureMatchAgeTest extends TestCase
     public function test_16_years_old_passes(): void
     {
         $user = User::factory()->candidate()->create();
-        CandidateProfile::factory()->aged(16)->located()->create(['user_id' => $user->id]);
+        // Photo posee : obligatoire pour Decouvrir depuis le 2026-10-14.
+        CandidateProfile::factory()->aged(16)->located()->create(['user_id' => $user->id, 'photo_url' => 'https://x/p.png']);
 
         $this->withToken($this->jeton($user))
             ->getJson('/api/discover/offers')
