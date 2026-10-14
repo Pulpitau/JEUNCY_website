@@ -32,6 +32,7 @@ Thumbs.db
 
 # Claude Code (local, machine-specific)
 .claude/settings.local.json
+.claude/worktrees/
 
 # Testing / coverage
 coverage/

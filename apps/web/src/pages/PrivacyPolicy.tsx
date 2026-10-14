@@ -291,8 +291,9 @@ export function PrivacyPolicy() {
                 fiscale, même après la suppression du compte associé
               </li>
               <li>
-                Un CV généré et non régénéré depuis 15 jours est automatiquement archivé
-                (il reste consultable mais n'est plus mis à jour automatiquement)
+                Si votre compte reste inactif (sans connexion) pendant 15 jours, vos CV
+                générés sont automatiquement archivés : le fichier PDF est supprimé du
+                serveur et n'est plus consultable
               </li>
             </ul>
           </section>

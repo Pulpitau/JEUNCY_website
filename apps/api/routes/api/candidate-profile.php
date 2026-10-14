@@ -41,9 +41,14 @@ Route::prefix('candidate-profile')->middleware(['auth:api', 'role:CANDIDATE'])->
     Route::post('photo', [ProfilePhotoController::class, 'store']);
     Route::delete('photo', [ProfilePhotoController::class, 'destroy']);
 
-    Route::post('cv', [GeneratedCvController::class, 'store']);
+    // throttle:5,10 : la generation reessaie jusqu'a 11 rendus PDF par appel
+    // pour faire tenir le CV sur une page (CvService::FIT_STEPS) — sans
+    // limite, une boucle met l'hebergement mutualise a genoux.
+    Route::post('cv', [GeneratedCvController::class, 'store'])->middleware('throttle:5,10');
     Route::get('cv', [GeneratedCvController::class, 'index']);
-    Route::post('cv/import', [CvImportController::class, 'store']);
+    // Meme limite : lit un PDF fourni par l'utilisateur avec une bibliotheque
+    // d'analyse, meme cout potentiel que la generation.
+    Route::post('cv/import', [CvImportController::class, 'store'])->middleware('throttle:5,10');
 
     // CV depose par le candidat lui-meme, conserve tel quel et propose aux
     // recruteurs en priorite sur un CV genere (voir CvthequeService).

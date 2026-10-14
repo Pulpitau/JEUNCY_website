@@ -56,6 +56,7 @@ class RegisterValidationTest extends TestCase
             'email' => 'lea.girard@example.com',
             'password' => 'Password123!',
             'role' => 'CANDIDATE',
+            'age_confirmed' => true,
         ])->assertCreated();
 
         $this->assertSame(1, User::count());
@@ -90,14 +91,29 @@ class RegisterValidationTest extends TestCase
         ])->assertCreated();
     }
 
-    // Le client mobile n'envoie pas encore la case : son absence ne doit pas
-    // bloquer. Le jour ou il l'enverra, le serveur la validera deja.
-    public function test_registration_without_the_age_field_still_works(): void
+    // Le web et le mobile envoient desormais tous les deux la case (audit de
+    // securite du 2026-10-01, section B3) : son absence pour un CANDIDATE
+    // doit maintenant bloquer, pour que la preuve de consentement ne
+    // depende pas d'un appel direct a l'API qui s'en dispenserait.
+    public function test_registration_without_the_age_field_is_refused_for_a_candidate(): void
     {
         $this->postJson('/api/auth/register', [
             'email' => 'lea.girard@example.com',
             'password' => 'Password123!',
             'role' => 'CANDIDATE',
+        ])->assertStatus(400)->assertJsonPath('error.code', 'INVALID_INPUT');
+
+        $this->assertSame(0, User::count());
+    }
+
+    // Sans objet pour une entreprise ou un CFA : omettre la case ne doit pas
+    // bloquer leur inscription (voir aussi InscriptionCfaFermeeTest).
+    public function test_registration_without_the_age_field_still_works_for_a_company(): void
+    {
+        $this->postJson('/api/auth/register', [
+            'email' => 'rh@nexatech.example.com',
+            'password' => 'Password123!',
+            'role' => 'COMPANY',
         ])->assertCreated();
     }
 }

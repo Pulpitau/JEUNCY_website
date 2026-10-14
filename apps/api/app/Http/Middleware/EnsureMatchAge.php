@@ -32,7 +32,11 @@ class EnsureMatchAge
     {
         $user = $request->user();
 
-        if ($user === null || $user->role !== UserRole::CANDIDATE) {
+        if ($user === null) {
+            throw new ApiException('UNAUTHENTICATED', 'Authentification requise.', 401);
+        }
+
+        if ($user->role !== UserRole::CANDIDATE) {
             return $next($request);
         }
 

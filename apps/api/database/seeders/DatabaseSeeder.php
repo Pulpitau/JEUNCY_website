@@ -23,6 +23,15 @@ class DatabaseSeeder extends Seeder
 
     public function run(): void
     {
+        // Jamais en production : ce jeu de donnees cree un compte ADMIN au
+        // mot de passe connu de tous (DEMO_PASSWORD). Un `migrate --seed`
+        // lance par erreur contre la vraie base ne doit pas l'y deposer.
+        if (app()->environment('production')) {
+            $this->command->error('Seed refuse : environnement de production.');
+
+            return;
+        }
+
         [$reactSkill, $nodeSkill, $salesSkill, $serviceSkill, $prospectionSkill, $typescriptSkill] = collect([
             'React', 'Node.js', 'Vente', 'Relation client', 'Prospection', 'TypeScript',
         ])->map(fn (string $name) => Skill::firstOrCreate(['name' => $name]))->all();
@@ -225,7 +234,7 @@ class DatabaseSeeder extends Seeder
         ]);
 
         User::create([
-            'email' => 'admin@jeuncy.com',
+            'email' => 'admin@example.com',
             'password_hash' => self::DEMO_PASSWORD,
             'role' => UserRole::ADMIN,
         ]);
@@ -237,6 +246,6 @@ class DatabaseSeeder extends Seeder
         $this->command->info('- rh@nexatech.example.com (company)');
         $this->command->info('- contact@cafedeslices.example.com (company)');
         $this->command->info('- contact@cfa-sup-alternance.example.com (cfa)');
-        $this->command->info('- admin@jeuncy.com (admin)');
+        $this->command->info('- admin@example.com (admin)');
     }
 }

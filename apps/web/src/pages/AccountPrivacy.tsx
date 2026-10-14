@@ -92,11 +92,11 @@ export function AccountPrivacy() {
         <CardHeader>
           <CardTitle className="text-destructive">Supprimer mon compte</CardTitle>
           <CardDescription>
-            Cette action est définitive : ton profil, tes fichiers (photo, CV générés,
-            logo) et tes données personnelles sont supprimés. Si des paiements sont
-            rattachés à ton compte, seules les données personnelles sont effacées — les
-            pièces comptables sont conservées conformément à l'obligation légale de
-            conservation.
+            Cette action est définitive : ton profil, tes fichiers (photo, CV générés, CV
+            déposé, CV de candidature, logo) et tes données personnelles sont supprimés.
+            Si des paiements sont rattachés à ton compte, seules les données personnelles
+            sont effacées — les pièces comptables sont conservées conformément à
+            l'obligation légale de conservation.
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-3">

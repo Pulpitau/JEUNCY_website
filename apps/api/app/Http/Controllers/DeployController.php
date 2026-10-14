@@ -543,6 +543,18 @@ class DeployController extends Controller
     {
         $this->assertAuthorized($token);
 
+        // Meme verrou que les autres actions a effet de masse de ce
+        // controleur (audit de securite du 2026-10-01, section F2) : sans
+        // lui, un apercu de lien dans une messagerie ou un prechargement de
+        // navigateur suffisait a declencher des migrations en production.
+        if (request()->query('executer') !== '1') {
+            return response(
+                "Ajoute ?executer=1 a l'adresse pour lancer les migrations pour de bon.",
+                200,
+                ['Content-Type' => 'text/plain'],
+            );
+        }
+
         Artisan::call('migrate', ['--force' => true]);
 
         return response(Artisan::output(), 200, ['Content-Type' => 'text/plain']);

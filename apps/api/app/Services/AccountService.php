@@ -6,6 +6,7 @@ use App\Enums\MatchClosedReason;
 use App\Enums\UserRole;
 use App\Exceptions\ApiException;
 use App\Models\CandidateProfile;
+use App\Models\CvDownload;
 use App\Models\Report;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
@@ -39,6 +40,11 @@ class AccountService
                 'role' => $user->role->value,
                 'created_at' => $user->created_at,
                 'last_login_at' => $user->last_login_at,
+                // Preuves datees de consentement/opposition : ce sont les
+                // deux champs que la personne a le plus de raisons de
+                // vouloir verifier dans un export "portabilite".
+                'age_confirmed_at' => $user->age_confirmed_at,
+                'newsletter_unsubscribed_at' => $user->newsletter_unsubscribed_at,
             ],
             'notifications' => $user->notifications()->latest()->get(),
             'video_rooms' => $user->hostedVideoRooms()->get()
@@ -74,6 +80,21 @@ class AccountService
             $data['external_interests'] = $candidateProfile->externalInterests()
                 ->latest('id')
                 ->get();
+
+            // Promesse faite dans la politique de confidentialite (section
+            // CVtheque) : "qui a accede a votre CV, et quand". Le nom de
+            // l'entreprise/CFA suffit a la tenir, sans exposer l'identite
+            // personnelle du recruteur a l'interieur de son organisation.
+            $data['cv_access_log'] = CvDownload::query()
+                ->where('candidate_profile_id', $candidateProfile->id)
+                ->with('user.company:id,user_id,name', 'user.cfaOrganization:id,user_id,name')
+                ->latest('downloaded_at')
+                ->get()
+                ->map(fn (CvDownload $download) => [
+                    'organization' => $download->user?->company?->name ?? $download->user?->cfaOrganization?->name,
+                    'source' => $download->source,
+                    'downloaded_at' => $download->downloaded_at,
+                ]);
         }
 
         $company = $user->company()->with(['jobOffers.skills'])->first();
@@ -121,7 +142,12 @@ class AccountService
         // pour les paiements ponctuels (voir create_subscriptions_table) :
         // un compte ayant souscrit un abonnement, meme resilie depuis, est
         // anonymise plutot que supprime, comme pour hasPayments.
-        $hasPayments = $user->payments()->exists() || $user->subscriptions()->exists();
+        // Un recruteur ayant telecharge au moins un CV suit le meme chemin :
+        // cv_downloads.user_id est en restrictOnDelete (voir sa migration),
+        // un hard delete echouerait sur la contrainte de cle etrangere.
+        $hasPayments = $user->payments()->exists()
+            || $user->subscriptions()->exists()
+            || CvDownload::query()->where('user_id', $user->id)->exists();
 
         // Chemins releves AVANT la transaction : ils vivent sur les lignes
         // qu'elle va supprimer. Les fichiers, eux, ne seront effaces qu'une
@@ -206,8 +232,18 @@ class AccountService
         $candidateProfile = $user->candidateProfile;
         if ($candidateProfile) {
             $urls[] = $candidateProfile->photo_url;
+            // Le CV depose par le candidat (cv_file_url) et celui joint a
+            // chaque candidature (applications.cv_file_url) sont omis depuis
+            // l'origine : ils survivaient a la suppression du compte, encore
+            // telechargeables par leur adresse. Ce sont les documents les
+            // plus sensibles du lot (nom, adresse, telephone, date de
+            // naissance, parfois une photo).
+            $urls[] = $candidateProfile->cv_file_url;
             foreach ($candidateProfile->generatedCvs as $cv) {
                 $urls[] = $cv->file_url;
+            }
+            foreach ($candidateProfile->applications as $application) {
+                $urls[] = $application->cv_file_url;
             }
         }
 

@@ -2,13 +2,17 @@
 
 namespace Tests\Feature;
 
+use App\Enums\ApplicationStatus;
+use App\Enums\CvSource;
 use App\Enums\NotificationType;
 use App\Enums\PaymentStatus;
 use App\Enums\UserRole;
 use App\Exceptions\ApiException;
+use App\Models\Application;
 use App\Models\CandidateProfile;
 use App\Models\CfaOrganization;
 use App\Models\Company;
+use App\Models\CvDownload;
 use App\Models\ExternalInterest;
 use App\Models\JobOffer;
 use App\Models\Notification;
@@ -19,6 +23,7 @@ use App\Models\User;
 use App\Models\UserBlock;
 use App\Services\AccountService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class AccountServiceTest extends TestCase
@@ -338,5 +343,58 @@ class AccountServiceTest extends TestCase
         $this->assertSame(0, Notification::where('user_id', $employeur->id)
             ->where('type', NotificationType::MATCH_CLOSED)
             ->count());
+    }
+
+    // Le CV depose par le candidat et celui joint a chaque candidature
+    // survivaient a la suppression du compte, encore telechargeables par
+    // leur adresse (audit de securite du 2026-10-01, section A2) : ce sont
+    // les documents les plus sensibles du lot (nom, adresse, telephone, date
+    // de naissance, parfois une photo). storedFilePaths() ne les relevait pas.
+    public function test_delete_account_removes_the_uploaded_cv_and_application_cv_files_from_disk(): void
+    {
+        Storage::fake('public');
+
+        $user = $this->makeCandidate();
+        $profile = $user->candidateProfile;
+
+        Storage::disk('public')->put('uploaded-cvs/cv-depose.pdf', 'contenu');
+        $profile->update(['cv_file_url' => Storage::disk('public')->url('uploaded-cvs/cv-depose.pdf')]);
+
+        [, $offer] = $this->makeEmployerWithPublishedOffer();
+        Storage::disk('public')->put('application-cvs/cv-candidature.pdf', 'contenu');
+        Application::create([
+            'candidate_profile_id' => $profile->id,
+            'job_offer_id' => $offer->id,
+            'status' => ApplicationStatus::SENT,
+            'cv_file_url' => Storage::disk('public')->url('application-cvs/cv-candidature.pdf'),
+        ]);
+
+        $this->service->deleteAccount($user, 'lea@example.com');
+
+        Storage::disk('public')->assertMissing('uploaded-cvs/cv-depose.pdf');
+        Storage::disk('public')->assertMissing('application-cvs/cv-candidature.pdf');
+    }
+
+    // Un recruteur ayant telecharge au moins un CV ne pouvait plus supprimer
+    // son compte du tout (audit de securite du 2026-10-01, section L1) :
+    // cv_downloads.user_id est en restrictOnDelete, un hard delete echouait
+    // sur la contrainte de cle etrangere. Meme chemin que pour un paiement :
+    // anonymisation plutot que suppression.
+    public function test_delete_account_anonymizes_a_recruiter_who_has_downloaded_a_cv(): void
+    {
+        $user = $this->makeCompany();
+        $candidat = $this->makeCandidate();
+        CvDownload::create([
+            'candidate_profile_id' => $candidat->candidateProfile->id,
+            'user_id' => $user->id,
+            'source' => CvSource::ON_THE_FLY,
+        ]);
+
+        $this->service->deleteAccount($user, 'rh@nexatech.example.com');
+
+        $refreshed = User::find($user->id);
+        $this->assertNotNull($refreshed, 'le User doit survivre : cv_downloads.user_id est en contrainte RESTRICT');
+        $this->assertTrue($refreshed->is_suspended);
+        $this->assertNotNull($refreshed->deleted_account_at);
     }
 }

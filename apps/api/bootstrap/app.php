@@ -137,6 +137,10 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->api(append: [
             WrapApiResponse::class,
         ]);
+        // Limite generale sur tout le groupe API (audit de securite du
+        // 2026-10-01, section D1). Le limiteur 'api' est defini dans
+        // AppServiceProvider::boot().
+        $middleware->throttleApi();
         $middleware->alias([
             'role' => EnsureUserHasRole::class,
             // Seize ans minimum sur toute route du match, quel que soit le
@@ -205,6 +209,7 @@ return Application::configure(basePath: dirname(__DIR__))
                 404 => 'NOT_FOUND',
                 405 => 'METHOD_NOT_ALLOWED',
                 409 => 'CONFLICT',
+                429 => 'TOO_MANY_REQUESTS',
                 500 => 'INTERNAL_ERROR',
             ];
 

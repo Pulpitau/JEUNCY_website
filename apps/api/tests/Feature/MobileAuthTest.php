@@ -64,6 +64,7 @@ class MobileAuthTest extends TestCase
             'email' => 'nouveau@example.com',
             'password' => 'Password123!',
             'role' => 'CANDIDATE',
+            'age_confirmed' => true,
         ]);
 
         $response->assertStatus(201)->assertJsonMissingPath('data.refreshToken');
@@ -120,6 +121,7 @@ class MobileAuthTest extends TestCase
             'email' => 'nouveau@example.com',
             'password' => 'Password123!',
             'role' => 'CANDIDATE',
+            'age_confirmed' => true,
         ]);
 
         $response->assertStatus(201);

@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\CandidateProfile;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Route;
 use Tests\Concerns\AideMatch;
 use Tests\TestCase;
 
@@ -95,5 +96,22 @@ class EnsureMatchAgeTest extends TestCase
         $this->withToken($this->jeton($employeur))
             ->getJson('/api/discover/candidates?job_offer_id='.$offre->id)
             ->assertOk();
+    }
+
+    // Avant correction (audit de securite du 2026-10-01, section E2), un
+    // utilisateur absent laissait silencieusement passer la requete au lieu
+    // d'etre refuse : la regle des 16 ans aurait disparu sans le moindre
+    // message pour toute route oubliant 'auth:api'. Toutes les routes du
+    // match le portent deja (le reste de ce fichier passe toujours par
+    // 'auth:api', qui refuserait de toute facon avant d'atteindre ce
+    // middleware) — ce test monte donc volontairement une route nue, sans
+    // 'auth:api', pour verifier que EnsureMatchAge tient seul.
+    public function test_an_unauthenticated_request_is_refused_not_waved_through(): void
+    {
+        Route::middleware(['api', 'match.age'])
+            ->get('/api/_test/match-age-sans-auth', fn () => response()->json(['ok' => true]));
+
+        $this->getJson('/api/_test/match-age-sans-auth')
+            ->assertStatus(401);
     }
 }
