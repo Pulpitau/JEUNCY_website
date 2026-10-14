@@ -1898,30 +1898,58 @@ production**
 **Point d'arrêt du 2026-10-09 : soldé le 2026-10-13** (build Android EAS
 vérifié, `expo doctor` 21/21 au commit `32c3d65`).
 
-**Où on s'est arrêté (fin de session du mardi 2026-10-13)**
+**Point d'arrêt du 2026-10-13 : soldé le 2026-10-14** (questionnaire de
+données validé par Pierre, docs stores commités en `0c3655f`).
 
-- **Tout ce qui se fait sans payer est prêt**, rien n'est commité (attendre le
-  feu vert de Pierre) :
-  - `docs/mobile/fiches-stores.md` : nom, sous-titre, descriptions, mots-clés,
-    catégories, liens légaux.
-  - `docs/mobile/questionnaire-donnees.md` : réponses Google Data Safety et
-    Apple Privacy. **Déclaration légale : Pierre doit la valider.**
-  - `docs/mobile/captures-stores/` : 2 captures (Découvrir, Détail d'offre) en
-    Apple 1290×2796 et Google 1170×2340. Une capture Profil est facultative.
-  - Comptes de revue en production, vérifiés : `revue-app@jeuncy.com`
-    (entreprise) et `revue-candidat@jeuncy.com` (Camille Martin, cachée de la
-    CVthèque et du deck). Mot de passe donné à Pierre, absent du dépôt.
-- **Prochaine étape exacte** : Pierre confirme les 5 points du questionnaire
-  (données collectées ; rien vendu ni pisté ; seuls Resend et Google reçoivent
-  des données ; suppression et export dans l'app ; 16 ans minimum). Il n'a pas
-  encore répondu.
+**Correctifs rapides de l'audit de sécurité du 2026-10-01 (2026-10-14) :
+terminés et commités**
+
+- L'audit (`docs/securite/plan-durcissement.md`) dormait depuis deux semaines,
+  aucun correctif appliqué, jamais mentionné dans ce fichier — retrouvé en
+  répondant à une inquiétude de Pierre sur la sécurité/RGPD vis-à-vis des
+  mineurs. Traité : les points marqués "effort petit, sans décision produit"
+  (A2, L1, L3, L5, C4, B3, D1, E2, I1, F2, H1, K1, J2) — détail dans les
+  messages des commits `9e85ba8` et `3416518`.
+- **Laissés de côté, décision ou effort plus grand** : A1 (le lien du CV
+  complet est donné aux recruteurs sans protection — nécessite une nouvelle
+  route gardée + changement des trois endroits qui l'exposent) et B1 (un
+  SIRET public actif suffit pour devenir une organisation "vérifiée" et voir
+  les fiches de mineurs — décision produit sur la vérification manuelle).
+- **Piège rencontré en testant** : `Password::min(10)->uncompromised()`
+  (vérification Have I Been Pwned) fait un vrai appel réseau à chaque
+  inscription — cassait 8 tests qui ne le simulaient pas. Retiré, gardé
+  seulement `min(10)` : la vérification réseau demanderait de truquer cet
+  appel dans toute la suite de tests, hors scope d'un correctif rapide.
+- **Second piège** : rendre `age_confirmed` obligatoire pour un CANDIDATE
+  avec `required_if` + `accepted` séparés casse l'inscription COMPANY/CFA —
+  `accepted` est une règle "implicite" qui s'évalue même sur un champ absent,
+  peu importe le `required_if`. Corrigé avec `accepted_if:role,CANDIDATE`,
+  une seule règle conditionnelle.
+- 953 tests PHPUnit (2 échecs préexistants et sans rapport, confirmés par
+  `git stash` : `JEUNCY_PHOTO_OBLIGATOIRE_LE` vaut 2026-10-14 par défaut —
+  **la photo de profil obligatoire pour Découvrir est donc active en
+  production à partir d'aujourd'hui**, deux tests qui ne posent pas de photo
+  viennent de commencer à échouer, sans rapport avec ce travail). Pint
+  propre, 40 tests Vitest verts, build web + lint web OK.
+- `.claude/worktrees/` (582 fichiers, deux copies périmées du projet)
+  retirées du suivi git — **premier essai raté silencieusement** : le hook
+  `lint-staged` a englouti la suppression sans la commiter (0 ligne dans le
+  diff final), découvert seulement en revérifiant `git ls-files` après coup.
+  Refait dans un commit séparé, vérifié cette fois.
+- **Prochaine étape pour la sécurité** : rien d'automatique, c'est à Pierre
+  de décider s'il veut traiter A1/B1 maintenant ou plus tard — ce sont les
+  deux points qui touchent le plus directement des mineurs.
+
+**Où on s'est arrêté (fin de session du mercredi 2026-10-14)**
+
+- **Prochaine étape pour les stores** : payer les 25 $ Google Play
+  (`play.google.com/console/signup`, connecté en `go@jeuncy.com`) ; Apple
+  reste en attente de l'email (DAJ8F9ARRS).
 - **Décision à prendre avant la soumission** : le compte entreprise de revue
   est en production. Pour montrer le deck employeur, il lui faudrait une offre
   publiée (ce qui notifie de vrais candidats) et un « oui » du relecteur
   notifierait un vrai candidat. Piste : ne fournir que le compte candidat et
   décrire le côté entreprise dans les notes de revue.
-- **Ensuite, les paiements** : Google Play 25 $ (mémoire `publication-stores`),
-  Apple toujours en attente de l'email (DAJ8F9ARRS).
 - **Backlog après les stores** (demande de Pierre) : modifier une offre depuis
   l'app mobile. Le serveur l'accepte déjà (`requireOwnedEditableOffer`), l'app
   n'a aucun écran d'édition.
