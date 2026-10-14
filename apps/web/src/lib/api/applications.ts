@@ -1,5 +1,5 @@
 import type { ApplicationStatus } from '@jeuncy/shared';
-import { apiRequest } from './client';
+import { apiDownload, apiRequest } from './client';
 import type { JobOffer } from './job-offers';
 import type { GeneratedCv } from './candidate-profile';
 
@@ -35,9 +35,11 @@ export interface ApplicantSummary {
   user: { id: number; email: string };
 }
 
-export interface ApplicationWithCandidate extends Application {
+// Vue employeur : aucune adresse de fichier (Application::forEmployer). Le
+// CV se recupere par downloadApplicationCv, garde a chaque appel.
+export interface ApplicationWithCandidate extends Omit<Application, 'cv_file_url'> {
   candidate_profile: ApplicantSummary;
-  generated_cv: GeneratedCv | null;
+  has_cv: boolean;
 }
 
 export interface ApplyToOfferInput {
@@ -73,6 +75,11 @@ export function listMyApplications() {
 
 export function listApplicationsForOffer(jobOfferId: number) {
   return apiRequest<ApplicationWithCandidate[]>(`/job-offers/${jobOfferId}/applications`);
+}
+
+// Le PDF du dossier, servi en flux par le serveur (jamais son adresse).
+export function downloadApplicationCv(applicationId: number) {
+  return apiDownload(`/applications/${applicationId}/cv`);
 }
 
 // Suppression definitive cote candidat (contrairement a updateApplicationStatus,

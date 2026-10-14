@@ -10,6 +10,7 @@ import {
   updateApplicationStatus,
 } from '@/lib/api/applications';
 import { ApiError } from '@/lib/api/client';
+import { useApplicationCvDownload } from '@/hooks/use-application-cv';
 
 const STATUS_LABELS: Record<string, string> = {
   [ApplicationStatus.SENT]: 'Envoyée',
@@ -138,16 +139,7 @@ export function ApplicationsForOfferSection({
             >
               {application.candidate_profile.user.email}
             </a>
-            {(application.generated_cv?.file_url ?? application.cv_file_url) && (
-              <a
-                href={application.generated_cv?.file_url ?? application.cv_file_url!}
-                target="_blank"
-                rel="noreferrer"
-                className="text-primary hover:underline"
-              >
-                Voir le CV
-              </a>
-            )}
+            {application.has_cv && <CvLink applicationId={application.id} />}
             {application.candidate_profile.video_url && (
               <a
                 href={application.candidate_profile.video_url}
@@ -225,5 +217,27 @@ export function ApplicationsForOfferSection({
         </div>
       ))}
     </div>
+  );
+}
+
+function CvLink({ applicationId }: { applicationId: number }) {
+  const { download, pending, error } = useApplicationCvDownload(applicationId);
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => void download()}
+        disabled={pending}
+        className="text-primary hover:underline disabled:opacity-60"
+      >
+        {pending ? 'Téléchargement…' : 'Voir le CV'}
+      </button>
+      {error && (
+        <span role="alert" className="text-destructive">
+          {error}
+        </span>
+      )}
+    </>
   );
 }

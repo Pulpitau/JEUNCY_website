@@ -1,15 +1,17 @@
 import { Ionicons } from '@expo/vector-icons';
 import { ApplicationStatus } from '@jeuncy/shared';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { File, Paths } from 'expo-file-system';
+import * as Sharing from 'expo-sharing';
 import { Alert, Linking, Pressable, StyleSheet, View } from 'react-native';
 
 import { statusTone } from '@/components/features/applications/status';
-import { openPdf } from '@/components/features/profile/cv-section';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { Text } from '@/components/ui/text';
 import { MATCHES_KEY } from '@/hooks/use-matches';
 import {
+  downloadApplicationCv,
   updateApplicationStatus,
   type EmployerApplicationStatus,
   type ReceivedApplication,
@@ -50,7 +52,22 @@ export function ReceivedApplicationCard({
 
   const profile = application.candidate_profile;
   const nom = `${profile.first_name} ${profile.last_name}`.trim();
-  const cvUrl = application.generated_cv?.file_url ?? application.cv_file_url;
+
+  // Le serveur envoie le PDF, jamais son adresse : on l'ecrit dans le cache
+  // puis la feuille de partage d'iOS l'affiche (apercu, Fichiers, mail...).
+  // Meme montage que l'export des donnees (profil/confidentialite.tsx).
+  const cv = useMutation({
+    mutationFn: async () => {
+      const { bytes, filename } = await downloadApplicationCv(application.id);
+      const file = new File(Paths.cache, filename ?? `CV-${application.id}.pdf`);
+      file.write(bytes);
+      await Sharing.shareAsync(file.uri, {
+        mimeType: 'application/pdf',
+        UTI: 'com.adobe.pdf',
+      });
+    },
+    onError: (error: Error) => Alert.alert('CV indisponible', error.message),
+  });
 
   const mutation = useMutation({
     mutationFn: (status: EmployerApplicationStatus) =>
@@ -106,19 +123,20 @@ export function ReceivedApplicationCard({
         </View>
       ) : null}
 
-      {cvUrl ? (
+      {application.has_cv ? (
         <Pressable
-          onPress={() => void openPdf(cvUrl)}
+          onPress={() => cv.mutate()}
+          disabled={cv.isPending}
           accessibilityRole="button"
           accessibilityLabel="Ouvrir le CV"
           style={({ pressed }) => [
             styles.cv,
-            { borderColor: colors.border, opacity: pressed ? 0.7 : 1 },
+            { borderColor: colors.border, opacity: pressed || cv.isPending ? 0.7 : 1 },
           ]}
         >
           <Ionicons name="document-text-outline" size={18} color={colors.accent} />
           <Text variant="bodyStrong" tone="accent" style={styles.cvText}>
-            Ouvrir le CV
+            {cv.isPending ? 'Ouverture…' : 'Ouvrir le CV'}
           </Text>
           <Ionicons name="open-outline" size={16} color={colors.accent} />
         </Pressable>

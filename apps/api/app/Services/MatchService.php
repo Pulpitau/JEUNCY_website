@@ -271,7 +271,7 @@ class MatchService
             // Tant que le dossier n'est pas envoye, l'employeur ne voit que
             // la carte : le match ouvre la conversation, il ne livre pas le
             // CV ni les coordonnees.
-            'application' => $interest->application?->load(['candidateProfile.user:id,email', 'generatedCv']),
+            'application' => $interest->application?->load(['candidateProfile.user:id,email', 'generatedCv'])->forEmployer(),
         ]);
     }
 

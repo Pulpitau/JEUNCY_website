@@ -177,6 +177,55 @@ class ApplicationService
     // bon message.
     public function listForOffer(User $user, JobOffer $jobOffer): Collection
     {
+        $this->requireApplicationsAccess($user, $jobOffer);
+
+        $bloques = $this->blockService->blockedUserIdsFor($user);
+
+        return $jobOffer->applications()
+            ->with(['candidateProfile.user:id,email', 'generatedCv'])
+            ->when($bloques !== [], fn ($q) => $q->whereHas(
+                'candidateProfile',
+                fn ($p) => $p->whereNotIn('user_id', $bloques),
+            ))
+            ->latest()
+            ->get()
+            ->each(fn (Application $application) => $application->forEmployer());
+    }
+
+    /**
+     * Le PDF d'un dossier, servi a l'employeur proprietaire de l'offre. Memes
+     * gardes que listForOffer, rejouees a chaque telechargement : un
+     * employeur bloque, devenu non verifie ou qui n'est plus proprietaire de
+     * l'offre perd l'acces, ce qu'une adresse de fichier deja remise ne
+     * permettait pas.
+     *
+     * @return array{contents: string, filename: string}
+     */
+    public function cvForEmployer(User $user, Application $application): array
+    {
+        $this->requireApplicationsAccess($user, $application->jobOffer);
+
+        $profile = $application->candidateProfile;
+        if (in_array($profile->user_id, $this->blockService->blockedUserIdsFor($user))) {
+            throw new ApiException('CV_NOT_FOUND', "Ce CV n'est pas disponible.", 404);
+        }
+
+        $url = $application->cvFileUrl();
+        $path = $url === null ? null : $this->relativeStoragePath($url);
+        if ($path === null || ! Storage::disk('public')->exists($path)) {
+            throw new ApiException('CV_NOT_FOUND', "Aucun CV n'est disponible pour cette candidature.", 404);
+        }
+
+        $name = trim("{$profile->first_name} {$profile->last_name}");
+
+        return [
+            'contents' => Storage::disk('public')->get($path),
+            'filename' => 'CV-'.(Str::slug($name) ?: 'candidat-'.$profile->id).'.pdf',
+        ];
+    }
+
+    private function requireApplicationsAccess(User $user, JobOffer $jobOffer): void
+    {
         $this->jobOfferService->requireOwnedOffer($user, $jobOffer);
 
         // Verification AVANT l'acces payant : « jamais d'employeur non
@@ -194,17 +243,6 @@ class ApplicationService
                 402,
             );
         }
-
-        $bloques = $this->blockService->blockedUserIdsFor($user);
-
-        return $jobOffer->applications()
-            ->with(['candidateProfile.user:id,email', 'generatedCv'])
-            ->when($bloques !== [], fn ($q) => $q->whereHas(
-                'candidateProfile',
-                fn ($p) => $p->whereNotIn('user_id', $bloques),
-            ))
-            ->latest()
-            ->get();
     }
 
     /**
@@ -290,10 +328,14 @@ class ApplicationService
 
     private function deleteStoredCv(string $cvFileUrl): void
     {
-        $base = rtrim(Storage::disk('public')->url(''), '/').'/';
-        $relativePath = Str::startsWith($cvFileUrl, $base) ? substr($cvFileUrl, strlen($base)) : $cvFileUrl;
+        Storage::disk('public')->delete($this->relativeStoragePath($cvFileUrl));
+    }
 
-        Storage::disk('public')->delete($relativePath);
+    private function relativeStoragePath(string $url): string
+    {
+        $base = rtrim(Storage::disk('public')->url(''), '/').'/';
+
+        return Str::startsWith($url, $base) ? substr($url, strlen($base)) : $url;
     }
 
     public function updateStatus(User $user, Application $application, ApplicationStatus $status): Application
@@ -329,7 +371,7 @@ class ApplicationService
             );
         }
 
-        return $application;
+        return $application->forEmployer();
     }
 
     // L'email est un a-cote, jamais une etape du parcours : la candidature est

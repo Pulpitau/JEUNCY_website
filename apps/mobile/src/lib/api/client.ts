@@ -163,3 +163,44 @@ export async function apiRequest<T>(
 
   return body.data;
 }
+
+// Variante binaire d'apiRequest, alignee sur apps/web : meme authentification
+// et meme rejeu sur 401, mais la reponse est un fichier. Sert le CV d'un
+// dossier, que le serveur envoie en flux plutot qu'en adresse — une adresse
+// de fichier marche sans compte et pour toujours.
+export async function apiDownload(
+  path: string,
+): Promise<{ bytes: Uint8Array; filename: string | null }> {
+  let response: Response;
+  try {
+    response = await requestWithRetry(path, {});
+  } catch (cause) {
+    const error = new ApiError(
+      {
+        code: 'NETWORK_ERROR',
+        message: 'Connexion impossible. Vérifie ta connexion internet.',
+      },
+      0,
+    );
+    error.cause = cause;
+    throw error;
+  }
+
+  if (!response.ok) {
+    const body = (await response.json().catch(() => null)) as {
+      error?: ApiErrorBody;
+    } | null;
+    throw new ApiError(
+      body?.error ?? { code: 'UNKNOWN_ERROR', message: 'Une erreur est survenue.' },
+      response.status,
+    );
+  }
+
+  const disposition = response.headers.get('Content-Disposition');
+  const match = disposition ? /filename="?([^";]+)"?/i.exec(disposition) : null;
+
+  return {
+    bytes: new Uint8Array(await response.arrayBuffer()),
+    filename: match ? match[1].trim() : null,
+  };
+}

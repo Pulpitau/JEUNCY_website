@@ -6,7 +6,7 @@ import {
   type GeneratedCv,
   type NativeFile,
 } from './candidate-profile';
-import { apiRequest } from './client';
+import { apiDownload, apiRequest } from './client';
 import type { JobOffer } from './job-offers';
 
 // Types alignes sur apps/web/src/lib/api/applications.ts.
@@ -40,10 +40,13 @@ export interface ApplicationWithOffer extends Application {
  * la candidature, il n'a que la carte d'exposition (MOBILE.md §4.3) — d'ou
  * deux types distincts plutot qu'un seul aux champs optionnels, qui aurait
  * laisse croire qu'un `phone` manquant est un profil incomplet.
+ *
+ * Aucune adresse de fichier (Application::forEmployer) : le CV se recupere
+ * par downloadApplicationCv, garde a chaque appel.
  */
-export interface ReceivedApplication extends Application {
+export interface ReceivedApplication extends Omit<Application, 'cv_file_url'> {
   candidate_profile: CandidateProfile & { user: { id: number; email: string } };
-  generated_cv: GeneratedCv | null;
+  has_cv: boolean;
 }
 
 export interface ApplyToOfferInput {
@@ -87,6 +90,11 @@ export function withdrawApplication(applicationId: number) {
 /** Les dossiers recus sur une offre. 403 COMPANY_NOT_VERIFIED si non verifiee. */
 export function listOfferApplications(jobOfferId: number) {
   return apiRequest<ReceivedApplication[]>(`/job-offers/${jobOfferId}/applications`);
+}
+
+/** Le PDF d'un dossier recu, servi en flux (jamais son adresse). */
+export function downloadApplicationCv(applicationId: number) {
+  return apiDownload(`/applications/${applicationId}/cv`);
 }
 
 /**

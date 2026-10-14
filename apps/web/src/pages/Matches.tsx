@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ageBandLabel } from '@/lib/age-band-labels';
+import { useApplicationCvDownload } from '@/hooks/use-application-cv';
 import { ApiError } from '@/lib/api/client';
 import { candidateDisplayName } from '@/lib/candidate-card';
 import { contractTypeLabel } from '@/lib/contract-type-labels';
@@ -244,7 +245,7 @@ function EmployerMatches() {
 /** Le dossier reçu : le seul endroit où l'employeur voit les coordonnées. */
 function Dossier({ application }: { application: MatchApplication }) {
   const profile = application.candidate_profile;
-  const cvUrl = application.generated_cv?.file_url ?? application.cv_file_url;
+  const cv = useApplicationCvDownload(application.id);
 
   return (
     <div className="flex flex-col gap-2 rounded-md border border-border p-3 font-inter text-sm">
@@ -262,12 +263,15 @@ function Dossier({ application }: { application: MatchApplication }) {
         </p>
       )}
       <div className="flex flex-wrap gap-2 pt-1">
-        {cvUrl && (
-          <a href={cvUrl} target="_blank" rel="noreferrer">
-            <Button variant="outline" size="sm">
-              Ouvrir le CV
-            </Button>
-          </a>
+        {application.has_cv && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => void cv.download()}
+            disabled={cv.pending}
+          >
+            {cv.pending ? 'Téléchargement…' : 'Ouvrir le CV'}
+          </Button>
         )}
         <Link to="/mes-offres">
           <Button variant="ghost" size="sm">
@@ -275,6 +279,11 @@ function Dossier({ application }: { application: MatchApplication }) {
           </Button>
         </Link>
       </div>
+      {cv.error && (
+        <p role="alert" className="text-destructive">
+          {cv.error}
+        </p>
+      )}
     </div>
   );
 }

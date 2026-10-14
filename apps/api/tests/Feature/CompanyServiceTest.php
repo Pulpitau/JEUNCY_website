@@ -119,8 +119,12 @@ class CompanyServiceTest extends TestCase
 
         $updated = $this->service->updateForUser($user->fresh(), ['siret' => self::SIRET_VALIDE_2]);
 
-        $this->assertSame(VerificationStatus::VERIFIED, $updated->verification_status);
-        $this->assertNotNull($updated->verified_at);
+        // La re-verification a bien eu lieu (la note vient du registre qui
+        // repond cette fois) ; le registre seul ne verifie plus personne
+        // depuis l'audit B1, la fiche attend un admin.
+        $this->assertSame(VerificationStatus::PENDING, $updated->verification_status);
+        $this->assertStringContainsString('confirmé au registre', $updated->verification_note);
+        $this->assertNull($updated->verified_at);
     }
 
     public function test_city_change_geocodes(): void

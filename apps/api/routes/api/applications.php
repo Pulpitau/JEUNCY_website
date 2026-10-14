@@ -10,6 +10,8 @@ Route::prefix('applications')->middleware('auth:api')->group(function () {
     Route::delete('{application}', [ApplicationController::class, 'destroy'])->middleware('role:CANDIDATE');
     Route::patch('{application}/status', [JobOfferApplicationController::class, 'updateStatus'])
         ->middleware('role:COMPANY,CFA');
+    Route::get('{application}/cv', [JobOfferApplicationController::class, 'downloadCv'])
+        ->middleware('role:COMPANY,CFA');
 });
 
 Route::get('job-offers/{jobOffer}/applications', [JobOfferApplicationController::class, 'index'])

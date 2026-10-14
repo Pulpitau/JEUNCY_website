@@ -2,7 +2,6 @@ import type { ApplicationStatus } from '@jeuncy/shared';
 import { apiRequest } from './client';
 import type { CandidateCard } from './cvtheque';
 import type { CandidateProfile } from './candidate-profile';
-import type { GeneratedCv } from './candidate-profile';
 import type { PublicJobOffer } from './job-offers';
 
 // Les matchs, des deux côtés. UNE route (`GET matches`), deux formes de
@@ -40,11 +39,11 @@ export interface MatchApplication {
   status: ApplicationStatus;
   cover_letter: string | null;
   contact_phone: string | null;
-  cv_file_url: string | null;
+  /** Le PDF se récupère par downloadApplicationCv : aucune adresse n'est livrée. */
+  has_cv: boolean;
   responded_at: string | null;
   created_at: string;
   candidate_profile: CandidateProfile & { user: { id: number; email: string } };
-  generated_cv: GeneratedCv | null;
 }
 
 export interface EmployerMatch extends MatchBase {

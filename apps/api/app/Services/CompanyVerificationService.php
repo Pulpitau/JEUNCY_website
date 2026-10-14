@@ -9,6 +9,7 @@ use App\Models\CfaOrganization;
 use App\Models\Company;
 use App\Models\User;
 use App\Rules\ValidSiret;
+use Illuminate\Support\Facades\Log;
 
 /**
  * Porte d'entree du cote employeur (MOBILE.md §4.0) : tant qu'une
@@ -20,15 +21,18 @@ use App\Rules\ValidSiret;
  * pas, donc on autorise » — mettrait des cartes de mineurs sous les yeux de
  * n'importe qui le jour ou api.gouv.fr tombe.
  *
- * Limite assumee et documentee (docs/mobile/lot-1-backend.md §10) : un SIRET
- * public actif suffit a etre verifie automatiquement. C'est une preuve
- * d'existence, pas une preuve d'identite. Avant d'ouvrir au-dela d'IDA, il
- * faudra au minimum l'email de domaine ou un clic admin.
+ * Le registre ne donne plus jamais VERIFIED a lui seul (audit de securite du
+ * 2026-10-01, B1) : un SIRET public actif est une preuve d'existence, pas
+ * d'identite — n'importe qui pouvait recopier celui d'une vraie entreprise et
+ * voir des fiches de mineurs. Un registre favorable laisse la fiche PENDING,
+ * dans la file de relecture de /admin, et previent l'adresse de contact ;
+ * c'est un admin qui tranche (AdminModerationService, note obligatoire).
  */
 class CompanyVerificationService
 {
     public function __construct(
         private readonly TrainingOrganizationDetector $trainingOrganizationDetector,
+        private readonly MailService $mailService,
     ) {}
 
     /**
@@ -49,6 +53,20 @@ class CompanyVerificationService
         // posera l'id de l'admin qui a tranche.
         $organization->verified_by = null;
         $organization->save();
+
+        if ($status === VerificationStatus::PENDING) {
+            // Un email rate ne doit jamais faire echouer la creation de la
+            // fiche : la file de /admin la montre de toute facon.
+            try {
+                $this->mailService->sendVerificationPendingEmail(
+                    (string) $organization->name,
+                    (string) $organization->siret,
+                    $note,
+                );
+            } catch (\Throwable $e) {
+                Log::error("Signalement de verification en attente echoue : {$e->getMessage()}");
+            }
+        }
 
         return $status;
     }
@@ -101,7 +119,7 @@ class CompanyVerificationService
             return [VerificationStatus::REJECTED, 'Établissement fermé au registre des entreprises.'];
         }
 
-        return [VerificationStatus::VERIFIED, null];
+        return [VerificationStatus::PENDING, "Établissement confirmé au registre des entreprises. L'équipe Jeuncy vérifie chaque nouveau compte avant l'accès aux candidats : on revient vers toi rapidement."];
     }
 
     /**

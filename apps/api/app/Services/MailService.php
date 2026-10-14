@@ -272,6 +272,40 @@ class MailService
         );
     }
 
+    // Une organisation attend une relecture humaine avant de voir des
+    // candidats. Envoye a l'adresse de contact : sans cet email, la file de
+    // /admin ne se regarde que par hasard, et l'entreprise attend sans fin.
+    public function sendVerificationPendingEmail(string $organizationName, string $siret, ?string $note): void
+    {
+        $apiKey = config('services.resend.key');
+        $to = config('services.contact.email');
+
+        if (! $apiKey) {
+            Log::warning("RESEND_API_KEY absent : verification en attente de {$organizationName} non signalee a {$to}");
+
+            return;
+        }
+
+        $safeName = e($organizationName);
+        $safeSiret = e($siret);
+        $safeNote = e((string) $note);
+        $adminUrl = rtrim((string) config('app.frontend_url'), '/').'/admin';
+
+        $body = <<<HTML
+            <p><strong>{$safeName}</strong> (SIRET {$safeSiret}) attend une vérification.</p>
+            <p style="color:#6b7280;">{$safeNote}</p>
+            <p>Tant qu'elle n'est pas vérifiée, elle ne voit aucun candidat.</p>
+            {$this->ctaButton('Ouvrir la file de vérification', $adminUrl)}
+            HTML;
+
+        $this->send(
+            $apiKey,
+            $to,
+            "[Jeuncy] Vérification en attente : {$organizationName}",
+            $this->wrapEmailHtml('Une organisation à vérifier', $body),
+        );
+    }
+
     // Prevenu quand sa candidature change de statut.
     //
     // Meme raison en miroir : c'est le moment ou le candidat a le plus besoin

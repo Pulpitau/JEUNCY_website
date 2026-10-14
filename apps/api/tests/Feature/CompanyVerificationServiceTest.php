@@ -11,6 +11,7 @@ use App\Models\User;
 use App\Rules\ValidSiret;
 use App\Services\CfaOrganizationService;
 use App\Services\CompanyVerificationService;
+use App\Services\MailService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
@@ -170,15 +171,17 @@ class CompanyVerificationServiceTest extends TestCase
         $this->assertStringContainsString('enseignement', $company->fresh()->verification_note);
     }
 
-    public function test_a_cfa_with_a_teaching_naf_is_still_verified(): void
+    public function test_a_cfa_with_a_teaching_naf_is_not_rejected(): void
     {
         // Ecart assume par rapport au contrat : un CFA a par definition un
         // code NAF d'enseignement. Lui appliquer la regle des entreprises
         // refuserait l'ecole partenaire, le seul CFA que Jeuncy accepte.
+        // PENDING et non VERIFIED : depuis l'audit B1, le registre seul ne
+        // verifie plus personne, c'est un admin qui tranche.
         $this->registreRepond(self::SIRET_VALIDE, '85.32Z');
         $cfa = CfaOrganization::factory()->create(['siret' => self::SIRET_VALIDE]);
 
-        $this->assertSame(VerificationStatus::VERIFIED, $this->service->verify($cfa));
+        $this->assertSame(VerificationStatus::PENDING, $this->service->verify($cfa));
     }
 
     public function test_closed_establishment_gives_rejected(): void
@@ -190,18 +193,40 @@ class CompanyVerificationServiceTest extends TestCase
         $this->assertStringContainsString('fermé', $company->fresh()->verification_note);
     }
 
-    public function test_active_establishment_gives_verified_automatically(): void
+    // Audit de securite du 2026-10-01, B1 : un SIRET public actif est une
+    // preuve d'existence, pas d'identite — n'importe qui pouvait recopier
+    // celui d'une vraie entreprise et voir des fiches de mineurs. Le
+    // registre favorable ne fait plus que preparer la relecture humaine.
+    public function test_an_active_establishment_waits_for_a_human_and_alerts_the_team(): void
     {
+        $this->mock(MailService::class)
+            ->shouldReceive('sendVerificationPendingEmail')
+            ->once()
+            ->withArgs(fn (string $name, string $siret) => $siret === self::SIRET_VALIDE);
+        $service = $this->app->make(CompanyVerificationService::class);
+
         $this->registreRepond(self::SIRET_VALIDE);
         $company = $this->company(self::SIRET_VALIDE);
 
-        $this->assertSame(VerificationStatus::VERIFIED, $this->service->verify($company));
+        $this->assertSame(VerificationStatus::PENDING, $service->verify($company));
 
         $company->refresh();
-        $this->assertNotNull($company->verified_at);
-        // null = automatique, pas un clic d'admin.
-        $this->assertNull($company->verified_by);
-        $this->assertNull($company->verification_note);
+        $this->assertFalse($company->isVerified());
+        $this->assertNull($company->verified_at);
+        $this->assertStringContainsString('confirmé au registre', $company->verification_note);
+    }
+
+    public function test_a_failing_alert_email_does_not_break_the_verification(): void
+    {
+        $this->mock(MailService::class)
+            ->shouldReceive('sendVerificationPendingEmail')
+            ->andThrow(new \RuntimeException('Resend en panne'));
+        $service = $this->app->make(CompanyVerificationService::class);
+
+        $this->registreRepond(self::SIRET_VALIDE);
+        $company = $this->company(self::SIRET_VALIDE);
+
+        $this->assertSame(VerificationStatus::PENDING, $service->verify($company));
     }
 
     public function test_new_cfa_is_pending(): void
