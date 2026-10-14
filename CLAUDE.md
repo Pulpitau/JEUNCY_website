@@ -1953,8 +1953,9 @@ terminés et commités**
   faite.
 - **B1** : `CompanyVerificationService` ne donne plus jamais VERIFIED à partir
   du registre seul ; un registre favorable laisse PENDING avec la note
-  « Établissement confirmé au registre… », dans la file existante de `/admin`
-  (lot 4, note obligatoire pour accorder), et un email part à
+  « Établissement confirmé au registre… », dans la file de `/admin` (lot 4,
+  note obligatoire pour accorder — **cette file n'avait en réalité aucun écran
+  avant l'onglet « Modération » du 2026-10-14**, voir plus bas), et un email part à
   `bonjour@jeuncy.com`. Les organisations déjà vérifiées (IDA) ne bougent pas,
   sauf changement de SIRET. **Conséquence à assumer** : chaque nouvelle
   entreprise attend un clic de Pierre avant de voir un candidat — à revoir le
@@ -1975,16 +1976,79 @@ terminés et commités**
   masquée), un site nouveau face à l'ancienne API aussi (`has_cv` absent).
 - Aucune migration dans ces envois.
 
+**Démo pour la direction et onglet « Modération » (2026-10-14) : prêts,
+onglet pas encore déployé**
+
+- Pierre doit faire valider l'app par ses supérieurs avant de payer les
+  stores. Parcours complet en 7 actes dans `docs/demo/parcours-demo.md`, avec
+  les réponses aux questions probables, dont une réponse honnête et chiffrée
+  sur la tenue en charge. Tout tourne sur la **base de test**, sauf la vitrine
+  publique en lecture seule. `docs/demo/lancer-demo.ps1` (clic droit >
+  Exécuter avec PowerShell) détecte l'IP, écrit `apps/mobile/.env`, remet le
+  jeu de démo à zéro et ouvre trois fenêtres : API, site (`npx vite`), Expo.
+  Script exécuté et vérifié : les trois services répondent, et le bundle iOS
+  vise `http://<ip>:3000/api`.
+- `MatchDemoSeeder` étoffé : 6 employeurs de plus (sinon la pile du candidat
+  s'arrêtait à 2 cartes), compte `admin.test`, « Pizzeria Démo » en attente de
+  vérification, 4 élèves rattachés au CFA (badge). Un SIRET fictif unique par
+  compte : la colonne est `unique`, l'ancien `00000000000000` partagé aurait
+  cassé le deuxième employeur.
+- La base de test contient maintenant **43 vraies offres partenaires du 66**
+  (`LBA_DEPARTEMENTS=66 php artisan lba:import`, 2 min, base à 1,5 Mo sur 10).
+  Le seeder n'y touche pas. Aucun cron local : elles vieilliront, à réimporter
+  si besoin.
+- `MailService::send` n'envoie plus rien vers `@…example.com` (RFC 2606).
+  Avec la clé Resend présente dans le `.env` local, chaque match de démo
+  partait en rebond, ce qui dégrade la réputation d'envoi dont dépend la
+  lettre aux candidats. Test : `MailFictiveAddressTest`, avec une contre-épreuve
+  sur `myexample.com`.
+- **Trou trouvé en répétant la démo** : les files de modération du lot 4
+  (`admin/verifications`, `admin/reports`) n'avaient **aucun écran**. Depuis
+  B1, une nouvelle entreprise restait donc en attente sans qu'aucun bouton
+  permette de la valider. Les signalements de l'app n'étaient visibles nulle
+  part, alors que `/mentions-legales` promet un traitement sous 24 h. Ajout
+  de l'onglet « Modération » dans `/admin` (`AdminModerationPanel.tsx`) :
+  vérifications avec note obligatoire, puis signalements. Site seulement,
+  l'API n'a pas changé. Vérifié au navigateur contre l'API locale : Pizzeria
+  Démo validée, puis retirée de la file.
+- Parcours rejoué de bout en bout contre l'API locale : piles, match, CV
+  généré, dossier, CV servi par la route gardée (PDF), statut, notification,
+  partenaire, recommandation, CVthèque, file admin. `/mes-matchs` et
+  `/organization` vérifiés au navigateur.
+- Les 2 tests cassés par la photo obligatoire reçoivent une photo :
+  **963/963**. Build web, lint et 40 tests Vitest OK.
+
 **Où on s'est arrêté (fin de session du mercredi 2026-10-14)**
 
+- **Démonstration et tests prévus le jeudi 2026-10-15** (décision de Pierre).
+  Démo prête (section ci-dessus). Au démarrage : lancer
+  `docs/demo/lancer-demo.ps1`, faire la répétition, et y vérifier « Ouvrir le
+  CV » dans l'app côté CFA, le seul point jamais vu sur iPhone. Rien ne tourne
+  ce soir : le script relancé a arrêté les services. Le jeu de démo est peut-être
+  à moitié semé (relance interrompue par ma commande de test, pas par le
+  script), sans importance puisque le script ressème à chaque lancement.
+- Script vérifié en conditions réelles le soir même : PC passé sur le partage
+  de connexion de l'iPhone (« iPhone de Negre »), IP détectée `172.20.10.11`,
+  anciens ports libérés. Le script commence désormais par libérer 3000, 5173
+  et 8081 : sinon une relance démarrerait l'API sur 3001, que l'app ne vise
+  pas.
+- **À envoyer** : l'onglet Modération (`docs/exploitation/envoi-2026-10-14.md`,
+  « Second envoi » : MailService facultatif, `index-C6ofX1Bu.js`, puis
+  `index.html`). Sans lui, une entreprise qui s'inscrit sur jeuncy.com reste
+  bloquée.
+- **Entreprise de test vérifiée en production** : Pierre confirme que la
+  seule entreprise inscrite (`entreprises_verifiees: 1`) est un compte de test
+  à lui. Aucune offre publiée, donc ni pile ni notification. Ne jamais donner
+  ses identifiants aux relecteurs des stores.
+- Commité avec l'accord de Pierre : `18f32de` (onglet Modération,
+  MailService, tests) et le commit de démo qui suit (seeder, `docs/demo/`,
+  manifeste, ce fichier). Non poussés sur origin.
 - **Correctifs de sécurité en ligne et vérifiés le 2026-10-14**
   (`docs/exploitation/envoi-2026-10-14.md`) : `/version` 186/186 identiques,
   `deploy-tools-35`, route `applications/{id}/cv` chargée (401 sans jeton),
   `X-RateLimit-Limit: 120` servi, site sur `index-DRMixLr0.js`, selftest
   16/16. Non envoyé exprès : `public/.htaccess` (voir le manifeste). Commits
   non poussés sur origin.
-- **À faire par Pierre** : regarder dans `/admin` la première entreprise
-  inscrite cette semaine — elle a pu être vérifiée automatiquement avant B1.
 - **Prochaine étape pour les stores** : payer les 25 $ Google Play
   (`play.google.com/console/signup`, connecté en `go@jeuncy.com`) ; Apple
   reste en attente de l'email (DAJ8F9ARRS).
@@ -1996,8 +2060,9 @@ terminés et commités**
 - **Backlog après les stores** (demande de Pierre) : modifier une offre depuis
   l'app mobile. Le serveur l'accepte déjà (`requireOwnedEditableOffer`), l'app
   n'a aucun écran d'édition.
-- **Environnement** : `apps/mobile/.env` restauré, il vise de nouveau l'API de
-  test locale. Metro arrêté. Expo Go : voir la mémoire `expo-go-iphone-connexion`.
+- **Environnement** : `apps/mobile/.env` vise l'API de test locale (IP
+  réécrite par le script à chaque lancement). Base de test : 43 offres
+  partenaires du 66. Expo Go : voir la mémoire `expo-go-iphone-connexion`.
 - **Une autre session travaille en parallèle** (lettre n°3 :
   `docs/exploitation/journal-verification.md` modifié, non commité) — ne pas
   y toucher.

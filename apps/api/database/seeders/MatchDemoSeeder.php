@@ -54,6 +54,20 @@ class MatchDemoSeeder extends Seeder
         ['Théo', 'Pujol', 23, 0.020, -0.090, '66170', 'Millas', 'Titre pro vendeur conseil, disponible tout de suite.', ['Vente', 'Merchandising'], 'Moto, cuisine'],
     ];
 
+    /**
+     * Employeurs de remplissage : sans eux la pile du candidat s'arrete a
+     * deux cartes, ce qui ne montre rien en demonstration.
+     * login, nom, intitule, secteur, contrat
+     */
+    private const AUTRES_EMPLOYEURS = [
+        ['hotel.test', 'Hôtel Démo', 'Réceptionniste saisonnier·ère', OfferSector::RESTAURATION_HOTELLERIE, ContractType::SAISONNIER],
+        ['garage.test', 'Garage Démo', 'Mécanicien·ne auto en alternance', OfferSector::INDUSTRIE, ContractType::ALTERNANCE],
+        ['agence.test', 'Agence Web Démo', 'Chargé·e de communication digitale', OfferSector::COMMUNICATION_MARKETING, ContractType::ALTERNANCE],
+        ['supermarche.test', 'Supermarché Démo', 'Employé·e de commerce en alternance', OfferSector::COMMERCE, ContractType::ALTERNANCE],
+        ['comptable.test', 'Cabinet comptable Démo', 'Assistant·e comptable en alternance', OfferSector::ADMINISTRATIF_GESTION, ContractType::ALTERNANCE],
+        ['association.test', 'Association sportive Démo', 'Animateur·rice bénévole', OfferSector::SPORT_ANIMATION, ContractType::BENEVOLAT],
+    ];
+
     public function run(): void
     {
         if (app()->environment('production')) {
@@ -69,8 +83,31 @@ class MatchDemoSeeder extends Seeder
             $boulangerie = $this->organisation('entreprise.test', UserRole::COMPANY, 'Boulangerie Démo', '66100', 'Perpignan');
             $this->offre(['company_id' => $boulangerie->id], 'Apprenti·e boulanger·e', OfferSector::RESTAURATION_HOTELLERIE);
 
+            foreach (self::AUTRES_EMPLOYEURS as [$login, $nom, $titre, $secteur, $contrat]) {
+                $employeur = $this->organisation($login, UserRole::COMPANY, $nom, '66000', 'Perpignan');
+                $this->offre(['company_id' => $employeur->id], $titre, $secteur, $contrat);
+            }
+
+            // Inscrite mais pas encore validee : alimente la file
+            // « Vérifications » de /admin (audit B1, aucun employeur ne voit
+            // de candidat sans le clic d'un humain).
+            $this->organisation('pizzeria.test', UserRole::COMPANY, 'Pizzeria Démo', '66000', 'Perpignan')
+                ->forceFill([
+                    'verification_status' => VerificationStatus::PENDING,
+                    'verified_at' => null,
+                    'verification_note' => 'Établissement confirmé au registre des entreprises (démo).',
+                ])->saveQuietly();
+
+            User::create(['email' => 'admin.test'.self::DOMAINE, 'password_hash' => self::MOT_DE_PASSE, 'role' => UserRole::ADMIN]);
+
             foreach (self::CANDIDATS as $i => $c) {
                 $profil = $this->candidat("candidat{$i}", $c, photo: true);
+
+                // Eleves du CFA : badge « JEUNCY x CFA Démo Perpignan » sur
+                // leur carte, et candidats que le CFA peut recommander.
+                if ($i < 4) {
+                    $profil->forceFill(['cfa_organization_id' => $cfa->id])->saveQuietly();
+                }
 
                 // Les deux premiers ont deja dit oui a l'offre du CFA : un
                 // swipe a droite cote CFA doit afficher « C'est un match ».
@@ -103,7 +140,7 @@ class MatchDemoSeeder extends Seeder
         });
 
         $this->command?->info('Jeu de demo pret. Comptes '.self::DOMAINE.', mot de passe '.self::MOT_DE_PASSE);
-        $this->command?->info('  cfa.test / entreprise.test / candidat.test / sans.photo');
+        $this->command?->info('  cfa.test / entreprise.test / candidat.test / sans.photo / admin.test');
     }
 
     private function organisation(string $login, UserRole $role, string $nom, string $cp, string $ville): Model
@@ -113,7 +150,8 @@ class MatchDemoSeeder extends Seeder
         $donnees = ['name' => $nom, 'city' => $ville, 'postal_code' => $cp, 'description' => 'Organisation fictive du jeu de démo.'];
         $organisation = $role === UserRole::CFA
             ? $user->cfaOrganization()->create($donnees)
-            : $user->company()->create($donnees + ['siret' => '00000000000000']);
+            // SIRET unique en base : un faux par compte, derive du login.
+            : $user->company()->create($donnees + ['siret' => sprintf('%014d', crc32($login))]);
 
         $organisation->forceFill([
             'verification_status' => VerificationStatus::VERIFIED,
@@ -125,12 +163,12 @@ class MatchDemoSeeder extends Seeder
         return $organisation;
     }
 
-    private function offre(array $proprietaire, string $titre, OfferSector $secteur): JobOffer
+    private function offre(array $proprietaire, string $titre, OfferSector $secteur, ContractType $contrat = ContractType::ALTERNANCE): JobOffer
     {
         $offre = JobOffer::create($proprietaire + [
             'title' => $titre,
             'description' => 'Offre fictive du jeu de démo.',
-            'contract_type' => ContractType::ALTERNANCE,
+            'contract_type' => $contrat,
             'city' => 'Perpignan',
             'postal_code' => '66000',
             'sector' => $secteur,
