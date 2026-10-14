@@ -951,8 +951,10 @@ class DeployController extends Controller
             //   - ResetPasswordRequest : la reinitialisation garde 8
             //     caracteres minimum pendant que l'inscription en exige 10 ;
             //   - routes/api/video-rooms.php : la creation de salle reste
-            //     sans limite de debit ;
-            //   - public/.htaccess : l'API reste affichable dans un cadre.
+            //     sans limite de debit.
+            // public/.htaccess n'est PAS surveille : sur OVH la racine web
+            // est /home/jeuncyk/api, hors de base_path() — l'empreinte lue
+            // ici ne dirait rien du fichier reellement servi.
             // Deja surveilles plus haut, modifies : DeployController,
             // EnsureMatchAge, RegisterRequest, AccountService, bootstrap/app,
             // routes/api/candidate-profile, Application, ApplicationService,
@@ -963,7 +965,6 @@ class DeployController extends Controller
             'app/Http/Controllers/JobOfferApplicationController.php',
             'app/Http/Requests/Auth/ResetPasswordRequest.php',
             'routes/api/video-rooms.php',
-            'public/.htaccess',
         ];
 
         $etat = [];
