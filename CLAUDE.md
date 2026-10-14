@@ -1939,7 +1939,7 @@ terminés et commités**
 - A1 et B1 traités dans la foulée, à la demande de Pierre (section suivante).
 
 **Audit A1 et B1 : CV par route gardée, SIRET relu par un humain
-(2026-10-14) : terminés et commités (`dc6fade`), pas encore déployés**
+(2026-10-14) : terminés, en production depuis le 2026-10-14**
 
 - **A1** : aucune réponse employeur (liste des dossiers, changement de statut,
   match) ne contient plus d'adresse de fichier — `Application::forEmployer()`
@@ -1977,9 +1977,14 @@ terminés et commités**
 
 **Où on s'est arrêté (fin de session du mercredi 2026-10-14)**
 
-- **Rien de la sécurité n'est en ligne** : 4 commits locaux (`9e85ba8`,
-  `3416518`, `dc6fade` + celui-ci), non poussés. Prochaine étape côté
-  sécurité : manifeste d'envoi et envoi FTP (voir section précédente).
+- **Correctifs de sécurité en ligne et vérifiés le 2026-10-14**
+  (`docs/exploitation/envoi-2026-10-14.md`) : `/version` 186/186 identiques,
+  `deploy-tools-35`, route `applications/{id}/cv` chargée (401 sans jeton),
+  `X-RateLimit-Limit: 120` servi, site sur `index-DRMixLr0.js`, selftest
+  16/16. Non envoyé exprès : `public/.htaccess` (voir le manifeste). Commits
+  non poussés sur origin.
+- **À faire par Pierre** : regarder dans `/admin` la première entreprise
+  inscrite cette semaine — elle a pu être vérifiée automatiquement avant B1.
 - **Prochaine étape pour les stores** : payer les 25 $ Google Play
   (`play.google.com/console/signup`, connecté en `go@jeuncy.com`) ; Apple
   reste en attente de l'email (DAJ8F9ARRS).
