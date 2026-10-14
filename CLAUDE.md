@@ -1895,47 +1895,37 @@ production**
   après envoi : 181/181 fichiers identiques, bundle servi
   (`index-DqcauMHX.js`) identique au bit près au build.
 
-**Où on s'est arrêté (fin de session du vendredi 2026-10-09, reprise lundi
-2026-10-12)**
+**Point d'arrêt du 2026-10-09 : soldé le 2026-10-13** (build Android EAS
+vérifié, `expo doctor` 21/21 au commit `32c3d65`).
 
-- **Fait** : âge minimum 16 ans + page CSAE/recours parental, en production
-  (section ci-dessus). Branche à jour sur origin.
-- **Préparation des stores sans payer (décidé le 2026-10-09)** : identifiant
-  `com.jeuncy.app` validé par Pierre (définitif) ; compte Expo `JEUNCYDEV`
-  (go@jeuncy.com), organisation `jeuncy-app`, projet `@jeuncy-app/jeuncy`
-  lié dans `app.json` ; `eas.json` (profils `preview` = APK Android
-  installable, `production`), les deux forcent l'API de production. La
-  session Expo de Pierre est visible depuis mon shell : je lance les
-  commandes EAS moi-même (`npx -y eas-cli@latest ...`).
-- **Premier build Android** : le 1er a échoué (`@jeuncy/shared` sans `dist/`
-  sur le serveur EAS, corrigé par `eas-build-post-install` dans
-  `apps/mobile/package.json`). Le 2e
-  (`f7d4c92f-4821-495c-9e43-e62a47bd28ca`) avait passé l'assemblage JS et
-  compilait encore à 16h50 : **à vérifier en premier** avec
-  `npx -y eas-cli@latest build:view f7d4c92f-4821-495c-9e43-e62a47bd28ca`.
-  Journaux EAS compressés en brotli (`zlib.brotliDecompressSync`).
-- `expo doctor` : 10 paquets Expo en retard d'un correctif (non bloquant) — à
-  mettre à jour avant le build pour les stores, puis retester sur iPhone.
-- Ensuite (sans payer) : textes des fiches, questionnaires âge/données,
-  captures, compte de démo pour la revue Apple.
-- **Chemin critique : les stores, pas le code.** Prochaine étape exacte,
-  toujours la même qu'au 2026-10-08 (pas encore faite le 2026-10-09) :
-  Pierre paie les 25 $ de Google Play (carte de la société, ou carte perso en
-  note de frais) sur https://play.google.com/console/signup, connecté en
-  `go@jeuncy.com`, bouton « Créer un compte et payer ». Tout est rempli
-  jusque-là ; détails et valeurs à ressaisir dans la mémoire
-  `publication-stores`. Apple Developer : toujours en attente de l'email
-  (Enrollment ID DAJ8F9ARRS).
-- **Ensuite** : pièce d'identité pour Google, preuve de propriété de
-  jeuncy.com (DNS chez OVH), puis configuration de build EAS — les
-  identifiants de bundle sont définitifs, à faire valider par Pierre avant de
-  les fixer.
-- **Captures d'écran de Pierre** : les lire directement dans
-  `C:\Users\Pierre\OneDrive\Images\Screenshots` (la plus récente), ne pas lui
-  demander de les coller.
-- **Environnement de test** : `apps/mobile/.env` vise toujours l'API de test
-  locale (`192.168.1.15:3000`). Les serveurs (API `php -S`, Expo) meurent avec
-  la session — commandes de relance plus haut, section du 2026-10-07 dans
-  l'historique git (`git show 76c32ec:CLAUDE.md`).
+**Où on s'est arrêté (fin de session du mardi 2026-10-13)**
+
+- **Tout ce qui se fait sans payer est prêt**, rien n'est commité (attendre le
+  feu vert de Pierre) :
+  - `docs/mobile/fiches-stores.md` : nom, sous-titre, descriptions, mots-clés,
+    catégories, liens légaux.
+  - `docs/mobile/questionnaire-donnees.md` : réponses Google Data Safety et
+    Apple Privacy. **Déclaration légale : Pierre doit la valider.**
+  - `docs/mobile/captures-stores/` : 2 captures (Découvrir, Détail d'offre) en
+    Apple 1290×2796 et Google 1170×2340. Une capture Profil est facultative.
+  - Comptes de revue en production, vérifiés : `revue-app@jeuncy.com`
+    (entreprise) et `revue-candidat@jeuncy.com` (Camille Martin, cachée de la
+    CVthèque et du deck). Mot de passe donné à Pierre, absent du dépôt.
+- **Prochaine étape exacte** : Pierre confirme les 5 points du questionnaire
+  (données collectées ; rien vendu ni pisté ; seuls Resend et Google reçoivent
+  des données ; suppression et export dans l'app ; 16 ans minimum). Il n'a pas
+  encore répondu.
+- **Décision à prendre avant la soumission** : le compte entreprise de revue
+  est en production. Pour montrer le deck employeur, il lui faudrait une offre
+  publiée (ce qui notifie de vrais candidats) et un « oui » du relecteur
+  notifierait un vrai candidat. Piste : ne fournir que le compte candidat et
+  décrire le côté entreprise dans les notes de revue.
+- **Ensuite, les paiements** : Google Play 25 $ (mémoire `publication-stores`),
+  Apple toujours en attente de l'email (DAJ8F9ARRS).
+- **Backlog après les stores** (demande de Pierre) : modifier une offre depuis
+  l'app mobile. Le serveur l'accepte déjà (`requireOwnedEditableOffer`), l'app
+  n'a aucun écran d'édition.
+- **Environnement** : `apps/mobile/.env` restauré, il vise de nouveau l'API de
+  test locale. Metro arrêté. Expo Go : voir la mémoire `expo-go-iphone-connexion`.
 - **Non commité, pas à moi** : `docs/communication/newsletter/2026-10-08-lettre-03-corps.txt`
-  (lettre n°3, probablement l'autre session) — ne pas y toucher.
+  — ne pas y toucher.
