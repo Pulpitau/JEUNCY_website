@@ -70,7 +70,7 @@ class DeployController extends Controller
     // ne peut pas savoir si le controleur lui-meme a bien ete redeploye : c est
     // arrive le 2026-09-02, ou clear-cache continuait d echouer avec une version
     // corrigee censement en place. A incrementer a chaque changement ici.
-    public const DEPLOY_TOOLS_VERSION = 'deploy-tools-34';
+    public const DEPLOY_TOOLS_VERSION = 'deploy-tools-35';
 
     // Perimetre de lancement du match mobile (decision du 2026-09-22) : les
     // Pyrenees-Orientales, mesurees autour de Perpignan (centre-ville).
@@ -937,6 +937,33 @@ class DeployController extends Controller
             'app/Http/Requests/CfaPartnership/AddPartnerCompanyRequest.php',
             'app/Http/Requests/CfaPartnership/RecommendCandidateRequest.php',
             'routes/api/cfa-partnership.php',
+
+            // ================================================================
+            // AUDIT DE SECURITE DU 2026-10-01, CORRECTIFS DU 2026-10-14. Ce
+            // que chaque absence produit :
+            //   - AppServiceProvider : bootstrap/app.php appelle
+            //     throttleApi(), qui exige le limiteur 'api' defini ici. Sans
+            //     lui, TOUTE route de l'API repond 500 — a envoyer AVANT ou
+            //     AVEC bootstrap/app.php, jamais apres ;
+            //   - routes/api/applications.php ou le controleur : le bouton
+            //     « Voir le CV » des recruteurs repond 404 (le site et l'app
+            //     n'ont plus l'adresse du fichier) ;
+            //   - ResetPasswordRequest : la reinitialisation garde 8
+            //     caracteres minimum pendant que l'inscription en exige 10 ;
+            //   - routes/api/video-rooms.php : la creation de salle reste
+            //     sans limite de debit ;
+            //   - public/.htaccess : l'API reste affichable dans un cadre.
+            // Deja surveilles plus haut, modifies : DeployController,
+            // EnsureMatchAge, RegisterRequest, AccountService, bootstrap/app,
+            // routes/api/candidate-profile, Application, ApplicationService,
+            // CompanyVerificationService, MailService, MatchService.
+            // ================================================================
+            'app/Providers/AppServiceProvider.php',
+            'routes/api/applications.php',
+            'app/Http/Controllers/JobOfferApplicationController.php',
+            'app/Http/Requests/Auth/ResetPasswordRequest.php',
+            'routes/api/video-rooms.php',
+            'public/.htaccess',
         ];
 
         $etat = [];

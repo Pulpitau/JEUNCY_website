@@ -1936,12 +1936,50 @@ terminés et commités**
   `lint-staged` a englouti la suppression sans la commiter (0 ligne dans le
   diff final), découvert seulement en revérifiant `git ls-files` après coup.
   Refait dans un commit séparé, vérifié cette fois.
-- **Prochaine étape pour la sécurité** : rien d'automatique, c'est à Pierre
-  de décider s'il veut traiter A1/B1 maintenant ou plus tard — ce sont les
-  deux points qui touchent le plus directement des mineurs.
+- A1 et B1 traités dans la foulée, à la demande de Pierre (section suivante).
+
+**Audit A1 et B1 : CV par route gardée, SIRET relu par un humain
+(2026-10-14) : terminés et commités (`dc6fade`), pas encore déployés**
+
+- **A1** : aucune réponse employeur (liste des dossiers, changement de statut,
+  match) ne contient plus d'adresse de fichier — `Application::forEmployer()`
+  les retire et expose `has_cv`. Le PDF se récupère par
+  `GET applications/{id}/cv`, mêmes gardes que la liste des dossiers rejouées
+  à chaque appel (propriétaire, vérifié, accès, blocage). Site : téléchargement
+  (`useApplicationCvDownload`) ; app : feuille de partage iOS, comme l'export
+  des données. Le candidat garde ses propres adresses (ses écrans à lui ne
+  changent pas). Fichiers déjà en ligne laissés sur le disque public (nom non
+  devinable) — passage au disque privé = l'étape « moyenne » de l'audit, non
+  faite.
+- **B1** : `CompanyVerificationService` ne donne plus jamais VERIFIED à partir
+  du registre seul ; un registre favorable laisse PENDING avec la note
+  « Établissement confirmé au registre… », dans la file existante de `/admin`
+  (lot 4, note obligatoire pour accorder), et un email part à
+  `bonjour@jeuncy.com`. Les organisations déjà vérifiées (IDA) ne bougent pas,
+  sauf changement de SIRET. **Conséquence à assumer** : chaque nouvelle
+  entreprise attend un clic de Pierre avant de voir un candidat — à revoir le
+  jour où le volume d'inscriptions rend ce clic intenable (piste de l'audit :
+  email de domaine).
+- **Non vérifié sur iPhone** : l'ouverture du CV dans l'app (feuille de
+  partage). Types et lint OK, rien de plus.
+
+**Envoi des correctifs de sécurité du 2026-10-14 (API + site ensemble)**
+
+- `/version` surveille désormais tous les fichiers touchés (`deploy-tools-35`).
+  **Piège d'ordre** : `bootstrap/app.php` appelle `throttleApi()`, qui exige le
+  limiteur défini dans `app/Providers/AppServiceProvider.php`. Envoyer le
+  premier sans le second fait tomber **toute** l'API en 500 — AppServiceProvider
+  part avant ou avec bootstrap/app.php.
+- API et site partent ensemble : un site ancien face à la nouvelle API perd le
+  bouton « Voir le CV » des recruteurs (il lisait l'adresse, désormais
+  masquée), un site nouveau face à l'ancienne API aussi (`has_cv` absent).
+- Aucune migration dans ces envois.
 
 **Où on s'est arrêté (fin de session du mercredi 2026-10-14)**
 
+- **Rien de la sécurité n'est en ligne** : 4 commits locaux (`9e85ba8`,
+  `3416518`, `dc6fade` + celui-ci), non poussés. Prochaine étape côté
+  sécurité : manifeste d'envoi et envoi FTP (voir section précédente).
 - **Prochaine étape pour les stores** : payer les 25 $ Google Play
   (`play.google.com/console/signup`, connecté en `go@jeuncy.com`) ; Apple
   reste en attente de l'email (DAJ8F9ARRS).
@@ -1955,5 +1993,6 @@ terminés et commités**
   n'a aucun écran d'édition.
 - **Environnement** : `apps/mobile/.env` restauré, il vise de nouveau l'API de
   test locale. Metro arrêté. Expo Go : voir la mémoire `expo-go-iphone-connexion`.
-- **Non commité, pas à moi** : `docs/communication/newsletter/2026-10-08-lettre-03-corps.txt`
-  — ne pas y toucher.
+- **Une autre session travaille en parallèle** (lettre n°3 :
+  `docs/exploitation/journal-verification.md` modifié, non commité) — ne pas
+  y toucher.
