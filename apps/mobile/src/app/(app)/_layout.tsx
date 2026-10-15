@@ -56,6 +56,7 @@ export default function AppLayout() {
         name="offres/[id]/candidatures"
         options={{ title: 'Candidatures reçues' }}
       />
+      <Stack.Screen name="cv/[applicationId]" options={{ title: 'CV' }} />
     </Stack>
   );
 }

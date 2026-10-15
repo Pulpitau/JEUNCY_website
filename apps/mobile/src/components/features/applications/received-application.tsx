@@ -1,8 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { ApplicationStatus } from '@jeuncy/shared';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { File, Paths } from 'expo-file-system';
-import * as Sharing from 'expo-sharing';
+import { router } from 'expo-router';
 import { Alert, Linking, Pressable, StyleSheet, View } from 'react-native';
 
 import { statusTone } from '@/components/features/applications/status';
@@ -11,7 +10,6 @@ import { Card } from '@/components/ui/card';
 import { Text } from '@/components/ui/text';
 import { MATCHES_KEY } from '@/hooks/use-matches';
 import {
-  downloadApplicationCv,
   updateApplicationStatus,
   type EmployerApplicationStatus,
   type ReceivedApplication,
@@ -53,22 +51,10 @@ export function ReceivedApplicationCard({
   const profile = application.candidate_profile;
   const nom = `${profile.first_name} ${profile.last_name}`.trim();
 
-  // Le serveur envoie le PDF, jamais son adresse : on l'ecrit dans le cache
-  // puis la feuille de partage d'iOS l'affiche (apercu, Fichiers, mail...).
-  // Meme montage que l'export des donnees (profil/confidentialite.tsx).
-  const cv = useMutation({
-    mutationFn: async () => {
-      const { bytes, filename } = await downloadApplicationCv(application.id);
-      const file = new File(Paths.cache, filename ?? `CV-${application.id}.pdf`);
-      file.write(bytes);
-      await Sharing.shareAsync(file.uri, {
-        mimeType: 'application/pdf',
-        UTI: 'com.adobe.pdf',
-      });
-    },
-    onError: (error: Error) => Alert.alert('CV indisponible', error.message),
-  });
-
+  // Le serveur envoie le PDF, jamais son adresse : l'ecran /cv/[applicationId]
+  // le retelecharge et l'affiche dans une WebView (apercu direct). La feuille
+  // de partage d'iOS ne montrait qu'une miniature non tapable (retour du
+  // 2026-10-15) — partager reste possible depuis cet ecran-la si besoin.
   const mutation = useMutation({
     mutationFn: (status: EmployerApplicationStatus) =>
       updateApplicationStatus(application.id, status),
@@ -125,18 +111,22 @@ export function ReceivedApplicationCard({
 
       {application.has_cv ? (
         <Pressable
-          onPress={() => cv.mutate()}
-          disabled={cv.isPending}
+          onPress={() =>
+            router.push({
+              pathname: '/cv/[applicationId]',
+              params: { applicationId: String(application.id) },
+            })
+          }
           accessibilityRole="button"
           accessibilityLabel="Ouvrir le CV"
           style={({ pressed }) => [
             styles.cv,
-            { borderColor: colors.border, opacity: pressed || cv.isPending ? 0.7 : 1 },
+            { borderColor: colors.border, opacity: pressed ? 0.7 : 1 },
           ]}
         >
           <Ionicons name="document-text-outline" size={18} color={colors.accent} />
           <Text variant="bodyStrong" tone="accent" style={styles.cvText}>
-            {cv.isPending ? 'Ouverture…' : 'Ouvrir le CV'}
+            Ouvrir le CV
           </Text>
           <Ionicons name="open-outline" size={16} color={colors.accent} />
         </Pressable>
