@@ -2104,3 +2104,24 @@ terminé et en ligne (mobile, pas de build à soumettre)**
 - Validé sur iPhone par Pierre (compte `cfa.test`, base de test) : champs
   pré-remplis, enregistrement vérifié en base. tsc, eslint, prettier OK.
 - Branche `feat/mobile-edition-offre`, partie de `feature/mobile-match`.
+
+**Photo de profil : obligation levée, simple rappel (2026-10-22) : commité,
+pas encore déployé**
+
+- Décision de Pierre : l'obligation du 2026-10-07 bloquait Découvrir (et la
+  page web `/interesses`, qui lit la même route) à 88 candidats sur 120, pour
+  une photo que l'employeur ne voit que si le candidat l'a autorisé
+  (`show_photo_to_employers`). Risque aussi côté mineurs et revue Apple.
+- `services.jeuncy.photo_obligatoire_le` est désormais **vide par défaut** :
+  le mécanisme reste, réactivable par `JEUNCY_PHOTO_OBLIGATOIRE_LE`. Test
+  `test_by_default_a_candidate_without_photo_opens_the_pile`, contre-épreuve
+  faite (échoue avec l'ancien défaut). 964/964.
+- App : bandeau « Ajoute une photo à ton profil… » dans Découvrir tant que
+  `photo_url` est vide (lu dans le profil en cache, aucun changement d'API).
+  Validé sur iPhone avec le compte `sans.photo` de la base de test.
+- **À déployer** : `config/services.php` seul (surveillé par `/version`). Et
+  vérifier que le `.env` de prod ne porte pas de ligne
+  `JEUNCY_PHOTO_OBLIGATOIRE_LE` — sinon elle réactive l'obligation.
+- Trouvé en chemin, non corrigé : l'app ne vide pas le cache TanStack Query à
+  la déconnexion (`staleTime` 60 s) — sur un téléphone partagé, le compte
+  suivant peut voir un instant les données du précédent.

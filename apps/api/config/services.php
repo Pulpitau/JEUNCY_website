@@ -191,7 +191,11 @@ return [
         // A partir de cette date (Y-m-d), un candidat sans photo ne peut plus
         // ouvrir Decouvrir. Avant, la pile s'ouvre et annonce l'echeance.
         // Decision du 2026-10-07 : preavis de 7 jours pour les comptes existants.
-        'photo_obligatoire_le' => env('JEUNCY_PHOTO_OBLIGATOIRE_LE', '2026-10-14'),
+        // Levee le 2026-10-22 (decision de Pierre) : vide par defaut, donc
+        // aucune obligation. Bloquait 88 candidats sur 120, pour une photo que
+        // l'employeur ne voit que si le candidat l'a autorise
+        // (show_photo_to_employers). L'app se contente d'un rappel.
+        'photo_obligatoire_le' => env('JEUNCY_PHOTO_OBLIGATOIRE_LE'),
     ],
 
     'ses' => [

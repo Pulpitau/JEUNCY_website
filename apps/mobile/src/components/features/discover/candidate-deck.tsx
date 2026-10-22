@@ -17,6 +17,7 @@ import {
 } from '@/components/features/discover/swipe-deck';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Text } from '@/components/ui/text';
+import { useCandidateProfile } from '@/hooks/use-candidate-profile';
 import { useDiscoverDeck, type DeckCard } from '@/hooks/use-discover-deck';
 import { ApiError } from '@/lib/api/client';
 import { INTEREST_ERRORS } from '@/lib/api/interests';
@@ -58,6 +59,10 @@ export function CandidateDeck() {
     undo,
     refresh,
   } = useDiscoverDeck();
+  // La photo n'est plus exigee (2026-10-22) : un simple rappel tant qu'il
+  // n'y en a pas. Le profil est deja en cache depuis l'onglet Profil.
+  const { data: profile } = useCandidateProfile();
+  const sansPhoto = !!profile && !profile.photo_url;
 
   // Carte sortie à droite dont on attend la décision (feuille ouverte) :
   // retirée de la pile le temps de la feuille, remise si le candidat annule.
@@ -201,7 +206,7 @@ export function CandidateDeck() {
         />
       </View>
 
-      {meta?.photo_required_from ? (
+      {meta?.photo_required_from || sansPhoto ? (
         <Pressable
           onPress={() => router.push('/profil')}
           accessibilityRole="button"
@@ -209,8 +214,9 @@ export function CandidateDeck() {
         >
           <Ionicons name="camera-outline" size={18} color={colors.accentWarm} />
           <Text variant="small" style={styles.noticeText}>
-            Ajoute une photo de profil avant le {formatDateFr(meta.photo_required_from)}{' '}
-            pour continuer à découvrir des offres.
+            {meta?.photo_required_from
+              ? `Ajoute une photo de profil avant le ${formatDateFr(meta.photo_required_from)} pour continuer à découvrir des offres.`
+              : 'Ajoute une photo à ton profil. Tu choisis ensuite si les recruteurs la voient.'}
           </Text>
           <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
         </Pressable>

@@ -430,6 +430,13 @@ class DiscoverOffersTest extends TestCase
         $this->assertNull($this->pile($this->candidat())['meta']['photo_required_from']);
     }
 
+    // Decision du 2026-10-22 : la photo n'est plus exigee. Sans reglage,
+    // aucune echeance — le defaut de config/services.php est ce qui est teste.
+    public function test_by_default_a_candidate_without_photo_opens_the_pile(): void
+    {
+        $this->assertNull($this->pile($this->candidat(['photo_url' => null]))['meta']['photo_required_from']);
+    }
+
     public function test_the_flag_is_on_by_default(): void
     {
         // Le defaut est VRAI a dessein : fermer par defaut masquerait aussi
