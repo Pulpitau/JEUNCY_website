@@ -2068,25 +2068,9 @@ terminé et en ligne (mobile, pas de build à soumettre)**
   aligne seulement `/version`) — sans effet pratique, à ne relancer que si
   ce fichier redevient pertinent pour autre chose.
 
-**Où on s'est arrêté (fin de session du jeudi 2026-10-15)**
-
-- Démo entièrement validée sur iPhone, bug CV corrigé et poussé. Onglet
-  Modération déployé côté site, vérifié par hash — reste la confirmation
-  visuelle par Pierre dans `/admin`.
-- **Chemin critique inchangé, toujours côté Pierre** : payer les 25 $ Google
-  Play (`play.google.com/console/signup`, `go@jeuncy.com`) ; Apple en attente
-  de l'email (DAJ8F9ARRS).
-- ~~Modifier une offre depuis l'app mobile~~ — **fait le 2026-10-22**, voir
-  la section suivante. Décision à prendre avant soumission aux stores : quel
-  compte de revue fournir côté entreprise (voir note du 2026-10-14, toujours
-  valable — le compte entreprise de test est en production, publier une offre
-  depuis ce compte notifierait de vrais candidats).
-- **Environnement** : `apps/mobile/.env` vise l'API de test locale (IP
-  réécrite par `lancer-demo.ps1` à chaque lancement). Base de test : 43 offres
-  partenaires du 66. Expo Go : voir la mémoire `expo-go-iphone-connexion`.
-- **Une autre session travaille en parallèle** (lettre n°3 :
-  `docs/exploitation/journal-verification.md` modifié, non commité) — ne pas
-  y toucher.
+**Point d'arrêt du 2026-10-15 : soldé le 2026-10-22** (écran de
+modification d'offre fait, photo facultative, cache vidé à la déconnexion —
+voir les sections suivantes).
 
 **Modifier une offre depuis l'app (2026-10-22) : terminé, validé sur iPhone**
 
@@ -2124,6 +2108,38 @@ production côté serveur**
   `JEUNCY_PHOTO_OBLIGATOIRE_LE` dans le `.env` de prod (vérifié par Pierre) :
   l'obligation est levée sur le site. Le rappel de l'app partira avec le
   prochain build des stores.
-- Trouvé en chemin, non corrigé : l'app ne vide pas le cache TanStack Query à
-  la déconnexion (`staleTime` 60 s) — sur un téléphone partagé, le compte
-  suivant peut voir un instant les données du précédent.
+- Trouvé en chemin : l'app ne vidait pas le cache TanStack Query à la
+  déconnexion — corrigé le jour même, voir la section suivante.
+
+**Cache vidé à la déconnexion (2026-10-22) : terminé, validé sur iPhone**
+
+- Le profil, les matchs, les offres restaient en cache après une
+  déconnexion, frais 60 s (`staleTime`) : le compte suivant voyait le profil
+  du précédent sans même un rechargement. `src/app/_layout.tsx` s'abonne au
+  store d'auth et appelle `queryClient.clear()` quand `user` passe à null —
+  un seul point, puisque déconnexion, suppression du compte et refresh refusé
+  passent tous par `clearSession`. Seule autre donnée locale : le thème.
+- Validé sur iPhone (base de test) : `candidat.test` puis `sans.photo` dans
+  la minute, chaque compte affiche son propre nom. L'ancien comportement
+  n'a pas été observé sur le téléphone, il est déduit du code.
+
+**Où on s'est arrêté (fin de session du mercredi 2026-10-22)**
+
+- Côté code mobile, plus rien d'urgent : tout est commité et poussé sur
+  `origin/feature/mobile-match`. Seul fichier serveur envoyé aujourd'hui :
+  `config/services.php` (vérifié). Rien côté site à renvoyer.
+- **Chemin critique, côté Pierre** : payer les 25 $ Google Play
+  (`go@jeuncy.com`), puis vérification d'identité et preuve DNS de
+  jeuncy.com ; Apple : attendre la validation (DAJ8F9ARRS) puis 99 $/an.
+- **Avant de soumettre** : construire l'AAB de production (seul un APK
+  `preview` existe) et le build iOS (exige le compte Apple) ; décider du
+  compte entreprise fourni aux relecteurs (un relecteur qui publie depuis le
+  compte de test en production notifierait de vrais candidats) ; faire
+  tourner l'app au moins une fois sur un vrai téléphone Android — aucune
+  trace que ce soit fait.
+- **Environnement** : `apps/mobile/.env` vise l'API de test locale (IP
+  réécrite par `lancer-demo.ps1`). Comptes de démo `*@demo-match.example.com`,
+  dont `sans.photo` (candidat sans photo), mot de passe `Password123!`.
+- **Une autre session travaille en parallèle** :
+  `docs/exploitation/journal-verification.md` modifié, non commité — ne pas
+  y toucher.

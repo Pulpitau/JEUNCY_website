@@ -29,6 +29,14 @@ const queryClient = new QueryClient({
   },
 });
 
+// Fin de session (deconnexion, suppression du compte, refresh refuse) : le
+// cache part avec. Sinon, sur un telephone partage, le compte suivant verrait
+// un instant le profil, les matchs ou les offres du precedent. Abonnement
+// au store plutot qu'appel dans chaque chemin : tous passent par clearSession.
+useAuthStore.subscribe((state, previous) => {
+  if (previous.user && !state.user) queryClient.clear();
+});
+
 export default function RootLayout() {
   // Chaque graisse est chargee par son chemin exact, et non depuis la racine du
   // paquet (`import { Poppins_400Regular } from '@expo-google-fonts/poppins'`).
