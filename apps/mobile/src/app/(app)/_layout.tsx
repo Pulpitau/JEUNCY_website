@@ -52,6 +52,7 @@ export default function AppLayout() {
         options={{ title: 'Offre express' }}
       />
       <Stack.Screen name="matchs/[id]" options={{ title: 'Match' }} />
+      <Stack.Screen name="offres/[id]/modifier" options={{ title: "Modifier l'offre" }} />
       <Stack.Screen
         name="offres/[id]/candidatures"
         options={{ title: 'Candidatures reçues' }}

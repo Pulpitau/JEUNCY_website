@@ -2018,51 +2018,89 @@ onglet pas encore déployé**
 - Les 2 tests cassés par la photo obligatoire reçoivent une photo :
   **963/963**. Build web, lint et 40 tests Vitest OK.
 
-**Où on s'est arrêté (fin de session du mercredi 2026-10-14)**
+**Point d'arrêt du 2026-10-14 : soldé le 2026-10-15** (démo répétée sur
+iPhone, bug « Ouvrir le CV » corrigé, onglet Modération déployé — voir les
+deux sections suivantes).
 
-- **Démonstration et tests prévus le jeudi 2026-10-15** (décision de Pierre).
-  Démo prête (section ci-dessus). Au démarrage : lancer
-  `docs/demo/lancer-demo.ps1`, faire la répétition, et y vérifier « Ouvrir le
-  CV » dans l'app côté CFA, le seul point jamais vu sur iPhone. Rien ne tourne
-  ce soir : le script relancé a arrêté les services. Le jeu de démo est peut-être
-  à moitié semé (relance interrompue par ma commande de test, pas par le
-  script), sans importance puisque le script ressème à chaque lancement.
-- Script vérifié en conditions réelles le soir même : PC passé sur le partage
-  de connexion de l'iPhone (« iPhone de Negre »), IP détectée `172.20.10.11`,
-  anciens ports libérés. Le script commence désormais par libérer 3000, 5173
-  et 8081 : sinon une relance démarrerait l'API sur 3001, que l'app ne vise
-  pas.
-- **À envoyer** : l'onglet Modération (`docs/exploitation/envoi-2026-10-14.md`,
-  « Second envoi » : MailService facultatif, `index-C6ofX1Bu.js`, puis
-  `index.html`). Sans lui, une entreprise qui s'inscrit sur jeuncy.com reste
-  bloquée.
-- **Entreprise de test vérifiée en production** : Pierre confirme que la
-  seule entreprise inscrite (`entreprises_verifiees: 1`) est un compte de test
-  à lui. Aucune offre publiée, donc ni pile ni notification. Ne jamais donner
-  ses identifiants aux relecteurs des stores.
-- Commité avec l'accord de Pierre : `18f32de` (onglet Modération,
-  MailService, tests) et le commit de démo qui suit (seeder, `docs/demo/`,
-  manifeste, ce fichier). Non poussés sur origin.
-- **Correctifs de sécurité en ligne et vérifiés le 2026-10-14**
-  (`docs/exploitation/envoi-2026-10-14.md`) : `/version` 186/186 identiques,
-  `deploy-tools-35`, route `applications/{id}/cv` chargée (401 sans jeton),
-  `X-RateLimit-Limit: 120` servi, site sur `index-DRMixLr0.js`, selftest
-  16/16. Non envoyé exprès : `public/.htaccess` (voir le manifeste). Commits
-  non poussés sur origin.
-- **Prochaine étape pour les stores** : payer les 25 $ Google Play
-  (`play.google.com/console/signup`, connecté en `go@jeuncy.com`) ; Apple
-  reste en attente de l'email (DAJ8F9ARRS).
-- **Décision à prendre avant la soumission** : le compte entreprise de revue
-  est en production. Pour montrer le deck employeur, il lui faudrait une offre
-  publiée (ce qui notifie de vrais candidats) et un « oui » du relecteur
-  notifierait un vrai candidat. Piste : ne fournir que le compte candidat et
-  décrire le côté entreprise dans les notes de revue.
-- **Backlog après les stores** (demande de Pierre) : modifier une offre depuis
-  l'app mobile. Le serveur l'accepte déjà (`requireOwnedEditableOffer`), l'app
-  n'a aucun écran d'édition.
+**Démo répétée sur iPhone, bug « Ouvrir le CV » corrigé (2026-10-15) :
+terminé et en ligne (mobile, pas de build à soumettre)**
+
+- Répétition complète avec `lancer-demo.ps1` contre la base de test : compte
+  CFA (identifiants du seeder, pas les vrais d'IDA — domaine
+  `@demo-match.example.com`, mot de passe `Password123!`), envoi d'un dossier
+  côté candidat (`candidat.test`), réception côté CFA. Tout conforme.
+- **Bug trouvé** : « Ouvrir le CV » sur un dossier reçu lançait la feuille de
+  partage iOS, qui ne montre qu'une miniature non tapable — aucun moyen de
+  lire le CV sans en sortir (AirDrop, Mail…). Confirmé par Pierre à l'écran.
+  La route `applications/{id}/cv` (gardée, A1 du 2026-10-14) ne peut pas
+  passer par `WebBrowser.openBrowserAsync` comme le CV du candidat
+  (`cv-section.tsx`) : ce composant-là ouvre une URL **publique**, celle-ci
+  exige le jeton d'auth que Safari n'enverrait pas.
+- Corrigé avec **`react-native-webview`** (nouvelle dépendance,
+  `13.16.1`, installée via `corepack pnpm add` — `pnpm` seul n'est pas sur le
+  PATH, voir [[mon-shell-nest-pas-celui-de-pierre]]) : nouvel écran
+  `/cv/[applicationId]` qui retélécharge le fichier (même fonction qu'avant,
+  `downloadApplicationCv`) et l'affiche dans une WebView locale
+  (`originWhitelist: ['file://*']`). Le bouton pousse cet écran au lieu de
+  lancer `Sharing.shareAsync`. **Validé sur iPhone par Pierre** : le CV
+  s'ouvre et se lit directement.
+- Piège rencontré : le générateur de routes typées d'Expo Router n'avait pas
+  vu le nouveau fichier (`cv/[applicationId].tsx` créé pendant qu'Expo
+  tournait déjà) — `tsc` échouait sur la route. Redémarrage de `expo start`
+  (port 8081 libéré puis relancé), régénéré proprement — même piège que celui
+  déjà documenté phase 1.
+- Commité (`75d4d9d`) et **poussé sur `origin/feature/mobile-match`**, avec
+  l'accord explicite de Pierre. `docs/exploitation/journal-verification.md`
+  (modifié par une autre session en parallèle) volontairement exclu du commit.
+
+**Onglet « Modération » : déployé en production le 2026-10-15**
+
+- Second envoi du manifeste `docs/exploitation/envoi-2026-10-14.md` fait par
+  Pierre via WinSCP (les 2 fichiers web obligatoires ; `MailService.php`
+  facultatif pas confirmé envoyé). **Vérifié par Claude, lecture publique
+  seule** (pas d'accès au jeton de prod) : le bundle JS servi par jeuncy.com
+  et son `index.html` ont une empreinte **identique au bit près** à
+  `index-C6ofX1Bu.js` (`27e9b351c34d44d9`) et `index.html`
+  (`0bfa01ab4fe3bcfb`) attendus par le manifeste.
+- **Confirmé par Pierre le 2026-10-16** (capture d'écran) : l'onglet
+  « Modération » est bien visible dans `/admin` en production.
+  Reste non confirmé : s'il a aussi envoyé `MailService.php` (facultatif,
+  aligne seulement `/version`) — sans effet pratique, à ne relancer que si
+  ce fichier redevient pertinent pour autre chose.
+
+**Où on s'est arrêté (fin de session du jeudi 2026-10-15)**
+
+- Démo entièrement validée sur iPhone, bug CV corrigé et poussé. Onglet
+  Modération déployé côté site, vérifié par hash — reste la confirmation
+  visuelle par Pierre dans `/admin`.
+- **Chemin critique inchangé, toujours côté Pierre** : payer les 25 $ Google
+  Play (`play.google.com/console/signup`, `go@jeuncy.com`) ; Apple en attente
+  de l'email (DAJ8F9ARRS).
+- ~~Modifier une offre depuis l'app mobile~~ — **fait le 2026-10-22**, voir
+  la section suivante. Décision à prendre avant soumission aux stores : quel
+  compte de revue fournir côté entreprise (voir note du 2026-10-14, toujours
+  valable — le compte entreprise de test est en production, publier une offre
+  depuis ce compte notifierait de vrais candidats).
 - **Environnement** : `apps/mobile/.env` vise l'API de test locale (IP
-  réécrite par le script à chaque lancement). Base de test : 43 offres
+  réécrite par `lancer-demo.ps1` à chaque lancement). Base de test : 43 offres
   partenaires du 66. Expo Go : voir la mémoire `expo-go-iphone-connexion`.
 - **Une autre session travaille en parallèle** (lettre n°3 :
   `docs/exploitation/journal-verification.md` modifié, non commité) — ne pas
   y toucher.
+
+**Modifier une offre depuis l'app (2026-10-22) : terminé, validé sur iPhone**
+
+- Nouvel écran `offres/[id]/modifier` (bouton « Modifier » sur chaque offre de
+  « Mes offres ») : intitulé, contrat, commune, code postal, secteur, rayon,
+  description. Rémunération et missions restent sur le site. Aucun fichier
+  backend touché : `PATCH job-offers/{id}` existait déjà.
+- Bouton affiché selon `canEditOffer` (`lib/api/job-offers.ts`), écrit comme
+  le miroir de `JobOfferService::requireOwnedEditableOffer` (brouillon, ou
+  publiée avec `payment_status FREE`) — leçon du lot 2.
+- Code postal exigé à l'écran même si le serveur l'accepte vide : sans lui
+  l'offre n'entre dans aucune pile. L'avertissement « Code postal manquant »
+  renvoie désormais vers ce bouton, plus vers jeuncy.com. La pile de l'offre
+  est invalidée à l'enregistrement (lieu ou rayon ont pu changer).
+- Validé sur iPhone par Pierre (compte `cfa.test`, base de test) : champs
+  pré-remplis, enregistrement vérifié en base. tsc, eslint, prettier OK.
+- Branche `feat/mobile-edition-offre`, partie de `feature/mobile-match`.

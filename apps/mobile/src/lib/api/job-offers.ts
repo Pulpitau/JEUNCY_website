@@ -123,6 +123,17 @@ export function canDiscoverFrom(offer: JobOffer): boolean {
   return offer.status === 'PUBLISHED' && offer.postal_code !== null;
 }
 
+/**
+ * Miroir de JobOfferService::requireOwnedEditableOffer : brouillon, ou offre
+ * publiee gratuitement. Une offre payee, en essai ou archivee reste fermee.
+ */
+export function canEditOffer(offer: JobOffer): boolean {
+  return (
+    offer.status === 'DRAFT' ||
+    (offer.status === 'PUBLISHED' && offer.payment_status === 'FREE')
+  );
+}
+
 export function listMyOffers() {
   return apiRequest<JobOffer[]>('/job-offers');
 }

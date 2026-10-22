@@ -21,7 +21,12 @@ import {
   useMyOffers,
   whyNotDiscoverable,
 } from '@/hooks/use-my-offers';
-import { archiveOffer, publishOffer, type JobOffer } from '@/lib/api/job-offers';
+import {
+  archiveOffer,
+  canEditOffer,
+  publishOffer,
+  type JobOffer,
+} from '@/lib/api/job-offers';
 import { CONTRACT_TYPE_LABELS } from '@/lib/labels';
 import { useTheme } from '@/theme/theme-provider';
 import { spacing } from '@/theme/typography';
@@ -34,8 +39,8 @@ import { spacing } from '@/theme/typography';
 // code postal est invisible de Decouvrir, et rien dans l'ecran de Decouvrir
 // ne peut le dire offre par offre.
 //
-// L'ecriture longue d'une offre (description, remuneration, missions) reste
-// sur le site : un formulaire de cette taille ne se remplit pas au pouce.
+// L'essentiel d'une offre (lieu, rayon, description) se modifie dans l'app ;
+// remuneration, missions et le reste restent sur le site.
 
 export default function MesOffresScreen() {
   const router = useRouter();
@@ -157,7 +162,7 @@ function OfferCard({ offer }: { offer: JobOffer }) {
           <Ionicons name="alert-circle-outline" size={16} color={colors.accentWarm} />
           <Text variant="small" style={styles.warnText}>
             {manque === 'Code postal manquant'
-              ? "Sans code postal, cette offre n'apparaît dans aucune pile. Complète-la sur jeuncy.com."
+              ? "Sans code postal, cette offre n'apparaît dans aucune pile. Ajoute-le avec « Modifier »."
               : 'Publie cette offre pour découvrir des candidats.'}
           </Text>
         </View>
@@ -187,6 +192,19 @@ function OfferCard({ offer }: { offer: JobOffer }) {
           </Text>
           <Ionicons name="chevron-forward" size={18} color={colors.accent} />
         </Pressable>
+      ) : null}
+
+      {canEditOffer(offer) ? (
+        <Button
+          label="Modifier"
+          variant="secondary"
+          onPress={() =>
+            router.push({
+              pathname: '/offres/[id]/modifier',
+              params: { id: String(offer.id) },
+            })
+          }
+        />
       ) : null}
 
       {publiee ? (
