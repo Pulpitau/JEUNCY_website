@@ -2105,8 +2105,8 @@ terminé et en ligne (mobile, pas de build à soumettre)**
   pré-remplis, enregistrement vérifié en base. tsc, eslint, prettier OK.
 - Branche `feat/mobile-edition-offre`, partie de `feature/mobile-match`.
 
-**Photo de profil : obligation levée, simple rappel (2026-10-22) : commité,
-pas encore déployé**
+**Photo de profil : obligation levée, simple rappel (2026-10-22) : en
+production côté serveur**
 
 - Décision de Pierre : l'obligation du 2026-10-07 bloquait Découvrir (et la
   page web `/interesses`, qui lit la même route) à 88 candidats sur 120, pour
@@ -2119,9 +2119,11 @@ pas encore déployé**
 - App : bandeau « Ajoute une photo à ton profil… » dans Découvrir tant que
   `photo_url` est vide (lu dans le profil en cache, aucun changement d'API).
   Validé sur iPhone avec le compte `sans.photo` de la base de test.
-- **À déployer** : `config/services.php` seul (surveillé par `/version`). Et
-  vérifier que le `.env` de prod ne porte pas de ligne
-  `JEUNCY_PHOTO_OBLIGATOIRE_LE` — sinon elle réactive l'obligation.
+- **Déployé le 2026-10-22** : `config/services.php` envoyé par Pierre,
+  empreinte vérifiée par `/version` (`e412e43f7f843f0b`), et aucune ligne
+  `JEUNCY_PHOTO_OBLIGATOIRE_LE` dans le `.env` de prod (vérifié par Pierre) :
+  l'obligation est levée sur le site. Le rappel de l'app partira avec le
+  prochain build des stores.
 - Trouvé en chemin, non corrigé : l'app ne vide pas le cache TanStack Query à
   la déconnexion (`staleTime` 60 s) — sur un téléphone partagé, le compte
   suivant peut voir un instant les données du précédent.
