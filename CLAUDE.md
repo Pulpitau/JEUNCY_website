@@ -2143,3 +2143,21 @@ production côté serveur**
 - **Une autre session travaille en parallèle** :
   `docs/exploitation/journal-verification.md` modifié, non commité — ne pas
   y toucher.
+
+**Point du vendredi 2026-10-23 (reprise lundi 2026-10-26)**
+
+- Rien de neuf côté code. Pierre ne veut pas publier tant que l'app n'est pas
+  finalisée ; expliqué : **payer ≠ publier** (test privé TestFlight / test
+  interne Google d'abord, « publier » quand c'est prêt), et une mise à jour
+  sur les stores est routinière (nouveau build + relecture, ~1-2 jours Apple,
+  quelques heures à jours Google). Conseil donné : payer maintenant, les
+  vérifications prennent plusieurs jours.
+- **Pas seulement les paiements** — reste avant la sortie : notifications
+  push (`expo-notifications` non installé, exige le compte Apple) ; un essai
+  sur un vrai Android ; l'AIPD CNIL (mineurs + localisation) ; le compte des
+  relecteurs.
+- Proposé, pas fait : mises à jour à distance (`expo-updates` / EAS Update,
+  non installé) pour corriger le JavaScript sans repasser par les stores ;
+  build Android de production (AAB, profil `production`).
+- À la reprise : demander si les 25 $ Google sont payés et si l'email
+  d'Apple est arrivé.
