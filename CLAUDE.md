@@ -2180,3 +2180,8 @@ production côté serveur**
   `--clear-cache` parce que Metro garde sinon l'ancienne adresse. Vérifié par
   deux exports `--clear` (IP de test présente sans la variable, absente avec).
 - Versions alignées sur le SDK 57, `expo-doctor` 21/21.
+- **AAB de production construit** (build `0e8b2067`, versionCode 3,
+  80 Mo) : vérifié par décompression — IP de test absente du bundle, canal
+  `production`, runtime `1.0.0`, URL de mise à jour présente dans le
+  manifeste. Prêt à déposer en test interne dès que les 25 $ Google sont
+  payés. Branche `feat/mobile-eas-update`, non poussée.
