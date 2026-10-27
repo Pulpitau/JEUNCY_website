@@ -2161,3 +2161,22 @@ production côté serveur**
   build Android de production (AAB, profil `production`).
 - À la reprise : demander si les 25 $ Google sont payés et si l'email
   d'Apple est arrivé.
+
+**Mises à jour à distance, EAS Update (2026-10-27) : configuré, rien publié**
+
+- `expo-updates` ~57.0.26, canal `production`/`preview` par profil de build,
+  `runtimeVersion` par empreinte (une mise à jour JS n'atteint jamais un
+  binaire natif incompatible). Effet seulement à partir du **premier build
+  qui l'embarque** : l'APK `preview` du 2026-10-09 ne le reçoit pas.
+- Publication : `npm run update:production` depuis `apps/mobile`. **Piège
+  couvert** : `apps/mobile/.env` vise l'API de test locale et serait
+  embarqué ; `--environment production` charge `EXPO_PUBLIC_API_URL` depuis
+  EAS (variable créée le 2026-10-27), qui l'emporte sur le `.env`, et
+  `--clear-cache` parce que Metro garde sinon l'ancienne adresse. Vérifié par
+  deux exports `--clear` (IP de test présente sans la variable, absente avec).
+- À vérifier au premier build de production : `eas fingerprint:compare`
+  entre l'empreinte locale (Windows) et celle du build (EAS). Un écart ne
+  casse rien, la mise à jour n'est simplement pas livrée.
+- `expo-doctor` : 3 décalages de version de correctif (`expo`,
+  `expo-constants`, `@expo/ui`) apparus côté SDK, à aligner avant le build de
+  production (`npx expo install --check`).
