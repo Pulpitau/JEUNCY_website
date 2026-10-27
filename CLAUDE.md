@@ -2165,8 +2165,13 @@ production côté serveur**
 **Mises à jour à distance, EAS Update (2026-10-27) : configuré, rien publié**
 
 - `expo-updates` ~57.0.26, canal `production`/`preview` par profil de build,
-  `runtimeVersion` par empreinte (une mise à jour JS n'atteint jamais un
-  binaire natif incompatible). Effet seulement à partir du **premier build
+  `runtimeVersion` = `expo.version` (politique `appVersion`). **Règle : tout
+  changement natif (paquet natif ajouté ou mis à jour, plugin, permission)
+  impose d’augmenter `version` dans `app.json` avant le build**, sinon une
+  mise à jour JS pourrait atteindre un binaire incompatible et le faire
+  planter. L’empreinte (`fingerprint`) a été essayée et abandonnée : sous
+  pnpm, les chemins de `node_modules/.pnpm` diffèrent entre Windows et le
+  serveur Linux d’EAS, et le build échoue (build `6b05880d`). Effet seulement à partir du **premier build
   qui l'embarque** : l'APK `preview` du 2026-10-09 ne le reçoit pas.
 - Publication : `npm run update:production` depuis `apps/mobile`. **Piège
   couvert** : `apps/mobile/.env` vise l'API de test locale et serait
@@ -2174,9 +2179,4 @@ production côté serveur**
   EAS (variable créée le 2026-10-27), qui l'emporte sur le `.env`, et
   `--clear-cache` parce que Metro garde sinon l'ancienne adresse. Vérifié par
   deux exports `--clear` (IP de test présente sans la variable, absente avec).
-- À vérifier au premier build de production : `eas fingerprint:compare`
-  entre l'empreinte locale (Windows) et celle du build (EAS). Un écart ne
-  casse rien, la mise à jour n'est simplement pas livrée.
-- `expo-doctor` : 3 décalages de version de correctif (`expo`,
-  `expo-constants`, `@expo/ui`) apparus côté SDK, à aligner avant le build de
-  production (`npx expo install --check`).
+- Versions alignées sur le SDK 57, `expo-doctor` 21/21.
