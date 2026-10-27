@@ -32,6 +32,7 @@
     "expo-status-bar": "~57.0.1",
     "expo-symbols": "~57.0.3",
     "expo-system-ui": "~57.0.4",
+    "expo-updates": "~57.0.26",
     "expo-web-browser": "~57.0.3",
     "react": "19.2.3",
     "react-dom": "19.2.3",
@@ -64,7 +65,8 @@
     "web": "expo start --web",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "eas-build-post-install": "pnpm --filter @jeuncy/shared build"
+    "eas-build-post-install": "pnpm --filter @jeuncy/shared build",
+    "update:production": "npx eas-cli@latest update --channel production --environment production --clear-cache"
   },
   "private": true
 }
