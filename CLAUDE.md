@@ -2185,3 +2185,20 @@ production côté serveur**
   `production`, runtime `1.0.0`, URL de mise à jour présente dans le
   manifeste. Prêt à déposer en test interne dès que les 25 $ Google sont
   payés. Branche `feat/mobile-eas-update`, non poussée.
+
+**Où on s'est arrêté (fin de session du mardi 2026-10-27)**
+
+- Fait aujourd'hui : EAS Update configuré, versions Expo alignées, **AAB de
+  production construit et vérifié** (build `0e8b2067`, versionCode 3).
+  Branche `feat/mobile-eas-update` poussée sur GitHub, pas encore mergée dans
+  `feature/mobile-match`.
+- **Apple** : il n'y avait pas d'email à attendre. Le compte « SAS Jeuncy »
+  était en attente faute du contrat de licence, que Pierre a accepté ; Apple
+  demande maintenant les 99 $.
+- **Bloqué sur Pierre, un seul point** : payer Google (25 $) et Apple
+  (99 $/an) avec la carte de la société. Les vérifications des deux stores ne
+  démarrent qu'après.
+- À la reprise : demander si les paiements sont faits (captures dans
+  `C:\Users\Pierre\OneDrive\Images\Screenshots`), puis accompagner le dépôt de
+  l'AAB en test interne Google. Reste ensuite : build iOS (exige Apple payé),
+  push, essai sur un vrai Android, AIPD CNIL, compte des relecteurs.
