@@ -47,6 +47,18 @@ export default function OffreDetailScreen() {
     enabled: Number.isInteger(offerId) && offerId > 0,
   });
 
+  // Lien mal forme (notification ancienne, lien colle) : la requete ne part
+  // jamais, l'ecran resterait sur le chargement indefiniment.
+  if (!(Number.isInteger(offerId) && offerId > 0)) {
+    return (
+      <EmptyState
+        title="Offre introuvable"
+        description="Ce lien ne mène à aucune offre."
+        action={{ label: 'Voir les autres offres', onPress: () => router.replace('/') }}
+      />
+    );
+  }
+
   if (query.isPending) {
     return (
       <View style={styles.centered}>
@@ -108,7 +120,7 @@ export default function OffreDetailScreen() {
 
           <View style={styles.facts}>
             <Fact
-              label="Type d'offre"
+              label="Mode de travail"
               value={offer.work_mode && WORK_MODE_LABELS[offer.work_mode]}
             />
             <Fact label="Rémunération" value={remuneration} />

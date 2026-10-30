@@ -3,7 +3,7 @@ import type { UserRole } from '@jeuncy/shared';
 import { useAuthStore, type AuthUser } from '@/store/auth-store';
 
 import { clearRefreshToken, readRefreshToken, writeRefreshToken } from '../secure-store';
-import { ApiError, apiRequest } from './client';
+import { ApiError, apiRequest, isSessionRejection } from './client';
 
 // Reponse des routes qui ouvrent une session. Le champ refreshToken n'existe
 // que parce que l'application se declare mobile (en-tete X-Jeuncy-Client) : un
@@ -76,26 +76,38 @@ export async function fetchMe(): Promise<AuthUser> {
 export async function logout(): Promise<void> {
   try {
     await apiRequest<{ loggedOut: boolean }>('/auth/logout', { method: 'POST' });
+  } catch {
+    // Hors ligne ou jeton deja expire : la deconnexion locale a lieu quand
+    // meme (ci-dessous). Refuser de deconnecter quelqu'un parce que le reseau
+    // est absent serait absurde, et l'echec n'a rien a montrer a l'ecran.
   } finally {
-    // Le nettoyage local a lieu meme si l'appel echoue (hors ligne, jeton deja
-    // expire) : refuser de deconnecter quelqu'un parce que le reseau est
-    // absent serait absurde.
     await clearRefreshToken();
     useAuthStore.getState().clearSession();
   }
 }
 
+/**
+ * Issue de la restauration au demarrage :
+ * - `restored` : session ouverte ;
+ * - `signed-out` : aucune session, ou le serveur l'a refusee (jeton expire,
+ *   revoque, compte suspendu) — on passe par l'ecran de connexion ;
+ * - `offline` : le serveur n'a pas pu repondre (reseau, 5xx, 429). Le jeton
+ *   est GARDE : l'ecran propose de reessayer au lieu de faire croire a une
+ *   session perdue.
+ */
+export type RestoreOutcome = 'restored' | 'signed-out' | 'offline';
+
 // Restauration de session au demarrage : le refresh token dort dans le coffre,
 // on l'echange contre un access token frais avant d'afficher quoi que ce soit.
 // C'est ce qui fait qu'on reste connecte apres avoir ferme l'application.
-export async function restoreSession(): Promise<void> {
+export async function restoreSession(): Promise<RestoreOutcome> {
   const store = useAuthStore.getState();
   const refreshToken = await readRefreshToken();
 
   if (!refreshToken) {
     store.clearSession();
 
-    return;
+    return 'signed-out';
   }
 
   try {
@@ -111,10 +123,21 @@ export async function restoreSession(): Promise<void> {
     // savoir QUI est connecte (et avec quel role, ce qui commande toute la
     // navigation).
     store.setSession(await fetchMe(), tokens.accessToken);
-  } catch {
-    // Jeton expire, revoque (deconnexion depuis un autre appareil, changement
-    // de mot de passe) ou compte suspendu : on repart d'une session vierge.
-    await clearRefreshToken();
-    store.clearSession();
+
+    return 'restored';
+  } catch (error) {
+    if (error instanceof ApiError && isSessionRejection(error.status)) {
+      // Jeton expire, revoque (deconnexion depuis un autre appareil,
+      // changement de mot de passe) ou compte suspendu : session vierge.
+      await clearRefreshToken();
+      store.clearSession();
+
+      return 'signed-out';
+    }
+
+    // Panne : le jeton reste dans le coffre, rien n'est efface.
+    store.setLoading(false);
+
+    return 'offline';
   }
 }

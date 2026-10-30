@@ -29,10 +29,11 @@ import { MATCHES_KEY } from '@/hooks/use-matches';
 // sens de l'erreur — un candidat revu est un desagrement, un candidat ecarte
 // par un geste jamais arrive serait une perte.
 //
-// L'ANNULATION VIDE D'ABORD. `DELETE interests/last` annule le dernier geste
-// *du serveur*. Si des PASS attendent encore dans le tampon, le dernier geste
-// du serveur n'est pas celui que l'employeur vient de faire : on viderait le
-// tampon apres coup et l'annulation aurait porte sur la mauvaise carte.
+// L'ANNULATION NE VIDE PAS LE TAMPON. `DELETE interests/last` annule le
+// dernier geste *du serveur*. Un PASS encore dans le tampon n'y est jamais
+// arrive : on l'en retire, sans appel. Sinon le geste a annuler est le
+// dernier recu par le serveur, et vider le tampon avant lui donnerait un
+// nouveau « dernier geste » : l'annulation porterait sur la mauvaise carte.
 
 /** Delai d'inactivite avant d'envoyer les « Passer » accumules. */
 const PASS_FLUSH_MS = 1200;
@@ -72,12 +73,19 @@ export function useCandidateDeck(jobOfferId: number | null) {
     queryKey: [...CANDIDATE_DECK_KEY, jobOfferId],
     queryFn: ({ pageParam }) => discoverCandidates(jobOfferId ?? 0, pageParam),
     initialPageParam: 1,
-    getNextPageParam: (last) =>
-      last.current_page < last.last_page ? last.current_page + 1 : undefined,
+    // LA SUITE SE DEMANDE TOUJOURS A LA PAGE 1. Le serveur retire de sa
+    // reponse les cartes deja jugees : une page 2 par numero sauterait toutes
+    // celles qui ont glisse vers le haut a mesure que l'employeur jugeait les
+    // premieres. La page 1 rend « les vingt meilleurs candidats encore non
+    // juges » ; ce qui revient deja vu est ecarte par `cards` et `decided`.
+    // Une reponse sans carte nouvelle arrete la suite (pas de boucle).
+    getNextPageParam: (last, all) => {
+      if (last.last_page <= 1) return undefined;
+      const connues = new Set(all.slice(0, -1).flatMap((p) => p.data.map((c) => c.id)));
+
+      return last.data.some((card) => !connues.has(card.id)) ? 1 : undefined;
+    },
     enabled: jobOfferId !== null,
-    // Les cartes deja jugees sont retirees cote serveur : une pile rechargee
-    // ne remontre pas ce qui vient d'etre ecarte, il n'y a donc rien a
-    // reconcilier entre le cache et le tampon local.
     staleTime: 60_000,
   });
 
@@ -99,6 +107,21 @@ export function useCandidateDeck(jobOfferId: number | null) {
   const pending = useRef<number[]>([]);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // « Ca m'interesse » partis mais pas encore confirmes (le serveur envoie
+  // ses emails dans la requete : une dizaine de secondes). L'annulation les
+  // attend : `DELETE interests/last` lance avant leur arrivee annulerait le
+  // geste PRECEDENT cote serveur, et la carte remise en tete repondrait
+  // ensuite INTEREST_ALREADY_DECIDED.
+  const likesEnVol = useRef(new Map<number, Promise<unknown>>());
+  // Cartes dont le geste n'a jamais atteint le serveur (like refuse, lot de
+  // « Passer » perdu) : les annuler ne doit rien demander au serveur, dont
+  // le « dernier geste » designerait une autre carte.
+  const sansGesteServeur = useRef(new Set<number>());
+  // Un seul `DELETE interests/last` a la fois : un double appui annulerait
+  // deux gestes cote serveur pour une seule carte remise dans la pile.
+  const annulationEnCours = useRef(false);
+  const [undoing, setUndoing] = useState(false);
+
   const flushPasses = useCallback(async () => {
     if (timer.current) {
       clearTimeout(timer.current);
@@ -119,6 +142,7 @@ export function useCandidateDeck(jobOfferId: number | null) {
     } catch {
       // Silencieux a dessein : « Passer » n'a rien promis a personne. Le
       // signaler ouvrirait une alerte au milieu d'un parcours de pile.
+      for (const id of lot) sansGesteServeur.current.add(id);
     }
   }, [jobOfferId]);
 
@@ -182,12 +206,18 @@ export function useCandidateDeck(jobOfferId: number | null) {
    * encore sous les yeux.
    */
   const like = async (card: DeckCandidateCard) => {
-    if (jobOfferId === null) return { matched: false, applicationSent: false };
+    if (jobOfferId === null) {
+      return { matched: false, applicationSent: false, interestId: null };
+    }
 
     retirer(card.id, { candidateProfileId: card.id, decision: 'LIKE' });
+    sansGesteServeur.current.delete(card.id);
+
+    const requete = likeCandidate(jobOfferId, card.id);
+    likesEnVol.current.set(card.id, requete);
 
     try {
-      const { matched, interest } = await likeCandidate(jobOfferId, card.id);
+      const { matched, interest } = await requete;
 
       if (matched) {
         // Le match vient d'exister : la liste des matchs est perimee.
@@ -198,17 +228,25 @@ export function useCandidateDeck(jobOfferId: number | null) {
       // match nait alors « dossier envoye », et l'employeur n'a plus rien a
       // attendre du candidat. L'annoncer autrement le ferait patienter pour
       // rien.
-      return { matched, applicationSent: interest.application_id !== null };
+      return {
+        matched,
+        applicationSent: interest.application_id !== null,
+        interestId: interest.id,
+      };
     } catch (error) {
       // Quota atteint, candidat devenu ineligible, offre depubliee : la
       // carte revient, sinon l'employeur croirait son geste enregistre.
+      sansGesteServeur.current.add(card.id);
       remettre(card.id);
       throw error;
+    } finally {
+      likesEnVol.current.delete(card.id);
     }
   };
 
   const pass = (card: DeckCandidateCard) => {
     retirer(card.id, { candidateProfileId: card.id, decision: 'PASS' });
+    sansGesteServeur.current.delete(card.id);
     pending.current.push(card.id);
 
     if (pending.current.length >= PASS_BATCH_MAX) {
@@ -221,29 +259,58 @@ export function useCandidateDeck(jobOfferId: number | null) {
   };
 
   const undo = async () => {
-    if (lastGesture === null) return;
+    if (lastGesture === null || annulationEnCours.current) return;
 
-    // Voir l'en-tete : le tampon part d'abord, sinon « le dernier geste »
-    // designe une autre carte cote serveur.
-    await flushPasses();
-    await undoLastInterest();
+    const id = lastGesture.candidateProfileId;
+    annulationEnCours.current = true;
+    setUndoing(true);
 
-    // `remettre` efface aussi le dernier geste : il n'y a plus rien a
-    // annuler apres, le serveur ne gardant qu'un cran d'annulation.
-    remettre(lastGesture.candidateProfileId);
+    try {
+      const enAttente = pending.current.indexOf(id);
+      if (enAttente !== -1) {
+        // « Passer » encore dans le tampon : jamais parti, on l'en retire.
+        pending.current.splice(enAttente, 1);
+      } else if (sansGesteServeur.current.has(id)) {
+        // Geste jamais arrive : la carte revient sans rien demander au serveur.
+        sansGesteServeur.current.delete(id);
+      } else {
+        // Les « Ca m'interesse » en vol arrivent d'abord, sinon « le dernier
+        // geste » du serveur serait le precedent. Le tampon, lui, ne part
+        // surtout PAS avant : des « Passer » plus anciens deviendraient le
+        // dernier geste du serveur a la place de celui qu'on annule.
+        await Promise.allSettled([...likesEnVol.current.values()]);
+        await undoLastInterest();
+      }
+
+      // `remettre` efface aussi le dernier geste : il n'y a plus rien a
+      // annuler apres, le serveur ne gardant qu'un cran d'annulation.
+      remettre(id);
+    } finally {
+      annulationEnCours.current = false;
+      setUndoing(false);
+    }
   };
 
   // Rechargement anticipe. Jamais apres un echec : `hasNextPage` reste vrai
   // quand la page suivante a echoue, l'effet relancerait la requete sans fin
   // des que le reseau tombe avec moins de cinq cartes en pile.
   const { hasNextPage, isFetchingNextPage, isError, fetchNextPage } = query;
+  const chargement = useRef(false);
 
   useEffect(() => {
-    if (deck.length >= RELOAD_BELOW) return;
+    if (deck.length >= RELOAD_BELOW || chargement.current) return;
     if (!hasNextPage || isFetchingNextPage || isError) return;
 
-    void fetchNextPage({ cancelRefetch: false });
-  }, [deck.length, hasNextPage, isFetchingNextPage, isError, fetchNextPage]);
+    // Le tampon des « Passer » part d'abord : sinon le serveur renverrait
+    // ces cartes deja ecartees, la reponse ne contiendrait rien de neuf et
+    // la suite s'arreterait alors qu'il reste des candidats.
+    chargement.current = true;
+    void flushPasses()
+      .then(() => fetchNextPage({ cancelRefetch: false }))
+      .finally(() => {
+        chargement.current = false;
+      });
+  }, [deck.length, hasNextPage, isFetchingNextPage, isError, fetchNextPage, flushPasses]);
 
   let status: DeckStatus;
   if (deck.length > 0) {
@@ -259,6 +326,7 @@ export function useCandidateDeck(jobOfferId: number | null) {
   // Annulable seulement si la carte est encore chargee : sinon elle ne
   // pourrait pas revenir en tete de pile.
   const canUndo =
+    !undoing &&
     lastGesture !== null &&
     cards.some((card) => card.id === lastGesture.candidateProfileId);
 

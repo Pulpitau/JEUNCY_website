@@ -117,8 +117,8 @@ export default function OffreExpressScreen() {
     <Screen hasHeader>
       <Text variant="hero">Une offre en une minute</Text>
       <Text variant="body" tone="muted" style={styles.intro}>
-        De quoi ouvrir ta pile de candidats tout de suite. Tu compléteras la description,
-        la rémunération et les missions plus tard, depuis « Mes offres ».
+        De quoi ouvrir ta pile de candidats tout de suite. Tu compléteras la description
+        plus tard depuis « Mes offres », la rémunération et les missions sur jeuncy.com.
       </Text>
 
       <View style={styles.form}>

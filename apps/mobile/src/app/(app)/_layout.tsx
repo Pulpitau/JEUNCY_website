@@ -58,6 +58,7 @@ export default function AppLayout() {
         options={{ title: 'Candidatures reçues' }}
       />
       <Stack.Screen name="cv/[applicationId]" options={{ title: 'CV' }} />
+      <Stack.Screen name="interesses" options={{ title: 'Ils s’intéressent à toi' }} />
     </Stack>
   );
 }

@@ -138,9 +138,11 @@ export default function ConfidentialiteScreen() {
           <Card>
             <Text variant="sectionTitle">Visibilité dans la CVthèque</Text>
             <Text variant="small" tone="muted">
-              Les entreprises et CFA inscrits sur Jeuncy peuvent consulter ton profil et
-              ton CV dans la CVthèque. Tu peux t&apos;en retirer à tout moment : tu restes
-              libre de postuler.
+              Les entreprises et CFA vérifiés par Jeuncy voient dans la CVthèque une carte
+              de ton profil : ton prénom et l&apos;initiale de ton nom, ta tranche
+              d&apos;âge, ton parcours et tes compétences. Jamais tes coordonnées ni ta
+              ville, et ton CV ne leur parvient que quand tu postules chez eux. Tu peux
+              t&apos;en retirer à tout moment : tu restes libre de postuler.
             </Text>
             <View style={styles.switchRow}>
               <Text variant="bodyStrong" style={styles.switchLabel}>

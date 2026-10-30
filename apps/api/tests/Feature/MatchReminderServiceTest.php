@@ -188,6 +188,9 @@ class MatchReminderServiceTest extends TestCase
             MatchReminderStage::MATCH_NO_APPLICATION_D2->value,
             $ligne->fresh()->reminder_stage,
         );
+        // Le dossier s'envoie depuis le match : la relance y mene, pas vers
+        // la liste des candidatures, ou ce match n'apparait pas encore.
+        $this->assertSame('/mes-matchs', Notification::where('user_id', $candidat->id)->value('link'));
 
         // Cinq jours plus tard, le second rappel part.
         $ligne->matched_at = now()->subDays(7);

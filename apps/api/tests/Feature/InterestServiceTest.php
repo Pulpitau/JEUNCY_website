@@ -72,7 +72,7 @@ class InterestServiceTest extends TestCase
 
         $notification = Notification::where('user_id', $candidat->id)->firstOrFail();
         $this->assertSame(NotificationType::INTEREST_RECEIVED, $notification->type);
-        $this->assertSame('/offres/'.$offre->id, $notification->link);
+        $this->assertSame('/interesses', $notification->link);
     }
 
     public function test_employer_like_on_a_passed_candidate_notifies_nobody(): void

@@ -208,7 +208,9 @@ class MatchReminderService
             MatchReminderStage::MATCH_NO_APPLICATION_D7 => $this->prevenirCandidat(
                 $candidat,
                 "{$organisation} attend ton dossier pour « {$titre} ». Sans lui, l'entreprise ne voit que ta carte.",
-                '/mes-candidatures',
+                // Le dossier s'envoie depuis le match, pas depuis la liste des
+                // candidatures : il n'en existe justement pas encore.
+                '/mes-matchs',
                 'Ton dossier t’attend',
                 'Envoyer mon dossier',
             ),

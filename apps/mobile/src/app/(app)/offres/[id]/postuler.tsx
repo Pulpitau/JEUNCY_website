@@ -110,6 +110,9 @@ export default function PostulerScreen() {
         'Candidature envoyée',
         "L'entreprise a été prévenue. Tu suivras sa réponse dans l'onglet Candidatures.",
         [{ text: 'OK', onPress: () => router.back() }],
+        // Sans quoi le bouton retour d'Android ferme l'alerte et laisse le
+        // formulaire ouvert, pret a renvoyer une candidature deja partie.
+        { cancelable: false },
       );
     },
     onError: (error) =>

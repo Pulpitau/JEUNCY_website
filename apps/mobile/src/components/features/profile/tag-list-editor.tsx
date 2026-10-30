@@ -63,7 +63,7 @@ export function TagListEditor({
       return;
     }
     if (names.length >= max) {
-      setErreur(`${max} maximum.`);
+      setErreur(`${max} éléments maximum.`);
 
       return;
     }
@@ -79,6 +79,32 @@ export function TagListEditor({
   };
 
   const retirer = (nom: string) => setNames(names.filter((n) => n !== nom));
+
+  // Ce qui est tape mais pas encore valide au clavier part avec
+  // l'enregistrement : sinon « Vente » tape puis « Enregistrer » disparaissait
+  // sans un mot.
+  const enregistrer = () => {
+    setErreur(null);
+    const nom = draft.trim();
+    if (!nom || names.some((n) => n.toLowerCase() === nom.toLowerCase())) {
+      save.mutate(names);
+
+      return;
+    }
+    if (nom.length > maxLength) {
+      setErreur(`${maxLength} caractères maximum.`);
+
+      return;
+    }
+    if (names.length >= max) {
+      setErreur(`${max} éléments maximum.`);
+
+      return;
+    }
+    setNames([...names, nom]);
+    setDraft('');
+    save.mutate([...names, nom]);
+  };
 
   return (
     <Screen hasHeader>
@@ -133,11 +159,7 @@ export function TagListEditor({
           {names.length} / {max}
         </Text>
 
-        <Button
-          label="Enregistrer"
-          onPress={() => save.mutate(names)}
-          loading={save.isPending}
-        />
+        <Button label="Enregistrer" onPress={enregistrer} loading={save.isPending} />
       </View>
     </Screen>
   );

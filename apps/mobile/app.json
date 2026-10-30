@@ -10,7 +10,9 @@
     "ios": {
       "bundleIdentifier": "com.jeuncy.app",
       "supportsTablet": false,
-      "icon": "./assets/expo.icon"
+      "config": {
+        "usesNonExemptEncryption": false
+      }
     },
     "android": {
       "package": "com.jeuncy.app",
@@ -21,9 +23,11 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "permissions": [
-        "android.permission.ACCESS_COARSE_LOCATION",
-        "android.permission.ACCESS_FINE_LOCATION"
+      "permissions": ["android.permission.ACCESS_COARSE_LOCATION"],
+      "blockedPermissions": [
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.SYSTEM_ALERT_WINDOW"
       ]
     },
     "web": {
@@ -32,13 +36,18 @@
     },
     "plugins": [
       "expo-router",
-      "expo-secure-store",
+      [
+        "expo-secure-store",
+        {
+          "faceIDPermission": false
+        }
+      ],
       [
         "expo-splash-screen",
         {
           "backgroundColor": "#061D4F",
           "image": "./assets/images/splash-icon.png",
-          "imageWidth": 76
+          "imageWidth": 140
         }
       ],
       "expo-font",
@@ -52,7 +61,17 @@
           "locationAlwaysAndWhenInUsePermission": "Jeuncy utilise ta position pour te proposer les offres les plus proches de toi. Les recruteurs ne la voient jamais.",
           "locationWhenInUsePermission": "Jeuncy utilise ta position pour te proposer les offres les plus proches de toi. Les recruteurs ne la voient jamais.",
           "isIosBackgroundLocationEnabled": false,
-          "isAndroidBackgroundLocationEnabled": false
+          "isAndroidBackgroundLocationEnabled": false,
+          "locationAlwaysPermission": false,
+          "motionUsagePermission": false
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Jeuncy accède à tes photos uniquement quand tu choisis une photo de profil ou le logo de ton entreprise.",
+          "cameraPermission": "Jeuncy utilise l'appareil photo uniquement quand tu prends ta photo de profil ou le logo de ton entreprise.",
+          "microphonePermission": false
         }
       ]
     ],

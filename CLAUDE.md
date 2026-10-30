@@ -2202,3 +2202,51 @@ production côté serveur**
   `C:\Users\Pierre\OneDrive\Images\Screenshots`), puis accompagner le dépôt de
   l'AAB en test interne Google. Reste ensuite : build iOS (exige Apple payé),
   push, essai sur un vrai Android, AIPD CNIL, compte des relecteurs.
+
+**Audit complet de l'application mobile (2026-10-30) : corrigé, commité et
+poussé, à tester sur iPhone**
+
+- Audit en trois périmètres (candidat, entreprise/CFA, socle + publication) :
+  tests verts partout avant (API 964, web 40, mobile tsc/eslint/doctor 21/21),
+  mais une quarantaine de défauts d'usage et de finition que les tests ne
+  voyaient pas. Tous corrigés sur `fix/mobile-audit` (partie de
+  `feat/mobile-eas-update`), sauf trois points listés plus bas.
+- Les plus graves : pile Découvrir qui ne se rechargeait pas après création
+  du profil ; pagination par numéro de page qui sautait des cartes (le serveur
+  retire ce qui est jugé — la suite se redemande désormais toujours à la page
+  1, dédoublonnée, des deux côtés) ; « C'est un match » côté candidat avec le
+  texte de l'employeur ; « Signaler et bloquer » depuis un match refusé par le
+  serveur (422) ; une coupure réseau au démarrage effaçait la session (seuls
+  400/401/403 l'effacent désormais, sinon écran « Connexion impossible ») ;
+  annulation qui pouvait viser la mauvaise carte (le tampon des « Passer » ne
+  part plus avant une annulation) ; CV d'un dossier en écran blanc sur Android
+  (feuille de partage vers un lecteur PDF) ; mot de passe 8 vs 10 caractères.
+- Publication : textes de permission iOS en français, micro/Face ID/mouvement/
+  localisation « toujours » retirés, `ACCESS_FINE_LOCATION`, `RECORD_AUDIO` et
+  `SYSTEM_ALERT_WINDOW` bloqués sur Android, `usesNonExemptEncryption: false`,
+  images du modèle Expo supprimées. **Changement natif : l'AAB `0e8b2067` est
+  périmé**, à reconstruire (version laissée à 1.0.0, aucun binaire avec
+  expo-updates n'a été distribué).
+- Nouveautés : écran « Ils s'intéressent à toi » (`/interesses`, entrée en tête
+  de Candidatures), recherche étendue aux offres partenaires, statut de
+  vérification dans le compte organisation, écran « réservé au site » pour
+  ADMIN/STAFF, liens légaux à l'inscription, `Stack.Protected` à la place de la
+  redirection par effet.
+- Backend : `lang/fr/*` (messages de validation en français, locale `fr` par
+  défaut), liens de notification `/interesses` et `/mes-matchs`,
+  `deploy-tools-36`. Envoi : `docs/exploitation/envoi-2026-10-30.md`.
+- **Icône et écran de démarrage** tirés de `logo_jeuncy3.png` (version sombre
+  officielle, 1254 px) : le symbole J+C est détouré par « color-to-alpha »
+  contre le bleu du badge, jamais redessiné, posé sur le bleu nuit `#061D4F`.
+  Icône iOS, icône adaptative Android (avant-plan, fond, monochrome), splash,
+  favicon. `assets/expo.icon` supprimé. Script dans le scratchpad de la session,
+  reproductible.
+- **Dossier reçu : l'âge seul** (décision de Pierre, 2026-10-30). L'app
+  affichait la date de naissance ; `Application::forEmployer` masque en plus
+  `birth_date` et `address`, qui transitaient sans être affichés. Test avec
+  contre-épreuve (`ApplicationCvAccessTest`), 965/965.
+- **Reste ouvert** : le contraste du corail sur fond clair (sous AA pour le
+  petit texte, couleur de marque non modifiée).
+- **Rien n'a été exercé sur un téléphone** : navigation protégée, écran hors
+  ligne, `/interesses`, pagination et CV Android sont vérifiés par types,
+  lint et bundle (`expo export` iOS + Android) seulement.

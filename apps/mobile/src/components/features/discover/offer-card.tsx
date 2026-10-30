@@ -43,7 +43,10 @@ const MAX_SKILLS = 3;
 export function JeuncyOfferCard({
   offer,
 }: {
-  offer: PublicJobOffer & { employer_response_days?: number | null };
+  offer: PublicJobOffer & {
+    employer_response_days?: number | null;
+    distance_km?: number | null;
+  };
 }) {
   const responseDays = offer.employer_response_days;
   const { colors } = useTheme();
@@ -120,7 +123,10 @@ export function JeuncyOfferCard({
         </View>
 
         <View style={styles.facts}>
-          <Fact icon="location-outline" value={offer.city ?? offer.location} />
+          <Fact
+            icon="location-outline"
+            value={avecDistance(offer.city ?? offer.location, offer.distance_km)}
+          />
           <Fact icon="cash-outline" value={remuneration} />
           <Fact icon="school-outline" value={level} />
           <Fact icon="calendar-outline" value={cfa ? offer.training_rhythm : null} />
@@ -158,9 +164,13 @@ export function JeuncyOfferCard({
 // Offre partenaire (La bonne alternance)
 // ---------------------------------------------------------------------------
 
-export function PartnerOfferCard({ offer }: { offer: ExternalJobOffer }) {
+export function PartnerOfferCard({
+  offer,
+}: {
+  offer: ExternalJobOffer & { distance_km?: number | null };
+}) {
   const { colors } = useTheme();
-  const location = formatExternalLocation(offer);
+  const location = avecDistance(formatExternalLocation(offer), offer.distance_km);
   const duration =
     offer.contract_duration_months !== null
       ? `${offer.contract_duration_months} mois`
@@ -172,12 +182,14 @@ export function PartnerOfferCard({ offer }: { offer: ExternalJobOffer }) {
   return (
     <CardFrame>
       <View style={[styles.band, { backgroundColor: colors.accentWarm }]}>
-        <Ionicons name="open-outline" size={22} color={palette.white} />
+        {/* Bleu nuit sur l'orange : le blanc n'y atteint que 2,3:1, sous le
+            seuil AA ; le bleu nuit monte a 7:1. */}
+        <Ionicons name="open-outline" size={22} color={palette.navy} />
         <View style={styles.bandText}>
-          <Text variant="label" style={styles.onGradient}>
+          <Text variant="label" style={styles.onOrange}>
             Offre partenaire
           </Text>
-          <Text variant="small" style={styles.onGradient} numberOfLines={2}>
+          <Text variant="small" style={styles.onOrange} numberOfLines={2}>
             Candidature sur le site de l&apos;employeur
           </Text>
         </View>
@@ -265,6 +277,18 @@ function CardFrame({ children }: { children: ReactNode }) {
   );
 }
 
+/**
+ * « Perpignan · à 12 km ». La distance n'existe que de ce cote : le candidat
+ * a le droit de savoir ou est le poste (decision du 2026-09-22, L1132-1).
+ */
+function avecDistance(lieu: string | null, km: number | null | undefined): string | null {
+  if (km === null || km === undefined) return lieu;
+
+  const distance = km < 1 ? "à moins d'1 km" : `à ${Math.round(km)} km`;
+
+  return lieu ? `${lieu} · ${distance}` : distance;
+}
+
 function Fact({
   icon,
   value,
@@ -309,6 +333,7 @@ const styles = StyleSheet.create({
   },
   bandText: { flex: 1, gap: spacing.xs },
   onGradient: { color: palette.white },
+  onOrange: { color: palette.navy },
   logoTile: {
     width: 48,
     height: 48,

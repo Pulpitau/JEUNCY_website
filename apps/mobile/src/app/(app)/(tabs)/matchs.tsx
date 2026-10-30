@@ -135,7 +135,7 @@ function EmployerMatches() {
   return (
     <MatchList
       title="Matchs"
-      subtitle="Ces candidats ont répondu à ton intérêt."
+      subtitle="Ces candidats et toi avez dit oui. À eux d'envoyer leur dossier."
       isPending={isPending}
       error={error}
       isRefetching={isRefetching}
@@ -175,7 +175,7 @@ function EmployerMatches() {
                 label={
                   dossier
                     ? APPLICATION_STATUS_LABELS[dossier.status]
-                    : 'Attend son dossier'
+                    : 'En attente du dossier'
                 }
                 tone={dossier ? statusTone(dossier.status) : 'warm'}
               />

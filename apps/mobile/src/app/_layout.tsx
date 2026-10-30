@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useFonts } from 'expo-font';
-import { Stack, useRouter, useSegments } from 'expo-router';
+import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
@@ -8,7 +8,9 @@ import { StyleSheet } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
-import { restoreSession } from '@/lib/api/auth';
+import { EmptyState } from '@/components/ui/empty-state';
+import { Screen } from '@/components/ui/screen';
+import { restoreSession, type RestoreOutcome } from '@/lib/api/auth';
 import { useAuthStore } from '@/store/auth-store';
 import { ThemeProvider, useTheme } from '@/theme/theme-provider';
 
@@ -53,10 +55,12 @@ export default function RootLayout() {
     Inter_500Medium: require('@expo-google-fonts/inter/500Medium/Inter_500Medium.ttf'),
     Inter_600SemiBold: require('@expo-google-fonts/inter/600SemiBold/Inter_600SemiBold.ttf'),
   });
-  const [sessionRestored, setSessionRestored] = useState(false);
+  // null tant que la restauration n'a pas repondu.
+  const [restoration, setRestoration] = useState<RestoreOutcome | null>(null);
+  const sessionRestored = restoration !== null;
 
   useEffect(() => {
-    restoreSession().finally(() => setSessionRestored(true));
+    void restoreSession().then(setRestoration);
   }, []);
 
   useEffect(() => {
@@ -77,7 +81,11 @@ export default function RootLayout() {
       <QueryClientProvider client={queryClient}>
         <ThemeProvider>
           <SafeAreaProvider>
-            <NavigationGuard />
+            {restoration === 'offline' ? (
+              <OfflineScreen onRestored={setRestoration} />
+            ) : (
+              <NavigationGuard />
+            )}
           </SafeAreaProvider>
         </ThemeProvider>
       </QueryClientProvider>
@@ -87,25 +95,53 @@ export default function RootLayout() {
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
+  centered: { flexGrow: 1, justifyContent: 'center' },
 });
 
+// Session impossible a restaurer faute de serveur (hors ligne, panne) : le
+// jeton est encore dans le coffre. Envoyer sur l'ecran de connexion ferait
+// croire a une session perdue ; on propose de reessayer a la place.
+function OfflineScreen({
+  onRestored,
+}: {
+  onRestored: (outcome: RestoreOutcome) => void;
+}) {
+  const { scheme } = useTheme();
+  const [retrying, setRetrying] = useState(false);
+
+  const retry = () => {
+    if (retrying) return;
+    setRetrying(true);
+    void restoreSession().then((outcome) => {
+      setRetrying(false);
+      onRestored(outcome);
+    });
+  };
+
+  return (
+    <>
+      <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
+      <Screen contentStyle={styles.centered}>
+        <EmptyState
+          title="Connexion impossible"
+          description="On n'arrive pas à joindre Jeuncy. Vérifie ta connexion internet, puis réessaie : ta session est conservée."
+          action={{ label: retrying ? 'Connexion…' : 'Réessayer', onPress: retry }}
+        />
+      </Screen>
+    </>
+  );
+}
+
 // Garde de navigation : equivalent natif du composant RequireAuth du web.
+// Stack.Protected plutot qu'une redirection dans un effet : un ecran garde
+// n'est jamais rendu, la ou l'effet laissait d'abord monter les onglets (et
+// partir leurs requetes) une fraction de seconde avant de rediriger. Quand
+// la garde bascule (connexion, deconnexion), le routeur ouvre le premier
+// ecran redevenu accessible : l'accueil, ou l'ecran de connexion.
 // Elle vit sous ThemeProvider pour que la barre d'etat suive le theme.
 function NavigationGuard() {
   const { scheme, colors } = useTheme();
-  const user = useAuthStore((state) => state.user);
-  const segments = useSegments();
-  const router = useRouter();
-
-  const inAuthGroup = segments[0] === '(auth)';
-
-  useEffect(() => {
-    if (!user && !inAuthGroup) {
-      router.replace('/connexion');
-    } else if (user && inAuthGroup) {
-      router.replace('/');
-    }
-  }, [user, inAuthGroup, router]);
+  const signedIn = useAuthStore((state) => state.user !== null);
 
   return (
     <>
@@ -119,7 +155,18 @@ function NavigationGuard() {
           // Animation par defaut d'iOS : glissement lateral.
           animation: 'slide_from_right',
         }}
-      />
+      >
+        <Stack.Protected guard={signedIn}>
+          <Stack.Screen name="(app)" />
+        </Stack.Protected>
+        {/* L'ordre compte : a la deconnexion, le routeur ouvre le premier
+            ecran accessible, donc la connexion. */}
+        <Stack.Protected guard={!signedIn}>
+          <Stack.Screen name="(auth)/connexion" />
+          <Stack.Screen name="(auth)/inscription" />
+          <Stack.Screen name="(auth)/mot-de-passe-oublie" />
+        </Stack.Protected>
+      </Stack>
     </>
   );
 }

@@ -11,7 +11,10 @@ import { DateField } from '@/components/ui/date-field';
 import { Field } from '@/components/ui/field';
 import { Screen } from '@/components/ui/screen';
 import { Text } from '@/components/ui/text';
-import { useCandidateProfile, useInvalidateProfile } from '@/hooks/use-candidate-profile';
+import {
+  useCandidateProfile,
+  useInvalidateProfileAndDeck,
+} from '@/hooks/use-candidate-profile';
 import {
   createProfile,
   updateProfile,
@@ -74,7 +77,7 @@ type Parsed = z.output<typeof schema>;
 export default function InformationsScreen() {
   const router = useRouter();
   const profile = useCandidateProfile();
-  const invalidate = useInvalidateProfile();
+  const invalidate = useInvalidateProfileAndDeck();
   const [erreurServeur, setErreurServeur] = useState<string | null>(null);
   const existing = profile.data ?? null;
 

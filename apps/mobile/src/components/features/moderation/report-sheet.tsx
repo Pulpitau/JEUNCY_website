@@ -7,7 +7,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '@/components/ui/button';
 import { Field } from '@/components/ui/field';
 import { Text } from '@/components/ui/text';
-import { DISCOVER_KEY } from '@/hooks/use-discover-deck';
 import { MATCHES_KEY } from '@/hooks/use-matches';
 import { ApiError } from '@/lib/api/client';
 import {
@@ -46,6 +45,14 @@ export interface ReportSheetProps {
   label: string;
   /** Le blocage est proposé seulement là où il a un sens (une personne, pas une offre). */
   canBlock?: boolean;
+  /**
+   * Cible du blocage, quand elle diffère de celle du signalement. Un match se
+   * signale par sa ligne (`offer_interest_id`), mais `POST blocks` ne connaît
+   * que le profil ou l'offre d'en face (StoreBlockRequest).
+   */
+  blockTarget?: ModerationTarget;
+  /** Appelé après un blocage réussi, pour fermer l'écran de la personne bloquée. */
+  onBlocked?: () => void;
   onClose: () => void;
 }
 
@@ -54,6 +61,8 @@ export function ReportSheet({
   context,
   label,
   canBlock = true,
+  blockTarget: cibleBlocage,
+  onBlocked,
   onClose,
 }: ReportSheetProps) {
   const { colors } = useTheme();
@@ -73,16 +82,19 @@ export function ReportSheet({
       // Le blocage part APRÈS le signalement : si le second échoue, l'équipe
       // a quand même reçu le premier. L'inverse perdrait le signalement pour
       // une erreur qui ne le concerne pas.
-      if (alsoBlock) await blockTarget(target);
+      if (alsoBlock) await blockTarget(cibleBlocage ?? target);
     },
     onSuccess: () => {
       if (alsoBlock) {
-        // Les deux piles et les matchs excluent les comptes bloqués : ce qui
-        // est affiché est désormais faux.
-        void queryClient.invalidateQueries({ queryKey: DISCOVER_KEY });
+        // Les deux piles (offres côté candidat, candidats côté employeur) et
+        // les matchs excluent les comptes bloqués : ce qui est affiché est
+        // désormais faux. Le préfixe ['discover'] couvre les deux piles.
+        void queryClient.invalidateQueries({ queryKey: ['discover'] });
         void queryClient.invalidateQueries({ queryKey: MATCHES_KEY });
       }
+      const bloque = alsoBlock;
       fermer();
+      if (bloque) onBlocked?.();
       Alert.alert(
         'Merci',
         alsoBlock

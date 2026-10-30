@@ -1,5 +1,4 @@
 import { Ionicons } from '@expo/vector-icons';
-import * as WebBrowser from 'expo-web-browser';
 import { useState } from 'react';
 import { Modal, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -34,8 +33,13 @@ export interface InterestSheetProps {
   onSendDossier: () => void;
   /** Offre Jeuncy : enregistre l'interet et s'arrete la. */
   onMarkInterest: () => void;
-  /** Offre partenaire : enregistre « Je garde ». Resolue = la ligne existe. */
-  onKeep: () => Promise<void>;
+  /**
+   * Offre partenaire : enregistre « Je garde », puis ouvre `openUrl` si
+   * fourni. L'ecran ne ferme la feuille qu'au retour du navigateur.
+   */
+  onKeep: (openUrl?: string) => Promise<void>;
+  /** « Ca m'interesse » restants aujourd'hui ; null = pas de quota actif. */
+  likesRestants?: number | null;
   /** Le candidat se ravise : la carte revient dans la pile. */
   onCancel: () => void;
 }
@@ -47,6 +51,7 @@ export function InterestSheet({
   onMarkInterest,
   onKeep,
   onCancel,
+  likesRestants = null,
 }: InterestSheetProps) {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
@@ -58,32 +63,41 @@ export function InterestSheet({
   const [shown, setShown] = useState(card);
   if (card !== null && card !== shown) setShown(card);
 
-  const keepAndOpen = (url: string) => {
-    // Le navigateur integre se presente PAR-DESSUS la feuille, et la feuille
-    // ne se ferme qu'a son retour (la promesse se resout a la fermeture du
-    // navigateur sur iOS, tout de suite sur Android). Fermer la feuille
-    // d'abord ne marche pas : expo-web-browser presente Safari depuis le
-    // controleur le plus haut, qui serait alors cette feuille en train de
-    // disparaitre — iOS l'emporte avec elle et le site ne s'ouvre jamais.
-    //
-    // L'enregistrement passe AVANT l'ouverture : si le candidat postule sur
-    // le site et ne revient pas, l'offre doit quand meme etre dans ses
-    // « Gardees ».
-    void onKeep().then(() => WebBrowser.openBrowserAsync(url));
+  // Bouton presse en dernier : seul lui porte l'indicateur d'attente, les
+  // autres sont simplement desactives.
+  const [presse, setPresse] = useState<'dossier' | 'interet' | 'garder' | 'site' | null>(
+    null,
+  );
+  const appuyer = (bouton: NonNullable<typeof presse>, action: () => unknown) => () => {
+    setPresse(bouton);
+    void action();
   };
+
+  // Pendant un appel, la feuille ne se ferme pas : la fermer remettrait la
+  // carte dans la pile alors que le geste est peut-etre deja enregistre.
+  const fermer = () => {
+    if (!busy) onCancel();
+  };
+
+  // Le navigateur integre se presente PAR-DESSUS la feuille, qui ne se ferme
+  // qu'a son retour : expo-web-browser presente Safari depuis le controleur
+  // le plus haut, et si c'etait la feuille en train de disparaitre, iOS
+  // l'emporterait avec elle. L'enregistrement passe AVANT l'ouverture : si
+  // le candidat postule sur le site et ne revient pas, l'offre est quand meme
+  // dans ses « Gardees ».
 
   return (
     <Modal
       visible={card !== null}
       transparent
       animationType="slide"
-      onRequestClose={onCancel}
+      onRequestClose={fermer}
       statusBarTranslucent
     >
       {/* Le voile ferme la feuille : meme geste que « Annuler ». */}
       <Pressable
         style={styles.backdrop}
-        onPress={onCancel}
+        onPress={fermer}
         accessibilityRole="button"
         accessibilityLabel="Annuler et remettre l'offre dans la pile"
       />
@@ -125,28 +139,44 @@ export function InterestSheet({
                 <Button
                   label="Envoyer mon dossier maintenant"
                   disabled={busy}
-                  onPress={onSendDossier}
+                  loading={busy && presse === 'dossier'}
+                  onPress={appuyer('dossier', onSendDossier)}
                 />
                 <Button
                   label="Juste marquer mon intérêt"
                   variant="secondary"
-                  loading={busy}
-                  onPress={onMarkInterest}
+                  disabled={busy}
+                  loading={busy && presse === 'interet'}
+                  onPress={appuyer('interet', onMarkInterest)}
                 />
                 <Text variant="small" tone="muted" style={styles.hint}>
                   Ton dossier, c&apos;est ta candidature : téléphone, CV et un mot pour
                   l&apos;entreprise, pré-remplis. Marquer ton intérêt ne l&apos;envoie pas
-                  — l&apos;entreprise saura seulement que tu es intéressé·e.
+                  : si l&apos;entreprise s&apos;intéresse aussi à toi, c&apos;est un
+                  match, et tu enverras ton dossier à ce moment-là.
                 </Text>
+                {likesRestants !== null ? (
+                  <Text variant="small" tone="muted" style={styles.hint}>
+                    {likesRestants === 0
+                      ? "Tu as utilisé tous tes « ça m'intéresse » du jour."
+                      : `Il te reste ${likesRestants} « ça m'intéresse » aujourd'hui.`}
+                  </Text>
+                ) : null}
               </View>
             ) : (
               <View style={styles.actions}>
-                <Button label="Je garde" loading={busy} onPress={() => void onKeep()} />
+                <Button
+                  label="Je garde"
+                  disabled={busy}
+                  loading={busy && presse === 'garder'}
+                  onPress={appuyer('garder', () => onKeep())}
+                />
                 <Button
                   label="Ouvrir le site de l'employeur"
                   variant="secondary"
                   disabled={busy}
-                  onPress={() => keepAndOpen(shown.offer.apply_url)}
+                  loading={busy && presse === 'site'}
+                  onPress={appuyer('site', () => onKeep(shown.offer.apply_url))}
                 />
                 <Text variant="small" tone="muted" style={styles.hint}>
                   Offre partenaire : la candidature se fait sur le site de
@@ -155,7 +185,7 @@ export function InterestSheet({
               </View>
             )}
 
-            <Button label="Annuler" variant="ghost" onPress={onCancel} />
+            <Button label="Annuler" variant="ghost" disabled={busy} onPress={fermer} />
           </>
         ) : null}
       </View>

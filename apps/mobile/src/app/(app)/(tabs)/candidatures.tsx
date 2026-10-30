@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { useMutation } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import {
@@ -13,10 +14,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { KeptOffersSection } from '@/components/features/applications/kept-offers-section';
 import { statusTone } from '@/components/features/applications/status';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Screen } from '@/components/ui/screen';
 import { Text } from '@/components/ui/text';
+import { useInterestedOffers } from '@/hooks/use-interested-offers';
+import { useKeptOffers } from '@/hooks/use-kept-offers';
 import {
   useInvalidateApplications,
   useMyApplications,
@@ -58,6 +62,9 @@ function MesCandidatures() {
   const insets = useSafeAreaInsets();
   const applications = useMyApplications();
   const invalidate = useInvalidateApplications();
+  const kept = useKeptOffers();
+  const interested = useInterestedOffers();
+  const nbInteresses = interested.data?.length ?? 0;
 
   const withdraw = useMutation({
     mutationFn: withdrawApplication,
@@ -87,11 +94,29 @@ function MesCandidatures() {
   const header = (
     <View style={styles.header}>
       <Text variant="hero">Candidatures</Text>
-      {applications.isSuccess && applications.data.length > 0 ? (
-        <Text variant="small" tone="muted">
-          Appuie longuement sur une candidature pour la retirer.
-        </Text>
-      ) : null}
+      {/* Point d'entrée de la notification « X s'intéresse à toi ». */}
+      <Card
+        onPress={() => router.push('/interesses')}
+        accessibilityLabel={
+          nbInteresses > 0
+            ? `Ils s'intéressent à toi : ${nbInteresses} offre${nbInteresses > 1 ? 's' : ''}`
+            : "Ils s'intéressent à toi"
+        }
+      >
+        <View style={styles.interestRow}>
+          <Ionicons name="heart" size={20} color={colors.accent} />
+          <View style={styles.interestText}>
+            <Text variant="bodyStrong">Ils s&apos;intéressent à toi</Text>
+            <Text variant="small" tone="muted">
+              {nbInteresses > 0
+                ? `${nbInteresses} recruteur${nbInteresses > 1 ? 's attendent' : ' attend'} ta réponse.`
+                : 'Les recruteurs qui ont aimé ton profil apparaissent ici.'}
+            </Text>
+          </View>
+          {nbInteresses > 0 ? <Badge label={String(nbInteresses)} tone="accent" /> : null}
+          <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
+        </View>
+      </Card>
     </View>
   );
 
@@ -124,7 +149,7 @@ function MesCandidatures() {
               params: { id: String(item.job_offer_id) },
             })
           }
-          onLongPress={() => confirmerRetrait(item)}
+          onWithdraw={() => confirmerRetrait(item)}
         />
       )}
       ListHeaderComponent={header}
@@ -134,8 +159,12 @@ function MesCandidatures() {
       style={{ backgroundColor: colors.background }}
       refreshControl={
         <RefreshControl
-          refreshing={applications.isRefetching}
-          onRefresh={() => void applications.refetch()}
+          refreshing={applications.isRefetching || kept.isRefetching}
+          onRefresh={() => {
+            void applications.refetch();
+            void kept.refetch();
+            void interested.refetch();
+          }}
           tintColor={colors.accent}
         />
       }
@@ -146,18 +175,18 @@ function MesCandidatures() {
 function ApplicationCard({
   application,
   onPress,
-  onLongPress,
+  onWithdraw,
 }: {
   application: ApplicationWithOffer;
   onPress: () => void;
-  onLongPress: () => void;
+  onWithdraw: () => void;
 }) {
   const offer = application.job_offer;
 
   return (
     <Card
       onPress={onPress}
-      onLongPress={onLongPress}
+      onLongPress={onWithdraw}
       accessibilityLabel={`${offer.title}, ${APPLICATION_STATUS_LABELS[application.status]}`}
     >
       <View style={styles.cardHeader}>
@@ -172,13 +201,18 @@ function ApplicationCard({
         {offer.city ? `${offer.city} · ` : ''}
         Envoyée le {formatDateFr(application.created_at)}
       </Text>
+      {/* Visible plutôt que caché derrière un appui long : le retrait doit se
+          trouver sans mode d'emploi, et rester accessible à VoiceOver. */}
+      <Button label="Retirer ma candidature" variant="ghost" onPress={onWithdraw} />
     </Card>
   );
 }
 
 const styles = StyleSheet.create({
   list: { paddingHorizontal: spacing.xl, paddingBottom: spacing.xxl, gap: spacing.md },
-  header: { gap: spacing.sm, marginBottom: spacing.sm },
+  header: { gap: spacing.md, marginBottom: spacing.sm },
+  interestRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  interestText: { flex: 1, gap: 2 },
   spinner: { paddingVertical: spacing.xxl },
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', gap: spacing.sm },
 });

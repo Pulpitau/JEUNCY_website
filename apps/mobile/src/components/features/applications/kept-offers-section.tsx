@@ -29,7 +29,7 @@ import { spacing } from '@/theme/typography';
 // bougera jamais.
 
 export function KeptOffersSection() {
-  const { data, isPending } = useKeptOffers();
+  const { data, isPending, isError, refetch } = useKeptOffers();
   const marquerFait = useMarkKeptDone();
   const retirer = useRemoveKeptOffer();
   const kept = data ?? [];
@@ -67,6 +67,11 @@ export function KeptOffersSection() {
     <Section title="Gardées (site partenaire)">
       {isPending ? (
         <SectionEmpty>Chargement…</SectionEmpty>
+      ) : isError ? (
+        <>
+          <SectionEmpty>Impossible de charger tes offres gardées.</SectionEmpty>
+          <Button label="Réessayer" variant="ghost" onPress={() => void refetch()} />
+        </>
       ) : kept.length === 0 ? (
         <SectionEmpty>
           Les offres partenaires que tu gardes depuis Découvrir apparaissent ici. La

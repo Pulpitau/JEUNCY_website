@@ -1,6 +1,7 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { UserRole } from '@jeuncy/shared';
 import { Link } from 'expo-router';
+import * as WebBrowser from 'expo-web-browser';
 import { useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { StyleSheet, View } from 'react-native';
@@ -30,12 +31,15 @@ const ROLES: readonly Choice<'CANDIDATE' | 'COMPANY'>[] = [
   { value: UserRole.COMPANY, label: 'Je recrute', hint: 'Entreprise — gratuit' },
 ] as const;
 
+const SITE = 'https://jeuncy.com';
+
 const schema = z.object({
   email: z
     .string()
     .min(1, 'Renseigne ton adresse email.')
     .email('Adresse email invalide.'),
-  password: z.string().min(8, 'Le mot de passe doit faire au moins 8 caractères.'),
+  // Aligne sur RegisterRequest (Password::min(10), audit du 2026-10-01).
+  password: z.string().min(10, 'Le mot de passe doit faire au moins 10 caractères.'),
   role: z.enum([UserRole.CANDIDATE, UserRole.COMPANY]),
   // Age minimum de 16 ans depuis le 2026-10-09 (decision de Pierre, 15 ans
   // paraissait trop jeune ; auparavant aligne sur le plancher legal francais
@@ -126,7 +130,7 @@ export default function InscriptionScreen() {
               secureTextEntry
               autoComplete="new-password"
               textContentType="newPassword"
-              placeholder="8 caractères minimum"
+              placeholder="10 caractères minimum"
             />
           )}
         />
@@ -160,6 +164,31 @@ export default function InscriptionScreen() {
           onPress={handleSubmit(onSubmit)}
           loading={isSubmitting}
         />
+
+        {/* Information au moment de la collecte (RGPD art. 13) : les textes
+            s'ouvrent dans le navigateur integre, comme dans « Confidentialite
+            et donnees », pour ne jamais en garder une copie perimee. */}
+        <Text variant="small" tone="muted" style={styles.legal}>
+          En créant un compte, tu acceptes les{' '}
+          <Text
+            variant="small"
+            tone="accent"
+            accessibilityRole="link"
+            onPress={() => void WebBrowser.openBrowserAsync(`${SITE}/mentions-legales`)}
+          >
+            mentions légales
+          </Text>{' '}
+          et la{' '}
+          <Text
+            variant="small"
+            tone="accent"
+            accessibilityRole="link"
+            onPress={() => void WebBrowser.openBrowserAsync(`${SITE}/confidentialite`)}
+          >
+            politique de confidentialité
+          </Text>
+          .
+        </Text>
       </View>
 
       <View style={styles.pied}>
@@ -178,5 +207,6 @@ export default function InscriptionScreen() {
 
 const styles = StyleSheet.create({
   form: { gap: spacing.lg },
+  legal: { textAlign: 'center' },
   pied: { marginTop: spacing.xxl, alignItems: 'center', gap: spacing.xs },
 });

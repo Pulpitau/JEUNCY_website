@@ -4,10 +4,11 @@ import { useMutation } from '@tanstack/react-query';
 import { Stack, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
-import { StyleSheet, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { z } from 'zod';
 
 import { Button } from '@/components/ui/button';
+import { EmptyState } from '@/components/ui/empty-state';
 import { ChoiceGroup } from '@/components/ui/choice-group';
 import { Field } from '@/components/ui/field';
 import { Screen } from '@/components/ui/screen';
@@ -29,6 +30,7 @@ import {
 } from '@/lib/api/organization';
 import { WORK_MODE_LABELS } from '@/lib/labels';
 import { DIPLOMA_LEVEL_SELECT } from '@/lib/options';
+import { useTheme } from '@/theme/theme-provider';
 import { spacing } from '@/theme/typography';
 
 const optionalText = (max: number) =>
@@ -47,10 +49,32 @@ const optionalUrl = z
   })
   .transform((v) => v || null);
 
+/** Siren de La Poste : ses etablissements derogent a la cle de Luhn. */
+const LA_POSTE_SIREN = '356000000';
+
+/** Miroir de App\Rules\ValidSiret::isValid : 14 chiffres et cle de Luhn. */
+function isValidSiret(siret: string): boolean {
+  if (!/^\d{14}$/.test(siret)) return false;
+
+  const chiffres = [...siret].map(Number);
+  if (siret.startsWith(LA_POSTE_SIREN)) {
+    return chiffres.reduce((somme, c) => somme + c, 0) % 5 === 0;
+  }
+
+  const somme = chiffres.reverse().reduce((total, c, i) => {
+    if (i % 2 === 0) return total + c;
+    const double = c * 2;
+
+    return total + (double > 9 ? double - 9 : double);
+  }, 0);
+
+  return somme % 10 === 0;
+}
+
 // Un seul schema pour les deux roles : les champs propres au CFA restent vides
-// pour une entreprise et ne sont pas envoyes (voir toPayload). Le SIRET est
-// facultatif mais, s'il est saisi, doit faire exactement 14 chiffres
-// (StoreCompanyRequest / StoreCfaOrganizationRequest : size:14).
+// pour une entreprise et ne sont pas envoyes (voir toPayload). Le SIRET, s'il
+// est saisi, obeit aux regles du serveur (14 chiffres, cle de Luhn) ; son
+// caractere obligatoire depend du role, voir `siretObligatoire` plus bas.
 const schema = z.object({
   name: z.string().trim().min(1, 'Renseigne le nom.').max(255),
   siret: z
@@ -58,6 +82,9 @@ const schema = z.object({
     .trim()
     .refine((v) => v === '' || /^\d{14}$/.test(v), {
       message: 'Le SIRET fait 14 chiffres.',
+    })
+    .refine((v) => v === '' || !/^\d{14}$/.test(v) || isValidSiret(v), {
+      message: "Ce numéro SIRET n'est pas valide : vérifie les chiffres.",
     })
     .transform((v) => v || null),
   description: optionalText(2000),
@@ -110,7 +137,37 @@ function toPayload(role: typeof UserRole.COMPANY | typeof UserRole.CFA, v: Parse
   } satisfies CfaOrganizationInput;
 }
 
+// Le formulaire ne lit ses valeurs par defaut qu'au premier rendu : le monter
+// avant que la fiche soit chargee afficherait un formulaire vide, et
+// « Créer ma fiche » tenterait de creer une seconde fiche.
 export default function OrganisationInformationsScreen() {
+  const { colors } = useTheme();
+  const organization = useOrganization();
+
+  if (organization.isPending) {
+    return (
+      <Screen hasHeader>
+        <ActivityIndicator color={colors.accent} />
+      </Screen>
+    );
+  }
+
+  if (organization.isError) {
+    return (
+      <Screen hasHeader>
+        <EmptyState
+          title="Impossible de charger ta fiche"
+          description={organization.error.message}
+          action={{ label: 'Réessayer', onPress: () => void organization.refetch() }}
+        />
+      </Screen>
+    );
+  }
+
+  return <OrganisationForm />;
+}
+
+function OrganisationForm() {
   const router = useRouter();
   const role = useOrganizationRole();
   const organization = useOrganization();
@@ -122,13 +179,31 @@ export default function OrganisationInformationsScreen() {
   const cfa =
     existing && 'training_mode' in existing ? (existing as CfaOrganization) : null;
   const company = existing && 'work_mode' in existing ? (existing as Company) : null;
+  const siretObligatoire = !isCfa || existing === null;
 
   const {
     control,
     handleSubmit,
     formState: { errors, isSubmitting },
   } = useForm<FormValues, unknown, Parsed>({
-    resolver: zodResolver(schema),
+    resolver: zodResolver(
+      // Obligatoire pour une entreprise (StoreCompanyRequest et
+      // UpdateCompanyRequest) et a la creation d'un CFA
+      // (StoreCfaOrganizationRequest) ; facultatif a la modification d'un CFA
+      // (UpdateCfaOrganizationRequest : sometimes, nullable).
+      siretObligatoire
+        ? schema.superRefine((values, ctx) => {
+            if (values.siret === null) {
+              ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ['siret'],
+                message:
+                  'Le SIRET est obligatoire : il nous sert à vérifier ton organisation.',
+              });
+            }
+          })
+        : schema,
+    ),
     defaultValues: {
       name: existing?.name ?? '',
       siret: existing?.siret ?? '',
@@ -252,13 +327,13 @@ export default function OrganisationInformationsScreen() {
           <Text variant="sectionTitle" style={styles.sectionTitle}>
             Informations légales
           </Text>
-          {champ('siret', 'SIRET', {
+          {champ('siret', siretObligatoire ? 'SIRET *' : 'SIRET', {
             keyboardType: 'number-pad',
             placeholder: '14 chiffres',
             maxLength: 14,
           })}
           {isCfa ? champ('nda_number', 'Numéro NDA') : null}
-          {isCfa ? champ('qualiopi_number', 'Numéro de certification QUALIOPI') : null}
+          {isCfa ? champ('qualiopi_number', 'Numéro de certification Qualiopi') : null}
 
           {erreurServeur ? (
             <Text

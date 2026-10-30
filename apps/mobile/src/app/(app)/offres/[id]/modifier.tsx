@@ -63,7 +63,7 @@ const SECTOR_OPTIONS = Object.values(OfferSector).map((value) => ({
 export default function ModifierOffreScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { colors } = useTheme();
-  const { data, isPending } = useMyOffers();
+  const { data, isPending, isError, error, refetch } = useMyOffers();
 
   const offer = data?.find((o) => String(o.id) === id) ?? null;
 
@@ -71,6 +71,19 @@ export default function ModifierOffreScreen() {
     return (
       <Screen hasHeader>
         <ActivityIndicator color={colors.accent} />
+      </Screen>
+    );
+  }
+
+  // Un reseau coupe n'est pas une offre non modifiable.
+  if (isError) {
+    return (
+      <Screen hasHeader>
+        <EmptyState
+          title="Impossible de charger l'offre"
+          description={error instanceof Error ? error.message : undefined}
+          action={{ label: 'Réessayer', onPress: () => void refetch() }}
+        />
       </Screen>
     );
   }

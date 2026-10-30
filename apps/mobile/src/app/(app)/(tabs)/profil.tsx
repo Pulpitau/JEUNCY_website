@@ -65,6 +65,7 @@ function AccountScreen({ email }: { email: string }) {
 
 function Footer() {
   const router = useRouter();
+  const deconnexion = useMutation({ mutationFn: logout });
 
   return (
     <View style={styles.footer}>
@@ -74,7 +75,12 @@ function Footer() {
         onPress={() => router.push('/profil/confidentialite')}
       />
       <ThemeSwitch />
-      <Button label="Se déconnecter" variant="secondary" onPress={() => void logout()} />
+      <Button
+        label="Se déconnecter"
+        variant="secondary"
+        loading={deconnexion.isPending}
+        onPress={() => deconnexion.mutate()}
+      />
     </View>
   );
 }

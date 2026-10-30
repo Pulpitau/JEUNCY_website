@@ -1,10 +1,11 @@
-import { UserRole } from '@jeuncy/shared';
+import { UserRole, VerificationStatus } from '@jeuncy/shared';
 import { useMutation } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { ActivityIndicator, Alert, StyleSheet, Switch, View } from 'react-native';
 
 import { BrandHeader } from '@/components/brand-header';
 import { AvatarUpload } from '@/components/ui/avatar-upload';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -72,8 +73,10 @@ export function OrganizationAccount({ email, footer }: OrganizationAccountProps)
         <Card>
           <Text variant="sectionTitle">Crée ta fiche</Text>
           <Text variant="small" tone="muted">
-            Le nom suffit pour commencer. C&apos;est cette fiche que les candidats verront
-            sur tes offres.
+            {isCfa
+              ? 'Le nom suffit pour commencer.'
+              : 'Le nom et le SIRET suffisent pour commencer : le SIRET sert à vérifier ton entreprise.'}{' '}
+            C&apos;est cette fiche que les candidats verront sur tes offres.
           </Text>
           <Button
             label="Créer ma fiche"
@@ -158,6 +161,12 @@ function OrganizationSummary({
               {WORK_MODE_LABELS[mode]}
             </Text>
           ) : null}
+          <View style={styles.badge}>
+            <Badge
+              label={VERIFICATION_LABELS[organization.verification_status].label}
+              tone={VERIFICATION_LABELS[organization.verification_status].tone}
+            />
+          </View>
         </View>
       </View>
       <Button
@@ -165,6 +174,13 @@ function OrganizationSummary({
         variant="secondary"
         onPress={() => router.push('/organisation/informations')}
       />
+
+      {organization.verification_status !== VerificationStatus.VERIFIED &&
+      organization.verification_note ? (
+        <Text variant="small" tone="muted" style={styles.note}>
+          {organization.verification_note}
+        </Text>
+      ) : null}
 
       {organization.description ? (
         <Section title="Présentation">
@@ -199,6 +215,16 @@ function OrganizationSummary({
   );
 }
 
+// La porte d'acces aux profils candidats (MOBILE.md §4.0), dite en clair.
+const VERIFICATION_LABELS: Record<
+  VerificationStatus,
+  { label: string; tone: 'success' | 'warm' | 'danger' }
+> = {
+  [VerificationStatus.VERIFIED]: { label: 'Vérifiée', tone: 'success' },
+  [VerificationStatus.PENDING]: { label: 'En cours de vérification', tone: 'warm' },
+  [VerificationStatus.REJECTED]: { label: 'Vérification refusée', tone: 'danger' },
+};
+
 const styles = StyleSheet.create({
   centered: { alignItems: 'center', justifyContent: 'center' },
   identity: {
@@ -208,6 +234,8 @@ const styles = StyleSheet.create({
     marginBottom: spacing.lg,
   },
   identityText: { flex: 1, gap: spacing.xs },
+  badge: { flexDirection: 'row' },
+  note: { marginBottom: spacing.md },
   switchRow: {
     flexDirection: 'row',
     alignItems: 'center',

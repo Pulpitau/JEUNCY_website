@@ -149,6 +149,16 @@ export interface DeckMeta {
   photo_required_from: string | null;
 }
 
+/** « à moins de 30 km », « tout le département 66 », « partout en France ». */
+export function libellePortee(meta: DeckMeta, portee: DeckScope): string {
+  if (portee === 'radius') return `à moins de ${meta.radius_km} km`;
+  if (portee === 'department') {
+    return `tout le département${meta.department ? ` ${meta.department}` : ''}`;
+  }
+
+  return 'partout en France';
+}
+
 export interface DiscoverOffersResponse {
   /** Selection du jour : au plus 20, pas de curseur infini de ce cote. */
   jeuncy: DeckJeuncyOffer[];
@@ -156,6 +166,11 @@ export interface DiscoverOffersResponse {
   meta: DeckMeta;
 }
 
+/**
+ * La pile candidat redemande toujours la page 1 : le serveur retire les
+ * offres deja jugees, une page 2 sauterait donc des offres (voir
+ * hooks/use-discover-deck.ts). Le parametre reste pour d'autres usages.
+ */
 export function discoverOffers(page = 1) {
   return apiRequest<DiscoverOffersResponse>(`/discover/offers?page=${page}`);
 }

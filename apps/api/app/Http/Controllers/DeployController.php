@@ -70,7 +70,7 @@ class DeployController extends Controller
     // ne peut pas savoir si le controleur lui-meme a bien ete redeploye : c est
     // arrive le 2026-09-02, ou clear-cache continuait d echouer avec une version
     // corrigee censement en place. A incrementer a chaque changement ici.
-    public const DEPLOY_TOOLS_VERSION = 'deploy-tools-35';
+    public const DEPLOY_TOOLS_VERSION = 'deploy-tools-36';
 
     // Perimetre de lancement du match mobile (decision du 2026-09-22) : les
     // Pyrenees-Orientales, mesurees autour de Perpignan (centre-ville).
@@ -965,6 +965,23 @@ class DeployController extends Controller
             'app/Http/Controllers/JobOfferApplicationController.php',
             'app/Http/Requests/Auth/ResetPasswordRequest.php',
             'routes/api/video-rooms.php',
+            // ================================================================
+            // MESSAGES EN FRANCAIS ET LIENS DE NOTIFICATION (2026-10-30). Ce
+            // que chaque absence produit :
+            //   - lang/fr/* : les erreurs de validation repartent en anglais
+            //     (« The email field is required. ») sur le site et l'app,
+            //     sans aucune erreur cote serveur ;
+            //   - config/app.php : locale par defaut passee a fr. Sans lui, un
+            //     .env sans APP_LOCALE garde l'anglais meme avec lang/fr ;
+            // Deja surveilles plus haut, modifies : MatchService (lien
+            // INTEREST_RECEIVED vers /interesses) et MatchReminderService
+            // (relance « attend ton dossier » vers /mes-matchs).
+            // ================================================================
+            'lang/fr/validation.php',
+            'lang/fr/auth.php',
+            'lang/fr/passwords.php',
+            'lang/fr/pagination.php',
+            'config/app.php',
         ];
 
         $etat = [];

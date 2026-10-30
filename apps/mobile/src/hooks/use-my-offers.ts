@@ -40,6 +40,10 @@ export function useDiscoverableOffers() {
 
 /** Ce qui manque a une offre pour entrer dans Decouvrir, en une phrase. */
 export function whyNotDiscoverable(offer: JobOffer): string {
+  // Une offre archivee ou expiree ne se republie pas depuis l'app : lui
+  // ecrire « A publier » promettrait un bouton qui n'existe pas.
+  if (offer.status === 'ARCHIVED') return 'Archivée';
+  if (offer.status === 'EXPIRED') return 'Expirée';
   if (offer.status !== 'PUBLISHED') return 'À publier';
   if (offer.postal_code === null) return 'Code postal manquant';
 

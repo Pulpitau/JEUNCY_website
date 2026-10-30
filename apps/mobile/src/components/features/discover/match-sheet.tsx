@@ -32,7 +32,12 @@ const iosEaseOut = Easing.bezier(0.25, 0.1, 0.25, 1);
 // a faire, et le lui dire evite qu'il attende un ecran qui ne viendra pas.
 
 export interface MatchSheetProps {
-  /** Prenom + initiale, tel que la carte l'affiche. */
+  /**
+   * Qui regarde la feuille. Employeur par defaut : c'est le premier appelant,
+   * et la prochaine action n'est pas la meme des deux cotes.
+   */
+  side?: 'candidate' | 'employer';
+  /** Cote employeur : prenom + initiale du candidat. Cote candidat : l'entreprise. */
   counterpartLabel: string;
   /** Vrai quand le dossier existait deja : le match nait « dossier envoye ». */
   applicationSent: boolean;
@@ -41,6 +46,7 @@ export interface MatchSheetProps {
 }
 
 export function MatchSheet({
+  side = 'employer',
   counterpartLabel,
   applicationSent,
   onSeeMatches,
@@ -96,9 +102,7 @@ export function MatchSheet({
         </Animated.View>
         <Animated.View entering={FadeInDown.delay(250).duration(260).easing(iosEaseOut)}>
           <Text variant="body" tone="muted">
-            {applicationSent
-              ? `${counterpartLabel} avait déjà envoyé son dossier : tu peux le lire dès maintenant.`
-              : `${counterpartLabel} s'intéresse aussi à ton offre. On vient de le prévenir : c'est à lui d'envoyer son dossier.`}
+            {texteDuMatch(side, counterpartLabel, applicationSent)}
           </Text>
         </Animated.View>
 
@@ -107,7 +111,11 @@ export function MatchSheet({
           style={styles.actions}
         >
           <Button
-            label={applicationSent ? 'Voir le dossier' : 'Voir mes matchs'}
+            label={
+              side === 'employer' && applicationSent
+                ? 'Voir le dossier'
+                : 'Voir mes matchs'
+            }
             onPress={onSeeMatches}
           />
           <Button label="Continuer à découvrir" variant="ghost" onPress={onContinue} />
@@ -115,6 +123,23 @@ export function MatchSheet({
       </Animated.View>
     </Modal>
   );
+}
+
+/** La prochaine action appartient toujours au candidat : envoyer son dossier. */
+function texteDuMatch(
+  side: 'candidate' | 'employer',
+  counterpartLabel: string,
+  applicationSent: boolean,
+): string {
+  if (side === 'candidate') {
+    return applicationSent
+      ? `${counterpartLabel} s'intéresse aussi à toi, et a déjà reçu ton dossier : sa réponse arrive dans Candidatures.`
+      : `${counterpartLabel} s'intéresse aussi à toi. Envoie ton dossier depuis « Mes matchs » pour que l'entreprise puisse te répondre.`;
+  }
+
+  return applicationSent
+    ? `${counterpartLabel} avait déjà envoyé son dossier : tu peux le lire dès maintenant.`
+    : `${counterpartLabel} s'intéresse aussi à ton offre et vient d'être prévenu·e. La suite lui revient : envoyer son dossier.`;
 }
 
 const styles = StyleSheet.create({

@@ -61,7 +61,10 @@ class Application extends Model
     {
         $this->makeHidden('cv_file_url')->append('has_cv');
         $this->generatedCv?->makeHidden('file_url');
-        $this->candidateProfile?->makeHidden('cv_file_url');
+        // L'age (ajoute par CandidateProfile::$appends) suffit a l'employeur :
+        // ni la date de naissance d'un candidat parfois mineur, ni son adresse
+        // (decision de Pierre, 2026-10-30).
+        $this->candidateProfile?->makeHidden(['cv_file_url', 'birth_date', 'address']);
 
         return $this;
     }

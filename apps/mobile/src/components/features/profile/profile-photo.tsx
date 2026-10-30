@@ -17,7 +17,8 @@ export interface ProfilePhotoProps {
 export function ProfilePhoto({ photoUrl, firstName, lastName }: ProfilePhotoProps) {
   const invalidateProfile = useInvalidateProfile();
   const queryClient = useQueryClient();
-  // La pile Découvrir dépend de la photo (obligatoire) : elle doit se rouvrir
+  // La pile Découvrir dépend de la photo (rappel, ou obligation si elle est
+  // réactivée côté serveur) : elle doit se rouvrir
   // dès l'envoi, sans attendre un redémarrage de l'app.
   const invalidate = () => {
     void invalidateProfile();
@@ -32,11 +33,16 @@ export function ProfilePhoto({ photoUrl, firstName, lastName }: ProfilePhotoProp
       // qui a permis de trouver la cause reelle le 2026-09-15 (voir
       // toFormDataPart dans lib/api/candidate-profile.ts), la ou le message
       // affiche a l'utilisateur ne disait que « connexion impossible ».
-      const native = error instanceof ApiError && error.cause ? String(error.cause) : '';
-      console.log(`[photo] echec upload de ${file.uri} : ${error.message} ${native}`);
+      // Developpement seulement : en production, rien ne doit ecrire
+      // l'adresse d'un fichier du telephone dans les journaux.
+      if (__DEV__) {
+        const native =
+          error instanceof ApiError && error.cause ? String(error.cause) : '';
+        console.warn(`[photo] echec upload de ${file.uri} : ${error.message} ${native}`);
+      }
       Alert.alert(
         'Photo non enregistrée',
-        error instanceof ApiError ? error.message : 'Réessaie.',
+        error instanceof ApiError ? error.message : 'Réessaie dans un instant.',
       );
     },
   });
@@ -44,6 +50,11 @@ export function ProfilePhoto({ photoUrl, firstName, lastName }: ProfilePhotoProp
   const remove = useMutation({
     mutationFn: removeProfilePhoto,
     onSuccess: invalidate,
+    onError: (error) =>
+      Alert.alert(
+        'Photo non supprimée',
+        error instanceof ApiError ? error.message : 'Réessaie dans un instant.',
+      ),
   });
 
   return (

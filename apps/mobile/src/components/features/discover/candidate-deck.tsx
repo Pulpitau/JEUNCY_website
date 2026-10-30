@@ -1,5 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
+import * as WebBrowser from 'expo-web-browser';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -19,11 +21,11 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { Text } from '@/components/ui/text';
 import { useCandidateProfile } from '@/hooks/use-candidate-profile';
 import { useDiscoverDeck, type DeckCard } from '@/hooks/use-discover-deck';
+import { KEPT_OFFERS_KEY } from '@/hooks/use-kept-offers';
 import { ApiError } from '@/lib/api/client';
+import { libellePortee, type DeckMeta, type DeckScope } from '@/lib/api/discover';
 import { INTEREST_ERRORS } from '@/lib/api/interests';
 import { formatDateFr } from '@/lib/dates';
-import { KEPT_OFFERS_KEY } from '@/hooks/use-kept-offers';
-import { useQueryClient } from '@tanstack/react-query';
 import { useTheme } from '@/theme/theme-provider';
 import { radii, spacing } from '@/theme/typography';
 
@@ -53,6 +55,7 @@ export function CandidateDeck() {
     status,
     error,
     canUndo,
+    likesRestants,
     like,
     pass,
     decideExternal,
@@ -117,19 +120,25 @@ export function CandidateDeck() {
   };
 
   const handleUndo = () => {
-    void undo().catch((cause: unknown) => {
-      const code = cause instanceof ApiError ? cause.code : null;
-      Alert.alert(
-        'Annulation impossible',
-        code === INTEREST_ERRORS.MATCH_NOTIFIED
-          ? "L'entreprise est déjà prévenue : ce match ne peut plus être annulé."
-          : code === INTEREST_ERRORS.APPLICATION_ATTACHED
-            ? 'Tu as déjà envoyé ton dossier sur cette offre. Retire-le depuis Candidatures.'
-            : cause instanceof Error
-              ? cause.message
-              : 'Réessaie dans un instant.',
-      );
-    });
+    void undo()
+      .then((pile) => {
+        // Annuler un « Je garde » retire l'offre de la liste « Gardées ».
+        if (pile === 'lba')
+          void queryClient.invalidateQueries({ queryKey: KEPT_OFFERS_KEY });
+      })
+      .catch((cause: unknown) => {
+        const code = cause instanceof ApiError ? cause.code : null;
+        Alert.alert(
+          'Annulation impossible',
+          code === INTEREST_ERRORS.MATCH_NOTIFIED
+            ? "L'entreprise est déjà prévenue : ce match ne peut plus être annulé."
+            : code === INTEREST_ERRORS.APPLICATION_ATTACHED
+              ? 'Tu as déjà envoyé ton dossier sur cette offre. Retire-le depuis Candidatures.'
+              : cause instanceof Error
+                ? cause.message
+                : 'Réessaie dans un instant.',
+        );
+      });
   };
 
   /** Interet sur une offre Jeuncy. `andApply` ouvre le formulaire ensuite. */
@@ -155,7 +164,7 @@ export function CandidateDeck() {
 
           return;
         }
-        annoncer("C'est noté. On prévient l'entreprise.");
+        annoncer("C'est noté. Si l'entreprise s'intéresse aussi à toi, c'est un match.");
       })
       .catch((cause: unknown) => {
         setHeld(null);
@@ -164,12 +173,21 @@ export function CandidateDeck() {
       .finally(() => setBusy(false));
   };
 
-  const garder = async (card: DeckCard & { kind: 'lba' }) => {
+  /**
+   * « Je garde », puis éventuellement le site de l'employeur.
+   *
+   * La feuille reste ouverte pendant que le navigateur est affiché, et ne se
+   * ferme qu'à son retour : expo-web-browser présente Safari depuis le
+   * contrôleur le plus haut, et si c'était la feuille en train de se fermer,
+   * iOS l'emporterait avec elle — le site ne s'ouvrirait jamais.
+   */
+  const garder = async (card: DeckCard & { kind: 'lba' }, ouvrir?: string) => {
     setBusy(true);
     try {
       await decideExternal(card.offer, 'KEEP');
       // La section « Gardées » de l'onglet Candidatures lit cette liste.
       void queryClient.invalidateQueries({ queryKey: KEPT_OFFERS_KEY });
+      if (ouvrir) await WebBrowser.openBrowserAsync(ouvrir);
       setHeld(null);
       annoncer('Offre gardée. Retrouve-la dans Candidatures.');
     } catch (cause) {
@@ -191,7 +209,7 @@ export function CandidateDeck() {
         <View style={styles.headerText}>
           <Text variant="hero">Découvrir</Text>
           <Text variant="small" tone="muted" numberOfLines={1}>
-            {sousTitre(meta)}
+            {sousTitre(meta, visibleDeck[0]?.kind ?? null)}
           </Text>
         </View>
         <HeaderButton
@@ -274,13 +292,16 @@ export function CandidateDeck() {
       <InterestSheet
         card={held}
         busy={busy}
+        likesRestants={likesRestants}
         onSendDossier={() =>
           held?.kind === 'jeuncy' ? marquerInteret(held, true) : undefined
         }
         onMarkInterest={() =>
           held?.kind === 'jeuncy' ? marquerInteret(held, false) : undefined
         }
-        onKeep={() => (held?.kind === 'lba' ? garder(held) : Promise.resolve())}
+        onKeep={(ouvrir) =>
+          held?.kind === 'lba' ? garder(held, ouvrir) : Promise.resolve()
+        }
         onCancel={() => setHeld(null)}
       />
 
@@ -290,6 +311,7 @@ export function CandidateDeck() {
 
       {match ? (
         <MatchSheet
+          side="candidate"
           counterpartLabel={match}
           applicationSent={false}
           onSeeMatches={() => {
@@ -308,19 +330,16 @@ export function CandidateDeck() {
  *
  * L'élargissement est toujours annoncé (MOBILE.md §6) : un candidat qui a
  * réglé 30 km et reçoit des offres de toute la France doit le savoir, sinon
- * il conclut que le réglage ne sert à rien.
+ * il conclut que le réglage ne sert à rien. Les deux piles cascadent
+ * séparément côté serveur : on annonce la portée de celle dont vient la
+ * carte du dessus.
  */
-function sousTitre(meta: ReturnType<typeof useDiscoverDeck>['meta']): string {
+function sousTitre(meta: DeckMeta | null, pile: DeckCard['kind'] | null): string {
   if (!meta) return 'Sélection du jour';
-  if (!meta.has_coordinates) return 'Sélection du jour · partout en France';
 
-  if (meta.scope === 'radius')
-    return `Sélection du jour · à moins de ${meta.radius_km} km`;
-  if (meta.scope === 'department') {
-    return `Sélection du jour · tout le département${meta.department ? ` ${meta.department}` : ''}`;
-  }
+  const portee: DeckScope = pile === 'jeuncy' ? meta.scope : meta.partner_scope;
 
-  return 'Sélection du jour · partout en France';
+  return `Sélection du jour · ${libellePortee(meta, portee)}`;
 }
 
 function publisherName(card: DeckCard & { kind: 'jeuncy' }): string {

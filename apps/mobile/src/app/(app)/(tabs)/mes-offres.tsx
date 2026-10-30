@@ -1,10 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import {
   ActivityIndicator,
   Alert,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   View,
@@ -12,6 +13,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Badge } from '@/components/ui/badge';
+import { MATCHES_KEY } from '@/hooks/use-matches';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -46,7 +48,7 @@ export default function MesOffresScreen() {
   const router = useRouter();
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
-  const { data, isPending, error, refetch } = useMyOffers();
+  const { data, isPending, error, refetch, isRefetching } = useMyOffers();
 
   const publiees = (data ?? []).filter((offer) => offer.status === 'PUBLISHED');
   const autres = (data ?? []).filter((offer) => offer.status !== 'PUBLISHED');
@@ -76,7 +78,16 @@ export default function MesOffresScreen() {
           action={{ label: 'Réessayer', onPress: () => void refetch() }}
         />
       ) : (
-        <ScrollView contentContainerStyle={styles.list}>
+        <ScrollView
+          contentContainerStyle={styles.list}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefetching}
+              onRefresh={() => void refetch()}
+              tintColor={colors.accent}
+            />
+          }
+        >
           <Button
             label="Créer une offre express"
             onPress={() => router.push('/organisation/offre-express')}
@@ -111,6 +122,7 @@ function OfferCard({ offer }: { offer: JobOffer }) {
   const router = useRouter();
   const { colors } = useTheme();
   const invalidateOffers = useInvalidateMyOffers();
+  const queryClient = useQueryClient();
 
   const publiee = offer.status === 'PUBLISHED';
   const manque = whyNotDiscoverable(offer);
@@ -123,7 +135,12 @@ function OfferCard({ offer }: { offer: JobOffer }) {
 
   const archiver = useMutation({
     mutationFn: () => archiveOffer(offer.id),
-    onSuccess: invalidateOffers,
+    onSuccess: () => {
+      void invalidateOffers();
+      // L'archivage ferme les matchs nes sur cette offre (closeMatches) :
+      // la liste des matchs en cache est perimee.
+      void queryClient.invalidateQueries({ queryKey: MATCHES_KEY });
+    },
     onError: (cause: Error) => Alert.alert('Archivage impossible', cause.message),
   });
 
@@ -144,9 +161,7 @@ function OfferCard({ offer }: { offer: JobOffer }) {
           {offer.title}
         </Text>
         <Badge
-          label={
-            publiee ? 'Publiée' : offer.status === 'DRAFT' ? 'Brouillon' : 'Archivée'
-          }
+          label={STATUS_LABELS[offer.status]}
           tone={publiee ? 'success' : 'neutral'}
         />
       </View>
@@ -161,9 +176,11 @@ function OfferCard({ offer }: { offer: JobOffer }) {
         <View style={styles.warn}>
           <Ionicons name="alert-circle-outline" size={16} color={colors.accentWarm} />
           <Text variant="small" style={styles.warnText}>
-            {manque === 'Code postal manquant'
-              ? "Sans code postal, cette offre n'apparaît dans aucune pile. Ajoute-le avec « Modifier »."
-              : 'Publie cette offre pour découvrir des candidats.'}
+            {offer.status === 'DRAFT'
+              ? 'Publie cette offre pour découvrir des candidats.'
+              : publiee
+                ? "Sans code postal, cette offre n'apparaît dans aucune pile. Ajoute-le avec « Modifier »."
+                : "Cette offre n'est plus en ligne : elle ne propose plus de candidats."}
           </Text>
         </View>
       ) : (
@@ -224,6 +241,13 @@ function OfferCard({ offer }: { offer: JobOffer }) {
     </Card>
   );
 }
+
+const STATUS_LABELS: Record<JobOffer['status'], string> = {
+  DRAFT: 'Brouillon',
+  PUBLISHED: 'Publiée',
+  EXPIRED: 'Expirée',
+  ARCHIVED: 'Archivée',
+};
 
 const styles = StyleSheet.create({
   screen: { flex: 1 },

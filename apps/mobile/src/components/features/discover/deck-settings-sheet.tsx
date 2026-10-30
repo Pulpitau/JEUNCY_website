@@ -11,7 +11,8 @@ import { CANDIDATE_PROFILE_KEY } from '@/hooks/use-candidate-profile';
 import { useDeviceLocation } from '@/hooks/use-device-location';
 import { DISCOVER_KEY } from '@/hooks/use-discover-deck';
 import { updatePreferences } from '@/lib/api/candidate-profile';
-import type { DeckMeta } from '@/lib/api/discover';
+import { ApiError } from '@/lib/api/client';
+import { libellePortee, type DeckMeta, type DeckScope } from '@/lib/api/discover';
 import { useTheme } from '@/theme/theme-provider';
 import { radii, spacing } from '@/theme/typography';
 
@@ -70,10 +71,14 @@ export function DeckSettingsSheet({ meta, onClose }: DeckSettingsSheetProps) {
         }
         Alert.alert('Position non activée', resultat.message);
       },
+      // Les refus du telephone sont traduits dans useDeviceLocation ; ce qui
+      // arrive ici vient de l'API, deja en francais.
       onError: (error: Error) =>
         Alert.alert(
-          'Position indisponible',
-          error.message || 'On continue avec la commune de ton profil.',
+          'Position non enregistrée',
+          error instanceof ApiError
+            ? error.message
+            : 'On continue avec la commune de ton profil. Réessaie dans un instant.',
         ),
     });
   };
@@ -186,28 +191,32 @@ function ScopeNotice({ meta }: { meta: DeckMeta }) {
     );
   }
 
-  if (meta.scope === 'radius') {
-    return (
-      <Notice tone={colors.success} icon="checkmark-circle-outline">
-        Les offres affichées sont à moins de {meta.radius_km} km.
-      </Notice>
-    );
-  }
-
-  if (meta.scope === 'department') {
-    return (
-      <Notice tone={colors.accentWarm} icon="information-circle-outline">
-        Rien à moins de {meta.radius_km} km : on a élargi à tout le département
-        {meta.department ? ` ${meta.department}` : ''}.
-      </Notice>
-    );
-  }
+  // Les deux piles cascadent séparément côté serveur : quand leurs portées
+  // diffèrent, on dit les deux plutôt que d'en taire une.
+  const elargie = meta.scope !== 'radius' || meta.partner_scope !== 'radius';
+  const texte =
+    meta.scope === meta.partner_scope
+      ? phrasePortee(meta, meta.scope)
+      : `Offres Jeuncy : ${libellePortee(meta, meta.scope)}. Offres partenaires : ${libellePortee(meta, meta.partner_scope)}.`;
 
   return (
-    <Notice tone={colors.accentWarm} icon="information-circle-outline">
-      Rien près de chez toi pour l&apos;instant : on montre des offres de toute la France.
+    <Notice
+      tone={elargie ? colors.accentWarm : colors.success}
+      icon={elargie ? 'information-circle-outline' : 'checkmark-circle-outline'}
+    >
+      {texte}
     </Notice>
   );
+}
+
+function phrasePortee(meta: DeckMeta, portee: DeckScope): string {
+  if (portee === 'radius')
+    return `Les offres affichées sont à moins de ${meta.radius_km} km.`;
+  if (portee === 'department') {
+    return `Rien à moins de ${meta.radius_km} km : on a élargi à tout le département${meta.department ? ` ${meta.department}` : ''}.`;
+  }
+
+  return "Rien près de chez toi pour l'instant : on montre des offres de toute la France.";
 }
 
 function Notice({

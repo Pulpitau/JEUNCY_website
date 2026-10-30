@@ -372,7 +372,10 @@ class MatchService
         $candidat->notifications()->create([
             'type' => NotificationType::INTEREST_RECEIVED,
             'message' => "{$this->nomOrganisation($offre)} s'intéresse à ton profil pour « {$offre->title} ».",
-            'link' => '/offres/'.$offre->id,
+            // La liste « Ils s'intéressent à toi » (site et app), où le
+            // candidat peut répondre. La fiche d'offre, elle, ne propose que
+            // « Postuler » : elle ne permet pas de conclure le match.
+            'link' => '/interesses',
         ]);
     }
 

@@ -77,6 +77,18 @@ class ApplicationCvAccessTest extends TestCase
         $this->assertStringNotContainsString('genere.pdf', $json);
     }
 
+    public function test_the_employer_sees_the_age_never_the_birth_date_nor_the_address(): void
+    {
+        $this->dossier->candidateProfile->update(['birth_date' => now()->subYears(17)->subDays(3), 'address' => '12 rue des Lilas']);
+
+        $response = $this->withToken($this->jeton($this->employeur))
+            ->getJson('/api/job-offers/'.$this->offre->id.'/applications');
+
+        $response->assertOk()->assertJsonPath('data.0.candidate_profile.age', 17);
+        $this->assertArrayNotHasKey('birth_date', $response->json('data.0.candidate_profile'));
+        $this->assertStringNotContainsString('rue des Lilas', $response->getContent());
+    }
+
     public function test_the_status_update_response_carries_no_file_address(): void
     {
         $response = $this->withToken($this->jeton($this->employeur))

@@ -10,7 +10,10 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Screen } from '@/components/ui/screen';
 import { Text } from '@/components/ui/text';
-import { useCandidateProfile, useInvalidateProfile } from '@/hooks/use-candidate-profile';
+import {
+  useCandidateProfile,
+  useInvalidateProfileAndDeck,
+} from '@/hooks/use-candidate-profile';
 import {
   addEducation,
   addExperience,
@@ -164,7 +167,7 @@ function buildGroups(data: ImportedCvData, profile: CandidateProfile): Groupe[] 
 export default function ImporterCvScreen() {
   const router = useRouter();
   const profile = useCandidateProfile();
-  const invalidate = useInvalidateProfile();
+  const invalidate = useInvalidateProfileAndDeck();
   const [groupes, setGroupes] = useState<Groupe[] | null>(null);
   const [decoches, setDecoches] = useState<Set<string>>(new Set());
 
@@ -187,15 +190,40 @@ export default function ImporterCvScreen() {
       const software = retenues
         .filter((s) => s.key.startsWith('soft:'))
         .map((s) => s.label);
-      if (skills.length)
-        await syncSkills([...profile.data.skills.map((s) => s.name), ...skills]);
-      if (software.length) {
-        await syncSoftware([...profile.data.software.map((s) => s.name), ...software]);
-      }
-      // Le reste, dans l'ordre du CV : c'est l'ordre chronologique voulu par le
-      // candidat, et celui dans lequel les rubriques s'afficheront.
-      for (const s of retenues) {
-        if (!s.key.startsWith('skill:') && !s.key.startsWith('soft:')) await s.apply();
+      // Ce qui est enregistre est note : si la suite echoue, ces elements
+      // quittent la liste, et « Ajouter » ne recree pas en double ce qui est
+      // deja parti.
+      const faits = new Set<string>();
+      try {
+        if (skills.length) {
+          await syncSkills([...profile.data.skills.map((s) => s.name), ...skills]);
+          retenues
+            .filter((s) => s.key.startsWith('skill:'))
+            .forEach((s) => faits.add(s.key));
+        }
+        if (software.length) {
+          await syncSoftware([...profile.data.software.map((s) => s.name), ...software]);
+          retenues
+            .filter((s) => s.key.startsWith('soft:'))
+            .forEach((s) => faits.add(s.key));
+        }
+        // Le reste, dans l'ordre du CV : c'est l'ordre chronologique voulu par
+        // le candidat, et celui dans lequel les rubriques s'afficheront.
+        for (const s of retenues) {
+          if (!s.key.startsWith('skill:') && !s.key.startsWith('soft:')) {
+            await s.apply();
+            faits.add(s.key);
+          }
+        }
+      } catch (error) {
+        setGroupes((prev) =>
+          prev
+            ? prev
+                .map((g) => ({ ...g, items: g.items.filter((i) => !faits.has(i.key)) }))
+                .filter((g) => g.items.length > 0)
+            : prev,
+        );
+        throw error;
       }
     },
     onSuccess: async (_, retenues) => {
@@ -206,13 +234,16 @@ export default function ImporterCvScreen() {
         [{ text: 'OK', onPress: () => router.back() }],
       );
     },
-    onError: (error) =>
+    onError: (error) => {
+      // Une partie est enregistree : le profil doit le montrer.
+      void invalidate();
       Alert.alert(
         'Enregistrement incomplet',
         error instanceof ApiError
-          ? `Le CV a été lu, mais une partie n'a pas pu être enregistrée : ${error.message}`
-          : "Le CV a été lu, mais une partie n'a pas pu être enregistrée. Réessaie dans un instant.",
-      ),
+          ? `Le CV a été lu, mais une partie n'a pas pu être enregistrée : ${error.message} Ce qui reste à ajouter est toujours affiché.`
+          : "Le CV a été lu, mais une partie n'a pas pu être enregistrée. Ce qui reste à ajouter est toujours affiché : réessaie dans un instant.",
+      );
+    },
   });
 
   const choisir = async () => {

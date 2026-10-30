@@ -151,11 +151,11 @@ export function CvSection({ profile }: { profile: CandidateProfile }) {
 
       <Section title="CV Jeuncy">
         <Text variant="small" tone="muted">
-          Un CV mis en page automatiquement à partir de ton profil. Regénère-le après
+          Un CV mis en page automatiquement à partir de ton profil. Régénère-le après
           chaque modification importante.
         </Text>
         <Button
-          label={utilisables.length ? 'Regénérer mon CV' : 'Générer mon CV'}
+          label={utilisables.length ? 'Régénérer mon CV' : 'Générer mon CV'}
           variant="secondary"
           onPress={() => generate.mutate()}
           loading={generate.isPending}

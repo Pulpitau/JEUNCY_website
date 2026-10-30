@@ -39,7 +39,8 @@ export function unreadCount(notifications: Notification[] | undefined): number {
 // du dossier, la ou « Mes offres » ne lui montrerait que ses annonces.
 //
 // Un lien sans ecran correspondant renvoie null : la notification s'affiche
-// alors sans navigation, plutot que d'ouvrir un ecran vide.
+// alors sans navigation (ou ouvre le site, voir siteUrlForNotification),
+// plutot que d'ouvrir un ecran vide.
 export function hrefForNotification(notification: Notification): Href | null {
   const { type, link } = notification;
 
@@ -51,11 +52,31 @@ export function hrefForNotification(notification: Notification): Href | null {
 
   if (!link) return null;
 
+  // Ancien lien d'INTEREST_RECEIVED (avant le 2026-10-30) et offres qui
+  // correspondent : la fiche de l'offre.
   const offre = /^\/offres\/(\d+)$/.exec(link);
   if (offre) return { pathname: '/offres/[id]', params: { id: offre[1] } };
 
   if (link === '/mes-candidatures') return '/candidatures';
   if (link === '/mes-offres') return '/mes-offres';
+  // Relance « X attend ton dossier » : le dossier s'envoie depuis le match.
+  if (link === '/mes-matchs') return '/matchs';
+  // « X s'interesse a ton profil » : la liste ou le candidat repond.
+  if (link === '/interesses') return '/interesses';
 
   return null;
+}
+
+const SITE = 'https://jeuncy.com';
+
+// Pages du site sans equivalent dans l'application : la notification les
+// ouvre dans le navigateur integre, comme les textes legaux, plutot que de
+// rester sans suite alors qu'elle invite a agir.
+const SITE_ONLY_LINKS = ['/recommandations'];
+
+export function siteUrlForNotification(notification: Notification): string | null {
+  const { link } = notification;
+  if (!link || hrefForNotification(notification)) return null;
+
+  return SITE_ONLY_LINKS.includes(link) ? `${SITE}${link}` : null;
 }

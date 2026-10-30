@@ -101,6 +101,11 @@ export function CandidateDetailSheet({
                   {AGE_BAND_LABELS[candidate.age_band]}
                 </Text>
               ) : null}
+              {candidate.cfa_badge_label ? (
+                <View style={styles.chips}>
+                  <Badge label={candidate.cfa_badge_label} tone="accent" />
+                </View>
+              ) : null}
               {candidate.headline ? (
                 <Text variant="bodyStrong">{candidate.headline}</Text>
               ) : null}
@@ -252,6 +257,8 @@ export function CandidateDetailSheet({
         target={reporting ? { candidate_profile_id: candidate.id } : null}
         context="CARD"
         label={nom || 'Candidat'}
+        // Bloqué : la fiche se ferme, la pile se recharge sans ce profil.
+        onBlocked={onClose}
         onClose={() => setReporting(false)}
       />
     </Modal>

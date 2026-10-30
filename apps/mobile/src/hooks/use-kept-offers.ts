@@ -44,6 +44,7 @@ export function useMarkKeptDone() {
   return useMutation({
     mutationFn: markExternalDone,
     onSuccess: () => queryClient.invalidateQueries({ queryKey: KEPT_OFFERS_KEY }),
+    onError: (error: Error) => Alert.alert('Note non enregistrée', error.message),
   });
 }
 

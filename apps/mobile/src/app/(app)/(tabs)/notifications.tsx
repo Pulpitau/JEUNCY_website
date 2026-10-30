@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useMutation } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
+import * as WebBrowser from 'expo-web-browser';
 import {
   ActivityIndicator,
   FlatList,
@@ -15,6 +16,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { Text } from '@/components/ui/text';
 import {
   hrefForNotification,
+  siteUrlForNotification,
   unreadCount,
   useInvalidateNotifications,
   useNotifications,
@@ -50,7 +52,12 @@ export default function NotificationsScreen() {
   const ouvrir = (notification: Notification) => {
     if (!notification.read) markRead.mutate(notification.id);
     const href = hrefForNotification(notification);
-    if (href) router.push(href);
+    if (href) {
+      router.push(href);
+      return;
+    }
+    const siteUrl = siteUrlForNotification(notification);
+    if (siteUrl) void WebBrowser.openBrowserAsync(siteUrl);
   };
 
   const nonLues = unreadCount(notifications.data);
@@ -94,31 +101,45 @@ export default function NotificationsScreen() {
     <FlatList
       data={notifications.data ?? []}
       keyExtractor={(n) => String(n.id)}
-      renderItem={({ item }) => (
-        <Pressable
-          onPress={() => ouvrir(item)}
-          accessibilityRole="button"
-          accessibilityLabel={`${item.read ? '' : 'Non lue. '}${item.message}`}
-          style={({ pressed }) => [
-            styles.row,
-            {
-              backgroundColor: item.read ? colors.surface : colors.surfaceMuted,
-              borderColor: item.read ? colors.border : colors.accent,
-              opacity: pressed ? 0.85 : 1,
-            },
-          ]}
-        >
-          <View style={styles.rowText}>
-            <Text variant={item.read ? 'body' : 'bodyStrong'}>{item.message}</Text>
-            <Text variant="small" tone="muted">
-              {formatRelativeFr(item.created_at)}
-            </Text>
-          </View>
-          {hrefForNotification(item) ? (
-            <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
-          ) : null}
-        </Pressable>
-      )}
+      renderItem={({ item }) => {
+        const siteUrl = siteUrlForNotification(item);
+
+        return (
+          <Pressable
+            onPress={() => ouvrir(item)}
+            accessibilityRole={siteUrl ? 'link' : 'button'}
+            accessibilityLabel={`${item.read ? '' : 'Non lue. '}${item.message}`}
+            accessibilityHint={siteUrl ? 'Ouvre la page sur jeuncy.com' : undefined}
+            style={({ pressed }) => [
+              styles.row,
+              {
+                backgroundColor: item.read ? colors.surface : colors.surfaceMuted,
+                borderColor: item.read ? colors.border : colors.accent,
+                opacity: pressed ? 0.85 : 1,
+              },
+            ]}
+          >
+            <View style={styles.rowText}>
+              <Text variant={item.read ? 'body' : 'bodyStrong'}>{item.message}</Text>
+              {/* Page sans equivalent dans l'app : on annonce qu'elle s'ouvre
+                  sur le site, pour que le geste ne surprenne pas. */}
+              {siteUrl ? (
+                <Text variant="small" tone="accent">
+                  Voir sur jeuncy.com
+                </Text>
+              ) : null}
+              <Text variant="small" tone="muted">
+                {formatRelativeFr(item.created_at)}
+              </Text>
+            </View>
+            {siteUrl ? (
+              <Ionicons name="open-outline" size={18} color={colors.textMuted} />
+            ) : hrefForNotification(item) ? (
+              <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+            ) : null}
+          </Pressable>
+        );
+      }}
       ListHeaderComponent={header}
       ListEmptyComponent={empty}
       contentContainerStyle={[styles.list, { paddingTop: insets.top + spacing.lg }]}

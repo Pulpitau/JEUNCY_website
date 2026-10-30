@@ -13,7 +13,10 @@ import { MultiChip } from '@/components/ui/multi-chip';
 import { Screen } from '@/components/ui/screen';
 import { Section } from '@/components/ui/section';
 import { Text } from '@/components/ui/text';
-import { useCandidateProfile, useInvalidateProfile } from '@/hooks/use-candidate-profile';
+import {
+  useCandidateProfile,
+  useInvalidateProfileAndDeck,
+} from '@/hooks/use-candidate-profile';
 import {
   updatePreferences,
   type CandidatePreferencesInput,
@@ -24,6 +27,7 @@ import {
   DRIVING_LICENSE_LABELS,
   OFFER_SECTOR_LABELS,
 } from '@/lib/labels';
+import { toIsoDate } from '@/lib/dates';
 import { useTheme } from '@/theme/theme-provider';
 import { radii, spacing } from '@/theme/typography';
 
@@ -72,19 +76,32 @@ const RADIUS_OPTIONS = RADIUS_STEPS.map((km) => ({
 
 export default function PreferencesScreen() {
   const router = useRouter();
-  const { data: profile, isPending, error } = useCandidateProfile();
+  const { data: profile, isPending, error, refetch } = useCandidateProfile();
+  const { colors } = useTheme();
 
   if (isPending) {
     return (
       <Screen hasHeader>
         <View style={styles.centered}>
-          <ActivityIndicator />
+          <ActivityIndicator color={colors.accent} />
         </View>
       </Screen>
     );
   }
 
-  if (error || !profile) {
+  if (error) {
+    return (
+      <Screen hasHeader>
+        <EmptyState
+          title="Impossible de charger ton profil"
+          description={error.message}
+          action={{ label: 'Réessayer', onPress: () => void refetch() }}
+        />
+      </Screen>
+    );
+  }
+
+  if (!profile) {
     return (
       <Screen hasHeader>
         <EmptyState
@@ -105,7 +122,7 @@ export default function PreferencesScreen() {
 function Formulaire({ profile }: { profile: CandidateProfile }) {
   const router = useRouter();
   const { colors } = useTheme();
-  const invalidateProfile = useInvalidateProfile();
+  const invalidateProfile = useInvalidateProfileAndDeck();
 
   const [contrats, setContrats] = useState<ContractType[]>(
     profile.wanted_contract_types ?? [],
@@ -118,7 +135,14 @@ function Formulaire({ profile }: { profile: CandidateProfile }) {
     profile.driving_license_categories ?? [],
   );
   const [vehicule, setVehicule] = useState(profile.has_vehicle);
-  const [disponible, setDisponible] = useState<string | null>(profile.available_from);
+  // Une date de disponibilite passee vaut « des maintenant » : la renvoyer
+  // telle quelle ferait refuser TOUT l'enregistrement par le serveur
+  // (after_or_equal:today), y compris les reglages qui n'ont rien a voir.
+  const [disponible, setDisponible] = useState<string | null>(() => {
+    const date = profile.available_from?.slice(0, 10) ?? null;
+
+    return date && date >= toIsoDate(new Date()) ? date : null;
+  });
   const [pitch, setPitch] = useState(profile.pitch ?? '');
   const [photoVisible, setPhotoVisible] = useState(profile.show_photo_to_employers);
   const [erreurServeur, setErreurServeur] = useState<string | null>(null);

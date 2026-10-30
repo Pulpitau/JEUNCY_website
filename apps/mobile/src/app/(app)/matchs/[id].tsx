@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Redirect, useLocalSearchParams } from 'expo-router';
+import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 
@@ -42,6 +42,7 @@ export default function MatchDetailScreen() {
 
 function EmployerMatchDetail({ matchId }: { matchId: number }) {
   const { colors } = useTheme();
+  const router = useRouter();
   const [reporting, setReporting] = useState(false);
   const { data, isPending, error, refetch } = useMatch<EmployerMatch>(matchId);
 
@@ -92,7 +93,7 @@ function EmployerMatchDetail({ matchId }: { matchId: number }) {
           <View style={styles.waiting}>
             <Ionicons name="hourglass-outline" size={20} color={colors.accentWarm} />
             <Text variant="bodyStrong" style={styles.waitingText}>
-              Attend son dossier
+              En attente de son dossier
             </Text>
           </View>
           <Text variant="small" tone="muted">
@@ -131,6 +132,12 @@ function EmployerMatchDetail({ matchId }: { matchId: number }) {
       <ReportSheet
         target={reporting ? { offer_interest_id: data.id } : null}
         context="MATCH"
+        // Seul l'employeur ouvre cet écran (le candidat est redirigé plus
+        // haut) : il bloque le profil d'en face, pas la ligne de match, que
+        // POST blocks ne connaît pas.
+        canBlock={candidat !== null}
+        blockTarget={candidat ? { candidate_profile_id: candidat.id } : undefined}
+        onBlocked={() => router.back()}
         label={
           candidat
             ? `${candidat.first_name} ${candidat.last_name_initial ?? ''}`.trim()

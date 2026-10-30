@@ -53,6 +53,18 @@ export default function OffrePartenaireScreen() {
     enabled: Number.isInteger(offerId) && offerId > 0,
   });
 
+  // Lien mal forme (notification ancienne, lien colle) : la requete ne part
+  // jamais, l'ecran resterait sur le chargement indefiniment.
+  if (!(Number.isInteger(offerId) && offerId > 0)) {
+    return (
+      <EmptyState
+        title="Offre introuvable"
+        description="Ce lien ne mène à aucune offre."
+        action={{ label: 'Voir les autres offres', onPress: () => router.replace('/') }}
+      />
+    );
+  }
+
   if (query.isPending) {
     return (
       <View style={styles.centered}>

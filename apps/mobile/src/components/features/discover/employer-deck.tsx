@@ -49,7 +49,14 @@ export function EmployerDeck() {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
 
-  const { discoverable, offers, isPending: offersPending } = useDiscoverableOffers();
+  const {
+    discoverable,
+    offers,
+    isPending: offersPending,
+    isError: offersFailed,
+    error: offersError,
+    refetch: refetchOffers,
+  } = useDiscoverableOffers();
 
   const [chosenId, setChosenId] = useState<number | null>(null);
   const [choosingOffer, setChoosingOffer] = useState(false);
@@ -57,8 +64,10 @@ export function EmployerDeck() {
   // File d'attente, pas un seul match : la réponse d'un « oui » peut arriver
   // après le swipe suivant (le serveur envoie ses emails dans la requête), et
   // un second match écrasait alors le premier sans qu'il soit jamais annoncé.
+  // `interestId` arrive avec la reponse du serveur : c'est l'identifiant du
+  // match, qui ouvre son detail (et le dossier, s'il est deja la).
   const [matches, setMatches] = useState<
-    { id: number; label: string; applicationSent: boolean }[]
+    { id: number; label: string; applicationSent: boolean; interestId: number | null }[]
   >([]);
   const match = matches[0] ?? null;
   const closeMatch = () => setMatches((queue) => queue.slice(1));
@@ -97,17 +106,20 @@ export function EmployerDeck() {
       setMatches((queue) => queue.filter((entry) => entry.id !== card.id));
 
     if (card.candidate_interested) {
-      setMatches((queue) => [...queue, { id: card.id, label, applicationSent: false }]);
+      setMatches((queue) => [
+        ...queue,
+        { id: card.id, label, applicationSent: false, interestId: null },
+      ]);
     } else {
       setPending({ id: card.id, label });
     }
 
     void like(card)
-      .then(({ matched, applicationSent }) => {
+      .then(({ matched, applicationSent, interestId }) => {
         if (matched && card.candidate_interested) {
           setMatches((queue) =>
             queue.map((entry) =>
-              entry.id === card.id ? { ...entry, applicationSent } : entry,
+              entry.id === card.id ? { ...entry, applicationSent, interestId } : entry,
             ),
           );
 
@@ -116,7 +128,10 @@ export function EmployerDeck() {
         // Le serveur a tranché autrement : le candidat a changé d'avis
         // entre le chargement de la pile et le geste.
         if (matched) {
-          setMatches((queue) => [...queue, { id: card.id, label, applicationSent }]);
+          setMatches((queue) => [
+            ...queue,
+            { id: card.id, label, applicationSent, interestId },
+          ]);
         } else if (card.candidate_interested) {
           retirerMatch();
           setPending({ id: card.id, label });
@@ -148,6 +163,30 @@ export function EmployerDeck() {
     return (
       <View style={styles.centered}>
         <ActivityIndicator color={colors.accent} />
+      </View>
+    );
+  }
+
+  // Sans la liste des offres, on ne sait pas s'il en existe : afficher
+  // « Publie une offre » sur un reseau coupe enverrait en creer une de trop.
+  if (offersFailed) {
+    return (
+      <View
+        style={[
+          styles.screen,
+          styles.centered,
+          { backgroundColor: colors.background, paddingTop: insets.top + spacing.md },
+        ]}
+      >
+        <EmptyState
+          title="Impossible de charger tes offres"
+          description={
+            offersError instanceof Error
+              ? offersError.message
+              : 'Vérifie ta connexion, puis réessaie.'
+          }
+          action={{ label: 'Réessayer', onPress: () => void refetchOffers() }}
+        />
       </View>
     );
   }
@@ -257,8 +296,18 @@ export function EmployerDeck() {
           counterpartLabel={match.label}
           applicationSent={match.applicationSent}
           onSeeMatches={() => {
+            const interestId = match.interestId;
             setMatches([]);
-            router.push('/matchs');
+            // Le detail du match montre le dossier s'il est arrive, la carte
+            // sinon. Tant que le serveur n'a pas repondu, la liste suffit.
+            if (interestId !== null) {
+              router.push({
+                pathname: '/matchs/[id]',
+                params: { id: String(interestId) },
+              });
+            } else {
+              router.push('/matchs');
+            }
           }}
           onContinue={closeMatch}
         />
@@ -365,6 +414,7 @@ function labelOf(card: DeckCandidateCard): string {
  * remonte. Aucune interaction, aucun toucher intercepté.
  */
 function InterestToast({ label, top }: { label: string; top: number }) {
+  const { colors } = useTheme();
   const offset = useSharedValue(-120);
 
   useEffect(() => {
@@ -381,7 +431,15 @@ function InterestToast({ label, top }: { label: string; top: number }) {
   return (
     <Animated.View
       pointerEvents="none"
-      style={[styles.toast, { top: top + spacing.sm }, style]}
+      style={[
+        styles.toast,
+        {
+          top: top + spacing.sm,
+          backgroundColor: colors.surface,
+          borderColor: colors.border,
+        },
+        style,
+      ]}
     >
       <LinearGradient
         colors={[...signatureGradient]}
@@ -460,7 +518,7 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     padding: spacing.md,
     borderRadius: radii.lg,
-    backgroundColor: palette.white,
+    borderWidth: 1,
     shadowColor: palette.navy,
     shadowOpacity: 0.12,
     shadowRadius: 18,

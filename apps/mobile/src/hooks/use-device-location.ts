@@ -56,9 +56,22 @@ export function useDeviceLocation() {
         };
       }
 
-      const position = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Low,
-      });
+      // Services de localisation coupes, pas de signal, delai depasse : le
+      // message natif d'expo-location est en anglais et technique, on le
+      // remplace par une issue claire.
+      let position: Location.LocationObject;
+      try {
+        position = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Low,
+        });
+      } catch {
+        return {
+          ok: false,
+          reason: 'UNAVAILABLE',
+          message:
+            'Impossible de trouver ta position. Vérifie que la localisation est activée dans les réglages de ton téléphone, puis réessaie. En attendant, on continue avec la commune de ton profil.',
+        };
+      }
 
       await updateLocation(
         arrondir(position.coords.latitude),

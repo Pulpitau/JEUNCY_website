@@ -14,7 +14,6 @@ import {
   type EmployerApplicationStatus,
   type ReceivedApplication,
 } from '@/lib/api/applications';
-import { formatDateFr } from '@/lib/dates';
 import { APPLICATION_STATUS_LABELS } from '@/lib/labels';
 import { formatRelativeFr } from '@/lib/relative-time';
 import { useTheme } from '@/theme/theme-provider';
@@ -95,11 +94,11 @@ export function ReceivedApplicationCard({
           value={application.contact_phone ?? profile.phone}
           href={`tel:${(application.contact_phone ?? profile.phone ?? '').replace(/\s/g, '')}`}
         />
-        {profile.birth_date ? (
-          <ContactLine
-            icon="balloon-outline"
-            value={`Né·e le ${formatDateFr(profile.birth_date)}`}
-          />
+        {/* L'age, jamais la date de naissance : le site fait de meme, et la
+            date exacte d'un mineur n'apporte rien a l'employeur (decision de
+            Pierre, 2026-10-30). */}
+        {profile.age !== null ? (
+          <ContactLine icon="balloon-outline" value={`${profile.age} ans`} />
         ) : null}
       </View>
 

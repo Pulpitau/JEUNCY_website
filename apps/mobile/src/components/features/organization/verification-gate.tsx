@@ -25,7 +25,7 @@ import { radii, spacing } from '@/theme/typography';
 export function VerificationGate({ children }: { children: ReactNode }) {
   const { colors } = useTheme();
   const router = useRouter();
-  const { data: organization, isPending, error } = useOrganization();
+  const { data: organization, isPending, error, refetch } = useOrganization();
 
   if (isPending) {
     return (
@@ -42,6 +42,7 @@ export function VerificationGate({ children }: { children: ReactNode }) {
         tone="muted"
         title="Impossible de vérifier ton compte"
         description={error.message}
+        action={{ label: 'Réessayer', onPress: () => void refetch() }}
       />
     );
   }
